@@ -14,8 +14,7 @@ library(palmerpenguins)
 library(readxl)
 library(car)
 # GLM
-library(glmmTMB)
-library(poissonreg)   # engine Poisson para tidymodels
+library(MASS)         # glm.nb para binomial negativa
 # Ecosistema tidymodels (para validación cruzada)
 library(tidymodels)   # carga rsample, recipes, parsnip, workflows, tune, yardstick
 library(purrr)
@@ -24,7 +23,7 @@ library(performance)
 library(parameters)
 library(modelbased)
 library(marginaleffects)  # requerido por modelbased::estimate_relation()
-options(marginaleffects_safe = FALSE)  # silencia warning de coexistencia glmmTMB + marginaleffects
+options(marginaleffects_safe = FALSE)
 library(see)
 
 # ── Paleta de colores (idéntica a StatSuite) ───────────────

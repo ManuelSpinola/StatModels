@@ -1717,7 +1717,7 @@ mod_glm_server <- function(id) {
                          selected = NULL)
     })
 
-    # Ajuste del modelo con glmmTMB
+    # Ajuste del modelo — glm() para binomial/Poisson, MASS::glm.nb() para nbinom2
     modelo_glm <- eventReactive(input$ajustar, {
       df    <- datos_activos(); req(df, input$var_y)
       preds <- c(input$preds_num, input$preds_cat)
@@ -1747,14 +1747,13 @@ mod_glm_server <- function(id) {
 
       withProgress(message = "Ajustando modelo GLM...", value = 0.5, {
         fit <- tryCatch({
+          fam_glm <- switch(input$familia,
+                            "binomial" = stats::binomial(link = input$enlace),
+                            "poisson"  = stats::poisson(link  = input$enlace),
+                            "nbinom2"  = NULL)
           if (input$familia == "nbinom2") {
-            glmmTMB::glmmTMB(fm,
-                             family = glmmTMB::nbinom2(link = "log"),
-                             data   = df)
+            MASS::glm.nb(fm, data = df)
           } else {
-            fam_glm <- switch(input$familia,
-                              "binomial" = stats::binomial(link = input$enlace),
-                              "poisson"  = stats::poisson(link  = input$enlace))
             glm(fm, family = fam_glm, data = df)
           }
         }, error = function(e) {
@@ -1793,10 +1792,7 @@ mod_glm_server <- function(id) {
           else "—"
         }, error = function(e) "—")
 
-        n_p <- if (inherits(fit, "glmmTMB"))
-          length(glmmTMB::fixef(fit)$cond) - 1L
-        else
-          length(coef(fit)) - 1L
+        n_p <- length(coef(fit)) - 1L
 
         layout_columns(
           col_widths = c(3, 3, 3, 3),
@@ -1856,26 +1852,28 @@ mod_glm_server <- function(id) {
           "Ajusta el modelo para ver la interpretación.")
       )
       tryCatch({
-        pm    <- performance::model_performance(fit, verbose = FALSE)
+        pm    <- tryCatch(
+          performance::model_performance(fit, verbose = FALSE),
+          error = function(e) NULL
+        )
         fam   <- input$familia
         enl   <- input$enlace
-        n_p   <- if (inherits(fit, "glmmTMB"))
-          length(glmmTMB::fixef(fit)$cond) - 1L
-        else
-          length(coef(fit)) - 1L
+        n_p   <- length(coef(fit)) - 1L
         fam_txt <- switch(fam,
                           "binomial" = "binomial (logística)",
                           "poisson"  = "Poisson",
                           "nbinom2"  = "binomial negativa",
         )
+        aic_txt <- tryCatch(strong(round(pm$AIC, 1)), error = function(e) "—")
+        bic_txt <- tryCatch(strong(round(pm$BIC, 1)), error = function(e) "—")
         tagList(
           p(class = "small",
             "Modelo ", strong(fam_txt),
             " con enlace ", code(enl),
             " y ", strong(n_p), " predictor(es)."),
           p(class = "small",
-            "AIC = ", strong(round(pm$AIC, 1)),
-            " · BIC = ", strong(round(pm$BIC, 1))),
+            "AIC = ", aic_txt,
+            " · BIC = ", bic_txt),
           if (fam == "binomial")
             p(class = "small text-muted",
               "Los coeficientes están en escala ",
@@ -1887,7 +1885,10 @@ mod_glm_server <- function(id) {
               strong("log"),
               ". Ver pestaña Parámetros para razones de tasas (IRR).")
         )
-      }, error = function(e) NULL)
+      }, error = function(e) {
+        p(class = "small text-muted",
+          "Modelo ajustado. Error al cargar métricas de rendimiento.")
+      })
     })
 
     # ────────────────────────────────────────────────────
@@ -2317,33 +2318,15 @@ mod_glm_server <- function(id) {
           paste(input$var_y, "~", paste(preds_fm, collapse = " + "))
         )
 
-        # Para binomial negativa no hay glm equivalente simple
-        # usamos glmmTMB directamente con marginaleffects
-        if (input$familia == "nbinom2") {
-          grilla_args        <- list(model = fit)
-          grilla_args[[pred]] <- if (es_cat) unique(df[[pred]]) else
-            seq(min(df[[pred]], na.rm=TRUE),
-                max(df[[pred]], na.rm=TRUE), length.out=80)
-          otros <- preds_fm[preds_fm != pred]
-          for (nm in otros) {
-            if (nm %in% vars_categoricas())
-              grilla_args[[nm]] <- names(sort(table(df[[nm]]),
-                                              decreasing=TRUE))[1]
-          }
-          grilla    <- do.call(marginaleffects::datagrid, grilla_args)
-          preds_out <- marginaleffects::predictions(fit,
-                                                    newdata=grilla, conf_level=0.95)
-          df_rel <- as.data.frame(preds_out) |>
-            dplyr::rename(Predicted=estimate,
-                          CI_low=conf.low, CI_high=conf.high)
-        } else {
-          fit_glm <- glm(fm_marg, family = fam_glm, data = df)
-          rel     <- suppressWarnings(
-            modelbased::estimate_relation(fit_glm, by = pred,
-                                          verbose = FALSE)
-          )
-          df_rel <- as.data.frame(rel)
-        }
+        fit_marg <- if (input$familia == "nbinom2")
+          MASS::glm.nb(fm_marg, data = df)
+        else
+          glm(fm_marg, family = fam_glm, data = df)
+
+        rel    <- suppressWarnings(
+          modelbased::estimate_relation(fit_marg, by = pred, verbose = FALSE)
+        )
+        df_rel <- as.data.frame(rel)
 
         p <- ggplot(df_rel, aes(x = .data[[pred]], y = Predicted)) +
           theme_minimal(base_size = 13)
@@ -2500,8 +2483,7 @@ mod_glm_server <- function(id) {
         )
         fm <- as.formula(paste(input$var_y, "~",
                                paste(preds, collapse = " + ")))
-        fit_base <- if (input$familia == "nbinom2") fit else
-          glm(fm, family = fam_glm, data = df)
+        fit_base <- fit  # glm.nb para nbinom2, glm para binomial/Poisson
 
         tryCatch(
           modelbased::estimate_expectation(
@@ -2746,10 +2728,7 @@ mod_glm_server <- function(id) {
                i="Tamaño de la muestra."),
           list(g=NULL, m="k (predictores)",
                v=tryCatch(
-                 if (inherits(fit, "glmmTMB"))
-                   length(glmmTMB::fixef(fit)$cond) - 1L
-                 else
-                   length(coef(fit)) - 1L,
+                 length(coef(fit)) - 1L,
                  error=function(e) "—"),
                i="Número de predictores sin intercepto."),
           list(g="AJUSTE DEL MODELO", m="AIC",
@@ -3587,13 +3566,8 @@ mod_glm_server <- function(id) {
     output$plot_check_model <- renderPlot({
       fit <- modelo_glm(); req(fit)
       tryCatch({
-        checks <- if (inherits(fit, "glmmTMB"))
-          c("pp_check", "linearity", "homogeneity", "vif",
-            "overdispersion", "zero_inflation", "reqq")
-        else
-          NULL  # NULL = todos los chequeos por defecto (incluye outliers)
         cm <- suppressMessages(suppressWarnings(
-          performance::check_model(fit, verbose=FALSE, check=checks)
+          performance::check_model(fit, verbose=FALSE)
         ))
         suppressMessages(suppressWarnings(
           plot(cm, panel=TRUE, base_size=11, dot_size=1.5,
@@ -3631,7 +3605,7 @@ mod_glm_server <- function(id) {
       fam_txt <- switch(input$familia,
                         "binomial" = 'binomial(link = "logit")',
                         "poisson"  = 'poisson(link = "log")',
-                        "nbinom2"  = 'glmmTMB::nbinom2(link = "log")',
+                        "nbinom2"  = '"negative.binomial"  # MASS::glm.nb no requiere family',
       )
 
       fuente <- input$fuente_datos
@@ -3660,14 +3634,14 @@ mod_glm_server <- function(id) {
       paste0(
         encabezado,
         "# \u2500\u2500 Paquetes \u2500\u2500\n",
-        "library(glmmTMB)\n",
+        "library(MASS)      # glm.nb para binomial negativa\n",
         "library(parameters)   # easystats\n",
         "library(performance)  # easystats\n",
         "library(modelbased)   # easystats\n\n",
         "# \u2500\u2500 Datos \u2500\u2500\n",
         carga, "\n",
         "# \u2500\u2500 Ajuste del modelo \u2500\u2500\n",
-        "fit <- glmmTMB(\n",
+        "fit <- glm.nb(\n",
         "  ", formula_txt, offset_txt, ",\n",
         "  family = ", fam_txt, ",\n",
         "  data   = datos\n",
