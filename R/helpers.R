@@ -24,6 +24,7 @@ library(performance)
 library(parameters)
 library(modelbased)
 library(marginaleffects)  # requerido por modelbased::estimate_relation()
+options(marginaleffects_safe = FALSE)  # silencia warning de coexistencia glmmTMB + marginaleffects
 library(see)
 
 # ── Paleta de colores (idéntica a StatSuite) ───────────────

@@ -1745,23 +1745,24 @@ mod_glm_server <- function(id) {
       )
       fm <- as.formula(fm_txt)
 
-      familia_glmmTMB <- switch(input$familia,
-                                "binomial" = stats::binomial(link = input$enlace),
-                                "poisson"  = stats::poisson(link = input$enlace),
-                                "nbinom2"  = glmmTMB::nbinom2(link = "log"),
-
-      )
-
       withProgress(message = "Ajustando modelo GLM...", value = 0.5, {
-        fit <- tryCatch(
-          glmmTMB::glmmTMB(fm, family = familia_glmmTMB, data = df),
-          error = function(e) {
-            showNotification(
-              paste("Error al ajustar:", conditionMessage(e)),
-              type = "error", duration = 6)
-            NULL
+        fit <- tryCatch({
+          if (input$familia == "nbinom2") {
+            glmmTMB::glmmTMB(fm,
+                             family = glmmTMB::nbinom2(link = "log"),
+                             data   = df)
+          } else {
+            fam_glm <- switch(input$familia,
+                              "binomial" = stats::binomial(link = input$enlace),
+                              "poisson"  = stats::poisson(link  = input$enlace))
+            glm(fm, family = fam_glm, data = df)
           }
-        )
+        }, error = function(e) {
+          showNotification(
+            paste("Error al ajustar:", conditionMessage(e)),
+            type = "error", duration = 6)
+          NULL
+        })
         incProgress(0.5)
         fit
       })
@@ -1792,7 +1793,10 @@ mod_glm_server <- function(id) {
           else "—"
         }, error = function(e) "—")
 
-        n_p <- length(glmmTMB::fixef(fit)$cond) - 1L
+        n_p <- if (inherits(fit, "glmmTMB"))
+          length(glmmTMB::fixef(fit)$cond) - 1L
+        else
+          length(coef(fit)) - 1L
 
         layout_columns(
           col_widths = c(3, 3, 3, 3),
@@ -1855,7 +1859,10 @@ mod_glm_server <- function(id) {
         pm    <- performance::model_performance(fit, verbose = FALSE)
         fam   <- input$familia
         enl   <- input$enlace
-        n_p   <- length(glmmTMB::fixef(fit)$cond) - 1L
+        n_p   <- if (inherits(fit, "glmmTMB"))
+          length(glmmTMB::fixef(fit)$cond) - 1L
+        else
+          length(coef(fit)) - 1L
         fam_txt <- switch(fam,
                           "binomial" = "binomial (logística)",
                           "poisson"  = "Poisson",
@@ -1949,6 +1956,16 @@ mod_glm_server <- function(id) {
                                             component = "conditional")
         df  <- as.data.frame(mp)
 
+        # Filtrar solo parámetros condicionales (excluir dispersión)
+        # glmmTMB con nbinom2 devuelve dos (Intercept) — el segundo es dispersión
+        if ("Component" %in% names(df)) {
+          df <- df[df$Component == "conditional", ]
+        } else {
+          # Eliminar duplicados de (Intercept) — quedarse con el primero
+          df <- df[!duplicated(df$Parameter) |
+                     df$Parameter != "(Intercept)", ]
+        }
+
         filas <- lapply(seq_len(nrow(df)), function(i) {
           nm   <- df$Parameter[i]
           est  <- round(df$Coefficient[i], 3)
@@ -1956,6 +1973,7 @@ mod_glm_server <- function(id) {
           lo   <- round(df$CI_low[i], 3)
           hi   <- round(df$CI_high[i], 3)
           pval <- df$p[i]
+          if (is.na(pval)) pval <- 1
           p_txt <- if (pval < 0.001) "< 0.001 ***" else
             if (pval < 0.01)  paste0(round(pval,3), " **") else
               if (pval < 0.05)  paste0(round(pval,3), " *")  else
@@ -2081,6 +2099,14 @@ mod_glm_server <- function(id) {
           verbose = FALSE, component = "conditional"
         )
         df  <- as.data.frame(mp)
+
+        # Filtrar solo parámetros condicionales
+        if ("Component" %in% names(df)) {
+          df <- df[df$Component == "conditional", ]
+        } else {
+          df <- df[!duplicated(df$Parameter) |
+                     df$Parameter != "(Intercept)", ]
+        }
         lbl <- if (fam == "binomial") "OR" else "IRR"
 
         filas <- lapply(seq_len(nrow(df)), function(i) {
@@ -2283,7 +2309,6 @@ mod_glm_server <- function(id) {
         fam_glm <- switch(input$familia,
                           "binomial" = stats::binomial(link = input$enlace),
                           "poisson"  = stats::poisson(link = input$enlace),
-                          ,
                           stats::poisson()   # fallback
         )
 
@@ -2471,7 +2496,6 @@ mod_glm_server <- function(id) {
         fam_glm <- switch(input$familia,
                           "binomial" = stats::binomial(link = input$enlace),
                           "poisson"  = stats::poisson(link = input$enlace),
-                          ,
                           stats::poisson()
         )
         fm <- as.formula(paste(input$var_y, "~",
@@ -2721,8 +2745,12 @@ mod_glm_server <- function(id) {
                v=nrow(datos_activos()),
                i="Tamaño de la muestra."),
           list(g=NULL, m="k (predictores)",
-               v=tryCatch(length(glmmTMB::fixef(fit)$cond)-1L,
-                          error=function(e) "—"),
+               v=tryCatch(
+                 if (inherits(fit, "glmmTMB"))
+                   length(glmmTMB::fixef(fit)$cond) - 1L
+                 else
+                   length(coef(fit)) - 1L,
+                 error=function(e) "—"),
                i="Número de predictores sin intercepto."),
           list(g="AJUSTE DEL MODELO", m="AIC",
                v=aic_val,
@@ -3559,11 +3587,20 @@ mod_glm_server <- function(id) {
     output$plot_check_model <- renderPlot({
       fit <- modelo_glm(); req(fit)
       tryCatch({
-        cm <- performance::check_model(fit, verbose=FALSE)
-        plot(cm, panel=TRUE, base_size=11, dot_size=1.5,
-             line_size=0.8,
-             colors=c(colores$primario, colores$acento,
-                      colores$secundario))
+        checks <- if (inherits(fit, "glmmTMB"))
+          c("pp_check", "linearity", "homogeneity", "vif",
+            "overdispersion", "zero_inflation", "reqq")
+        else
+          NULL  # NULL = todos los chequeos por defecto (incluye outliers)
+        cm <- suppressMessages(suppressWarnings(
+          performance::check_model(fit, verbose=FALSE, check=checks)
+        ))
+        suppressMessages(suppressWarnings(
+          plot(cm, panel=TRUE, base_size=11, dot_size=1.5,
+               line_size=0.8,
+               colors=c(colores$primario, colores$acento,
+                        colores$secundario))
+        ))
       }, error=function(e) {
         ggplot() + annotate("text", x=0.5, y=0.5,
                             label="Ajusta el modelo primero.",
