@@ -3,7 +3,7 @@
 # StatModels · StatSuite · Manuel Spínola · ICOMVIS · UNA
 #
 # Familia: regresión simple, múltiple, ANOVA, ANCOVA
-# Datos: palmerpenguins (ejemplo) o CSV/XLSX propio
+# Datos: birdabundance_lm / birthwt_lm (ejemplos) o CSV/XLSX propio
 # Ecosistema: tidymodels + easystats
 #
 # Filosofía: didáctico, sin conocimiento previo de programación
@@ -42,18 +42,7 @@ mod_lm_ui <- function(id) {
         card_body(
 
           # ── Contexto del dataset ────────────────────
-          div(
-            class = "alert alert-info small py-2 px-3 mb-3",
-            bs_icon("info-circle-fill", class = "me-1"),
-            strong("Dataset de ejemplo: palmerpenguins."),
-            " Medidas morfológicas de ",
-            strong("333 pingüinos antárticos"),
-            " de 3 especies (Adelie, Chinstrap y Gentoo) recolectadas ",
-            "en las Islas Palmer, Antártida (Horst, Hill & Gorman, 2020). ",
-            "Variables disponibles: peso corporal (g), longitud de aleta (mm), ",
-            "largo y profundidad del pico (mm), especie, isla y sexo. ",
-            "Usaremos este dataset para ilustrar todos los modelos."
-          ),
+
 
           # ── Variable respuesta ─────────────────────
           h5(style = paste0("color:", colores$primario, "; font-weight:700;"),
@@ -89,8 +78,7 @@ mod_lm_ui <- function(id) {
                   tags$th("Variable Y"),
                   tags$th("Predictores X"),
                   tags$th("Pregunta que responde"),
-                  tags$th(paste0("Ejemplo con ",
-                                 "palmerpenguins"))
+                  tags$th("Ejemplo con datos de aves")
                 )
               ),
 
@@ -115,7 +103,7 @@ mod_lm_ui <- function(id) {
                   tags$td("¿Cómo cambia Y al aumentar X en una unidad?"),
                   tags$td(
                     style = paste0("color:", colores$texto),
-                    "¿El peso (g) aumenta con la longitud de aleta (mm)?"
+                    "¿La densidad de especie aumenta con el área del fragmento?"
                   )
                 ),
 
@@ -140,7 +128,7 @@ mod_lm_ui <- function(id) {
                   tags$td("¿Cuál es el efecto de cada X controlando las demás?"),
                   tags$td(
                     style = paste0("color:", colores$texto),
-                    "¿El peso depende de la aleta y el largo del pico al mismo tiempo?"
+                    "¿La densidad depende del área y la distancia al mismo tiempo?"
                   )
                 ),
 
@@ -164,7 +152,7 @@ mod_lm_ui <- function(id) {
                   tags$td("¿Difiere el promedio de Y entre los grupos?"),
                   tags$td(
                     style = paste0("color:", colores$texto),
-                    "¿Difiere el peso promedio entre las 3 especies?"
+                    "¿Difiere la densidad promedio entre niveles de pastoreo?"
                   )
                 ),
 
@@ -189,7 +177,7 @@ mod_lm_ui <- function(id) {
                   tags$td("¿Cuál es el efecto de X controlando por grupo?"),
                   tags$td(
                     style = paste0("color:", colores$texto),
-                    "¿Depende el peso de la aleta, controlando por especie?"
+                    "¿Depende la densidad del área, controlando por pastoreo?"
                   )
                 )
               )
@@ -484,10 +472,11 @@ mod_lm_ui <- function(id) {
                   ns("fuente_datos"),
                   label   = NULL,
                   choices = c(
-                    "Usar datos de ejemplo (palmerpenguins)" = "ejemplo",
-                    "Cargar mis propios datos"               = "propio"
+                    "Densidad de especie de ave (Loyn, 1987)"  = "ejemplo_ave",
+                    "Peso al nacer — salud perinatal (Hosmer)" = "ejemplo_salud",
+                    "Cargar mis propios datos"                  = "propio"
                   ),
-                  selected = "ejemplo"
+                  selected = "ejemplo_ave"
                 ),
                 conditionalPanel(
                   condition = paste0("input['", ns("fuente_datos"),
@@ -516,6 +505,7 @@ mod_lm_ui <- function(id) {
                     "de las columnas.")
                 ),
                 tags$hr(),
+                uiOutput(ns("info_dataset_que_es")),
                 uiOutput(ns("resumen_datos"))
               )
             ),
@@ -531,11 +521,22 @@ mod_lm_ui <- function(id) {
             )
           ),
 
-          tags$hr(),
+        )
+      ),
 
-          h5(style = paste0("color:", colores$primario, "; font-weight:700;"),
-             "Explorar relaciones entre variables"),
 
+      # ════════════════════════════════════════════════
+      # PESTAÑA 4: Explorar
+      # ════════════════════════════════════════════════
+      nav_panel(
+        title = tagList(bs_icon("zoom-in", class = "me-1"),
+                        "Explorar"),
+        card_body(
+          p(class = "small text-muted mb-3",
+            "Visualiza las relaciones entre variables antes de ajustar ",
+            "el modelo. Ayuda a identificar predictores relevantes y ",
+            "detectar patrones que guíen la especificación del modelo."
+          ),
           layout_columns(
             col_widths = c(4, 8),
 
@@ -557,7 +558,7 @@ mod_lm_ui <- function(id) {
             ),
 
             div(
-              plotOutput(ns("plot_scatter"), height = "340px"),
+              plotOutput(ns("plot_scatter"), height = "380px"),
               uiOutput(ns("insight_scatter"))
             )
           )
@@ -565,11 +566,11 @@ mod_lm_ui <- function(id) {
       ),
 
       # ════════════════════════════════════════════════
-      # PESTAÑA 4: Construir el modelo
+      # PESTAÑA 5: Ajustar modelo
       # ════════════════════════════════════════════════
       nav_panel(
         title = tagList(bs_icon("gear", class = "me-1"),
-                        "Construir el modelo"),
+                        "Ajustar modelo"),
         card_body(
           layout_columns(
             col_widths = c(4, 8),
@@ -591,13 +592,47 @@ mod_lm_ui <- function(id) {
                   "Predictores categóricos"),
                 uiOutput(ns("checks_categoricos")),
                 tags$hr(),
+                conditionalPanel(
+                  condition = paste0(
+                    "(input['", ns("preds_num"), "'] !== null && ",
+                    "input['", ns("preds_num"), "'].length + ",
+                    "(input['", ns("preds_cat"), "'] !== null ? ",
+                    "input['", ns("preds_cat"), "'].length : 0)) >= 2"
+                  ),
+                  div(
+                    p(class = "small fw-bold text-muted mb-1",
+                      bs_icon("diagram-2", class = "me-1"),
+                      "Interacciones (opcional)"),
+                    uiOutput(ns("checks_interacciones")),
+                    tags$hr()
+                  )
+                ),
                 actionButton(
                   ns("ajustar"),
                   "Ajustar modelo",
                   class = "btn-primary w-100",
                   icon  = icon("play")
                 ),
-
+                tags$hr(),
+                p(class = "small fw-bold text-muted mb-1",
+                  bs_icon("floppy", class = "me-1"),
+                  "Guardar para comparar"),
+                p(class = "small text-muted mb-2",
+                  "Dale un nombre al modelo ajustado y guárdalo. ",
+                  "Cambia los predictores, reajusta y guarda otro ",
+                  "para comparar en la pestaña ",
+                  strong("Comparar modelos"), "."),
+                textInput(
+                  ns("nombre_modelo_lm"),
+                  label       = NULL,
+                  placeholder = "Ej: solo_area, area+pastoreo…"
+                ),
+                actionButton(
+                  ns("guardar_modelo_lm"),
+                  "Guardar modelo",
+                  class = "btn-outline-primary w-100 btn-sm",
+                  icon  = icon("floppy-disk")
+                )
               )
             ),
 
@@ -627,7 +662,7 @@ mod_lm_ui <- function(id) {
       ),
 
       # ════════════════════════════════════════════════
-      # PESTAÑA 5: Parámetros
+      # PESTAÑA 6: Parámetros
       # ════════════════════════════════════════════════
       nav_panel(
         title = tagList(bs_icon("table", class = "me-1"), "Parámetros"),
@@ -676,8 +711,169 @@ mod_lm_ui <- function(id) {
         )
       ),
 
+
       # ════════════════════════════════════════════════
-      # PESTAÑA 6: Diagnóstico
+      # PESTAÑA 7: Efectos marginales
+      # ════════════════════════════════════════════════
+      nav_panel(
+        title = tagList(bs_icon("graph-up-arrow", class = "me-1"),
+                        "Efectos marginales"),
+        card_body(
+          p(class = "small text-muted mb-3",
+            "Los ", strong("efectos marginales"),
+            " muestran cómo cambia Y al variar un predictor, ",
+            "manteniendo el resto en sus valores típicos (media para ",
+            "numéricos, moda para categóricos). En el LM los efectos ",
+            "son directamente los coeficientes, pero visualizarlos ",
+            "facilita la interpretación, especialmente con interacciones. ",
+            "Generados con ", strong("modelbased::estimate_relation()"),
+            " de easystats."
+          ),
+
+          layout_columns(
+            col_widths = c(4, 8),
+
+            card(
+              card_header(bs_icon("sliders", class = "me-1"),
+                          "Controles"),
+              card_body(
+                p(class = "small text-muted mb-2",
+                  "Selecciona el predictor focal. ",
+                  "El resto se mantiene en sus valores típicos."),
+                uiOutput(ns("sel_pred_marginal_lm")),
+                tags$hr(),
+                checkboxInput(ns("marginal_ci_lm"),
+                              "Mostrar intervalo de confianza 95%",
+                              value = TRUE),
+                checkboxInput(ns("marginal_puntos_lm"),
+                              "Mostrar datos observados",
+                              value = TRUE),
+                tags$hr(),
+                uiOutput(ns("marginal_valores_tipicos_lm"))
+              )
+            ),
+
+            div(
+              card(
+                card_header(
+                  bs_icon("graph-up-arrow", class = "me-1"),
+                  "Efecto marginal",
+                  span(class = "text-muted small ms-2",
+                       "— estimate_relation() · modelbased")
+                ),
+                card_body(
+                  plotOutput(ns("plot_marginal_lm"), height = "380px")
+                )
+              ),
+              br(),
+              uiOutput(ns("marginal_interpretacion_lm"))
+            )
+          ),
+
+          tags$hr(),
+
+          h5(style = paste0("color:", colores$primario, "; font-weight:700;"),
+             "Predicción puntual"),
+          p(class = "small text-muted mb-3",
+            "Ingresa valores específicos para cada predictor y obtén ",
+            "el valor predicho de Y con su intervalo de confianza 95%. ",
+            "Usa ", strong("modelbased::estimate_expectation()"),
+            " de easystats."
+          ),
+
+          layout_columns(
+            col_widths = c(4, 8),
+
+            card(
+              card_header(bs_icon("sliders", class = "me-1"),
+                          "Valores de los predictores"),
+              card_body(
+                uiOutput(ns("inputs_prediccion_lm")),
+                br(),
+                actionButton(
+                  ns("calcular_prediccion_lm"),
+                  "Calcular predicción",
+                  class = "btn-primary w-100",
+                  icon  = icon("calculator")
+                )
+              )
+            ),
+
+            card(
+              card_header(bs_icon("bullseye", class = "me-1"),
+                          "Resultado"),
+              card_body(uiOutput(ns("resultado_prediccion_lm")))
+            )
+          )
+        )
+      ),
+
+      # ════════════════════════════════════════════════
+      # PESTAÑA 8: Contrastes
+      # ════════════════════════════════════════════════
+      nav_panel(
+        title = tagList(bs_icon("arrows-angle-expand", class = "me-1"),
+                        "Contrastes"),
+        card_body(
+          p(class = "small text-muted mb-3",
+            "Los ", strong("contrastes"), " comparan el valor promedio ",
+            "de Y entre grupos de un predictor categórico, controlando ",
+            "por el resto de variables del modelo. Las diferencias se ",
+            "expresan en las ", strong("unidades de Y"), ". Generados con ",
+            strong("modelbased::estimate_contrasts()"), " de easystats."
+          ),
+
+          uiOutput(ns("contrasts_no_cat_msg_lm")),
+
+          layout_columns(
+            col_widths = c(4, 8),
+
+            card(
+              card_header(bs_icon("sliders", class = "me-1"),
+                          "Controles"),
+              card_body(
+                uiOutput(ns("sel_var_contraste_lm")),
+                tags$hr(),
+                selectInput(
+                  ns("metodo_ajuste_lm"),
+                  label   = "Ajuste de p-valores:",
+                  choices = c(
+                    "Sin ajuste"  = "none",
+                    "Bonferroni"  = "bonferroni",
+                    "Holm"        = "holm",
+                    "FDR (BH)"    = "fdr"
+                  ),
+                  selected = "none"
+                )
+              )
+            ),
+
+            div(
+              card(
+                class = "mb-3",
+                card_header(
+                  bs_icon("table", class = "me-1"),
+                  "Tabla de contrastes"
+                ),
+                card_body(uiOutput(ns("tabla_contrastes_lm")))
+              ),
+              card(
+                class = "mb-0",
+                card_header(
+                  bs_icon("bar-chart-fill", class = "me-1"),
+                  "Visualización de contrastes"
+                ),
+                card_body(
+                  plotOutput(ns("plot_contrastes_lm"), height = "300px")
+                )
+              )
+            )
+          )
+        )
+      ),
+
+      # ════════════════════════════════════════════════
+      # PESTAÑA 9: Diagnóstico
       # ════════════════════════════════════════════════
       nav_panel(
         title = tagList(bs_icon("clipboard-check", class = "me-1"),
@@ -765,7 +961,148 @@ mod_lm_ui <- function(id) {
       ),
 
       # ════════════════════════════════════════════════
-      # PESTAÑA 7: Código R
+      # PESTAÑA 10: Performance
+      # ════════════════════════════════════════════════
+      nav_panel(
+        title = tagList(bs_icon("speedometer2", class = "me-1"),
+                        "Performance"),
+        card_body(
+
+          p(class = "small text-muted mb-3",
+            "Métricas de rendimiento del modelo lineal: R², RMSE, MAE ",
+            "y validación cruzada para estimar el error de predicción ",
+            "en datos nuevos. Generadas con ",
+            strong("performance::model_performance()"),
+            " y ", strong("tidymodels (vfold_cv)"), "."
+          ),
+
+          layout_columns(
+            col_widths = c(6, 6),
+
+            card(
+              card_header(
+                bs_icon("speedometer2", class = "me-1"),
+                "Métricas del modelo",
+                span(class = "text-muted small ms-2",
+                     "— model_performance() · easystats")
+              ),
+              card_body(uiOutput(ns("tabla_performance_lm")))
+            ),
+
+            div(
+              card(
+                class = "mb-3",
+                card_header(
+                  bs_icon("graph-up-arrow", class = "me-1"),
+                  "Predicho vs. Observado",
+                  span(class = "text-muted small ms-2",
+                       "— entrenamiento completo")
+                ),
+                card_body(
+                  plotOutput(ns("plot_predobs_lm"), height = "240px")
+                )
+              ),
+
+              card(
+                class = "mb-0",
+                card_header(
+                  bs_icon("arrow-repeat", class = "me-1"),
+                  "Validación cruzada",
+                  span(class = "text-muted small ms-2",
+                       "— vfold_cv() · tidymodels")
+                ),
+                card_body(
+                  p(class = "small text-muted mb-2",
+                    "¿Cuánto error cometo al predecir ",
+                    strong("datos nuevos"), "?"
+                  ),
+                  layout_columns(
+                    col_widths = c(4, 4, 4),
+                    numericInput(
+                      ns("cv_folds_lm"),
+                      label = "Folds:",
+                      value = 10, min = 3, max = 20
+                    ),
+                    div(class = "pt-4",
+                        checkboxInput(ns("cv_estratificado_lm"),
+                                      "Estratificar",
+                                      value = FALSE)),
+                    div(class = "pt-4",
+                        actionButton(ns("correr_cv_lm"), "Correr CV",
+                                     class = "btn-primary w-100",
+                                     icon  = icon("rotate")))
+                  ),
+                  tags$hr(),
+                  uiOutput(ns("resultado_cv_lm"))
+                )
+              )
+            )
+          )
+        )
+      ),
+
+      # ════════════════════════════════════════════════
+      # PESTAÑA 11: Comparar modelos
+      # ════════════════════════════════════════════════
+      nav_panel(
+        title = tagList(bs_icon("arrow-left-right", class = "me-1"),
+                        "Comparar modelos"),
+        card_body(
+          p(class = "small text-muted mb-3",
+            "Ajusta distintos modelos en la pestaña ",
+            strong("Ajustar modelo"), ", guarda cada uno con un ",
+            "nombre descriptivo y compáralos aquí por AIC, AICc, BIC y R²."
+          ),
+          layout_columns(
+            col_widths = c(4, 8),
+
+            card(
+              card_header(bs_icon("list-check", class = "me-1"),
+                          "Modelos guardados"),
+              card_body(
+                uiOutput(ns("lista_modelos_guardados_lm")),
+                tags$hr(),
+                actionButton(ns("limpiar_modelos_lm"),
+                             "Limpiar todos",
+                             class = "btn-outline-secondary w-100 btn-sm",
+                             icon  = icon("trash"))
+              )
+            ),
+
+            div(
+              card(
+                class = "mb-3",
+                card_header(
+                  bs_icon("table", class = "me-1"),
+                  "Tabla comparativa",
+                  span(class = "text-muted small ms-2",
+                       "— compare_performance() · easystats")
+                ),
+                card_body(uiOutput(ns("tabla_comparacion_lm")))
+              ),
+              card(
+                class = "mb-0",
+                card_header(
+                  bs_icon("diagram-3", class = "me-1"),
+                  "Gráfico radar",
+                  span(class = "text-muted small ms-2",
+                       "— compare_performance() · see")
+                ),
+                card_body(
+                  p(class = "small text-muted mb-2",
+                    "Mayor área = mejor modelo en más dimensiones. ",
+                    "Requiere al menos 2 modelos guardados."),
+                  plotOutput(ns("plot_comparacion_lm"),
+                             height = "340px")
+                )
+              )
+            )
+          )
+        )
+      ),
+
+      # ════════════════════════════════════════════════
+      # PESTAÑA 12: Código R
       # ════════════════════════════════════════════════
       nav_panel(
         title = tagList(bs_icon("code-slash", class = "me-1"), "Código R"),
@@ -800,19 +1137,77 @@ mod_lm_server <- function(id) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
+    # ── Info dinámica del dataset en pestaña ¿Qué es? ─────────
+    output$info_dataset_que_es <- renderUI({
+      fuente <- input$fuente_datos
+      if (is.null(fuente) || fuente == "ejemplo_ave") {
+        div(
+          class = "alert alert-info small py-2 px-3 mb-3",
+          bs_icon("info-circle-fill", class = "me-1"),
+          strong("Dataset: Densidad de especie de ave (Loyn, 1987)."),
+          " Abundancia de aves en ",
+          strong("56 fragmentos de bosque"),
+          " de Victoria, Australia. Variables: ",
+          strong("densidad_especie"), " (aves/ha), ",
+          strong("area_ha"), " (ha), ",
+          strong("distancia_m"), " (m al fragmento más cercano), ",
+          strong("altitud_m"), " (m s.n.m.) y ",
+          strong("pastoreo"), " (5 niveles de intensidad). ",
+          "Fuente: Quinn & Keough (2002). ",
+          em("Experimental Design and Data Analysis for Biologists.")
+        )
+      } else if (fuente == "ejemplo_salud") {
+        div(
+          class = "alert alert-info small py-2 px-3 mb-3",
+          bs_icon("info-circle-fill", class = "me-1"),
+          strong("Dataset: Peso al nacer — salud perinatal (Hosmer & Lemeshow)."),
+          " Datos de ",
+          strong("189 neonatos"),
+          " del Baystate Medical Center, Springfield, MA (1986). Variables: ",
+          strong("peso_g"), " (peso al nacer en gramos), ",
+          strong("edad_madre"), " (años), ",
+          strong("peso_madre"), " (libras), ",
+          strong("tabaco"), " y ", strong("hta"), " (factores de riesgo). ",
+          "Fuente: MASS::birthwt."
+        )
+      } else {
+        div(
+          class = "alert alert-info small py-2 px-3 mb-3",
+          bs_icon("info-circle-fill", class = "me-1"),
+          "Se mostrarán los datos cargados por el usuario."
+        )
+      }
+    })
+
     # ────────────────────────────────────────────────────
     # DATOS: ejemplo o propios
     # ────────────────────────────────────────────────────
 
     datos_activos <- reactive({
-      if (input$fuente_datos == "ejemplo") {
-        palmerpenguins::penguins |>
-          dplyr::mutate(
-            species = factor(species),
-            island  = factor(island),
-            sex     = factor(sex)
-          ) |>
-          tidyr::drop_na()
+      if (input$fuente_datos == "ejemplo_ave") {
+        tryCatch({
+          e <- new.env()
+          load("data/birdabundance_lm.rda", envir = e)
+          e$birdabundance_lm
+        }, error = function(err) {
+          showNotification(
+            "Archivo data/birdabundance_lm.rda no encontrado. Colócalo en la carpeta data/.",
+            type = "error", duration = 6
+          )
+          NULL
+        })
+      } else if (input$fuente_datos == "ejemplo_salud") {
+        tryCatch({
+          e <- new.env()
+          load("data/birthwt_lm.rda", envir = e)
+          e$birthwt_lm
+        }, error = function(err) {
+          showNotification(
+            "Archivo data/birthwt_lm.rda no encontrado.",
+            type = "error", duration = 6
+          )
+          NULL
+        })
       } else {
         req(input$archivo)
         ext <- tools::file_ext(input$archivo$name)
@@ -972,7 +1367,7 @@ mod_lm_server <- function(id) {
       )
     })
 
-    output$plot_scatter <- renderPlot({
+    output$plot_scatter <- renderPlot(suppressWarnings({
       df   <- datos_activos()
       req(df, input$var_x)
       yv   <- vars_numericas()
@@ -999,13 +1394,14 @@ mod_lm_server <- function(id) {
       if (isTRUE(input$mostrar_linea)) {
         if (usar_color && isTRUE(input$linea_por_grupo)) {
           p <- p + geom_smooth(aes(group = .data[[input$var_color]]),
-                               method = "lm", se = TRUE,
+                               method = "lm", formula = y ~ x, se = TRUE,
                                alpha = 0.15, linewidth = 1)
         } else {
-          p <- p + geom_smooth(method = "lm", se = TRUE,
+          p <- p + geom_smooth(method = "lm", formula = y ~ x, se = TRUE,
                                color = colores$primario,
                                fill  = colores$secundario,
-                               alpha = 0.15, linewidth = 1.2)
+                               alpha = 0.15, linewidth = 1.2,
+                               show.legend = FALSE)
         }
       }
 
@@ -1021,7 +1417,7 @@ mod_lm_server <- function(id) {
           panel.grid.minor = element_blank(),
           legend.position  = "bottom"
         )
-    }, res = 110)
+    }), res = 110)
 
     output$insight_scatter <- renderUI({
       df   <- datos_activos()
@@ -1050,7 +1446,7 @@ mod_lm_server <- function(id) {
     })
 
     # ────────────────────────────────────────────────────
-    # PESTAÑA 3: Construir el modelo — UI dinámica
+    # PESTAÑA 5: Ajustar modelo — UI dinámica
     # ────────────────────────────────────────────────────
 
     output$sel_var_y <- renderUI({
@@ -1093,6 +1489,19 @@ mod_lm_server <- function(id) {
 
     # ── Ajuste del modelo ────────────────────────────────
 
+    output$checks_interacciones <- renderUI({
+      preds <- c(input$preds_num, input$preds_cat)
+      if (length(preds) < 2) return(NULL)
+      pares     <- combn(preds, 2, simplify = FALSE)
+      etiquetas <- sapply(pares, function(p)
+        paste0(p[1], " × ", p[2]))
+      valores   <- sapply(pares, function(p)
+        paste0(p[1], "*", p[2]))
+      checkboxGroupInput(ns("interacciones"), label = NULL,
+                         choices  = setNames(valores, etiquetas),
+                         selected = NULL)
+    })
+
     modelo_lm <- eventReactive(input$ajustar, {
       df  <- datos_activos()
       req(df, input$var_y)
@@ -1104,8 +1513,12 @@ mod_lm_server <- function(id) {
         return(NULL)
       }
 
+      ints     <- input$interacciones
+      terminos <- if (!is.null(ints) && length(ints) > 0)
+        c(preds, ints) else preds
+
       fm <- as.formula(
-        paste(input$var_y, "~", paste(preds, collapse = " + "))
+        paste(input$var_y, "~", paste(terminos, collapse = " + "))
       )
 
       withProgress(message = "Ajustando modelo...", value = 0.5, {
@@ -1215,7 +1628,7 @@ mod_lm_server <- function(id) {
     })
 
     # ────────────────────────────────────────────────────
-    # PESTAÑA 4: Parámetros
+    # PESTAÑA 6: Parámetros
     # ────────────────────────────────────────────────────
 
     output$tabla_params_ui <- renderUI({
@@ -1381,7 +1794,367 @@ mod_lm_server <- function(id) {
     })
 
     # ────────────────────────────────────────────────────
-    # PESTAÑA 5: Diagnóstico
+    # PESTAÑA 7: Efectos marginales
+    # ────────────────────────────────────────────────────
+
+    output$sel_pred_marginal_lm <- renderUI({
+      fit <- modelo_lm(); req(fit)
+      preds <- c(input$preds_num, input$preds_cat)
+      req(length(preds) > 0)
+      selectInput(ns("pred_marginal_lm"),
+                  label    = "Predictor a explorar:",
+                  choices  = preds,
+                  selected = preds[1])
+    })
+
+    output$marginal_valores_tipicos_lm <- renderUI({
+      fit   <- modelo_lm(); req(fit, input$pred_marginal_lm)
+      df    <- datos_activos()
+      preds <- c(input$preds_num, input$preds_cat)
+      otros <- preds[preds != input$pred_marginal_lm]
+      if (length(otros) == 0) return(NULL)
+      vals <- lapply(otros, function(nm) {
+        col <- df[[nm]]
+        if (is.numeric(col)) paste0(nm, " = ", round(mean(col, na.rm=TRUE), 2))
+        else paste0(nm, " = ", names(sort(table(col), decreasing=TRUE))[1])
+      })
+      div(class = "alert alert-info small py-2 px-2 mb-0",
+          bs_icon("info-circle", class = "me-1"),
+          strong("Valores fijos: "), br(),
+          paste(unlist(vals), collapse = " · "))
+    })
+
+    output$plot_marginal_lm <- renderPlot({
+      fit  <- modelo_lm(); req(fit, input$pred_marginal_lm)
+      df   <- datos_activos()
+      pred <- input$pred_marginal_lm
+      es_cat <- pred %in% vars_categoricas()
+
+      tryCatch({
+        rel    <- suppressWarnings(
+          modelbased::estimate_relation(fit, by = pred, verbose = FALSE)
+        )
+        df_rel <- as.data.frame(rel)
+
+        p <- ggplot(df_rel, aes(x = .data[[pred]], y = Predicted)) +
+          theme_minimal(base_size = 13)
+
+        if (es_cat) {
+          if (isTRUE(input$marginal_ci_lm))
+            p <- p + geom_errorbar(
+              aes(ymin = CI_low, ymax = CI_high),
+              width = 0.2, linewidth = 0.8,
+              color = colores$primario)
+          p <- p + geom_point(color = colores$primario, size = 3.5)
+        } else {
+          if (isTRUE(input$marginal_ci_lm))
+            p <- p + geom_ribbon(aes(ymin = CI_low, ymax = CI_high),
+                                 fill = colores$primario, alpha = 0.15)
+          if (isTRUE(input$marginal_puntos_lm))
+            p <- p + geom_point(
+              data = data.frame(x_obs = df[[pred]],
+                                y_obs = as.numeric(df[[input$var_y]])),
+              aes(x = x_obs, y = y_obs),
+              color = colores$primario, alpha = 0.3, size = 1.5,
+              inherit.aes = FALSE)
+          p <- p + geom_line(color = colores$primario, linewidth = 1.2)
+        }
+
+        p + labs(x = pred, y = input$var_y,
+                 subtitle = paste0(
+                   "Efecto marginal de '", pred,
+                   "' — resto en valores típicos")) +
+          theme(panel.grid.minor = element_blank(),
+                legend.position  = "none",
+                plot.subtitle    = element_text(color = colores$texto,
+                                                size  = 9),
+                plot.margin      = margin(10, 15, 5, 10))
+      }, error = function(e) {
+        ggplot() + annotate("text", x = 0.5, y = 0.5,
+                            label = paste0("Error: ", conditionMessage(e)),
+                            color = colores$texto, size = 3.5, hjust = 0.5) +
+          theme_void()
+      })
+    }, res = 96)
+
+    output$marginal_interpretacion_lm <- renderUI({
+      fit  <- modelo_lm(); req(fit, input$pred_marginal_lm)
+      pred <- input$pred_marginal_lm
+      es_cat <- pred %in% vars_categoricas()
+      tryCatch({
+        coefs <- coef(fit)
+        pvals <- coef(summary(fit))[, 4]
+        if (es_cat) {
+          filas_cat <- names(coefs)[grepl(pred, names(coefs), fixed = TRUE)]
+          texto <- if (length(filas_cat) > 0) {
+            paste0("La variable '", pred, "' genera diferencias en ",
+                   input$var_y, ". Diferencias respecto a la referencia: ",
+                   paste(paste0(gsub(pred, "", filas_cat),
+                                " = ", round(coefs[filas_cat], 3)),
+                         collapse = ", "), " unidades.")
+          } else "Ver tabla de parámetros para la interpretación."
+        } else {
+          est <- round(coefs[pred], 3)
+          sig <- pvals[pred] < 0.05
+          texto <- paste0(
+            "Por cada unidad adicional de '", pred, "', ",
+            input$var_y, " cambia en promedio ",
+            ifelse(est >= 0, "+", ""), est, " unidades",
+            " (manteniendo el resto fijo). ",
+            if (sig) "Efecto estadísticamente significativo."
+            else "Efecto NO estadísticamente significativo."
+          )
+        }
+        div(class = "alert alert-info small py-2 px-3 mb-0",
+            bs_icon("lightbulb-fill", class = "me-1"), texto)
+      }, error = function(e) NULL)
+    })
+
+    # ── Predicción puntual ────────────────────────────────
+
+    output$inputs_prediccion_lm <- renderUI({
+      fit   <- modelo_lm(); req(fit)
+      df    <- datos_activos()
+      preds <- c(input$preds_num, input$preds_cat)
+      req(length(preds) > 0)
+      inputs <- lapply(preds, function(nm) {
+        col <- df[[nm]]
+        if (is.numeric(col)) {
+          numericInput(
+            inputId = ns(paste0("pred_val_lm_", nm)),
+            label   = paste0(nm, " (media = ",
+                             round(mean(col, na.rm=TRUE), 1), "):"),
+            value   = round(mean(col, na.rm=TRUE), 1),
+            step    = round(sd(col, na.rm=TRUE) / 10, 2)
+          )
+        } else {
+          moda <- names(sort(table(col), decreasing=TRUE))[1]
+          selectInput(
+            inputId  = ns(paste0("pred_val_lm_", nm)),
+            label    = nm,
+            choices  = levels(col),
+            selected = moda
+          )
+        }
+      })
+      do.call(tagList, inputs)
+    })
+
+    resultado_prediccion_lm_data <- eventReactive(
+      input$calcular_prediccion_lm, {
+        fit   <- modelo_lm(); req(fit)
+        df    <- datos_activos()
+        preds <- c(input$preds_num, input$preds_cat)
+        req(length(preds) > 0)
+        nueva_obs <- tryCatch({
+          vals <- lapply(preds, function(nm) {
+            col <- df[[nm]]
+            val <- input[[paste0("pred_val_lm_", nm)]]
+            req(!is.null(val))
+            if (is.numeric(col)) as.numeric(val)
+            else factor(val, levels = levels(col))
+          })
+          names(vals) <- preds
+          as.data.frame(vals)
+        }, error = function(e) NULL)
+        req(nueva_obs)
+        tryCatch(
+          modelbased::estimate_expectation(
+            fit, data = nueva_obs, verbose = FALSE
+          ),
+          error = function(e) NULL
+        )
+      }, ignoreNULL = TRUE)
+
+    output$resultado_prediccion_lm <- renderUI({
+      res <- resultado_prediccion_lm_data()
+      if (is.null(res)) return(
+        div(class = "text-muted small py-3",
+            bs_icon("calculator", class = "me-2"),
+            "Define los valores y haz clic en ",
+            strong("Calcular predicción"), ".")
+      )
+      df_res <- as.data.frame(res)
+      pred   <- round(df_res$Predicted[1], 3)
+      lo     <- round(df_res$CI_low[1], 3)
+      hi     <- round(df_res$CI_high[1], 3)
+      tagList(
+        div(class = "text-center py-3",
+            h2(style = paste0("color:", colores$primario,
+                              "; font-weight:700; font-size:2.5rem;"),
+               pred),
+            p(class = "text-muted mb-1",
+              strong(paste0(input$var_y, " predicho"))),
+            p(class = "small text-muted",
+              "IC 95%: ", strong(paste0("[", lo, ", ", hi, "]")))
+        ),
+        tags$hr(),
+        div(class = "small text-muted",
+            bs_icon("info-circle", class = "me-1"),
+            "Valores usados: ",
+            paste(sapply(c(input$preds_num, input$preds_cat), function(nm) {
+              val <- input[[paste0("pred_val_lm_", nm)]]
+              paste0(nm, " = ", val)
+            }), collapse = " · ")
+        )
+      )
+    })
+
+    # ────────────────────────────────────────────────────
+    # PESTAÑA 8: Contrastes
+    # ────────────────────────────────────────────────────
+
+    output$contrasts_no_cat_msg_lm <- renderUI({
+      if (length(input$preds_cat) == 0)
+        div(class = "alert alert-warning small py-2 px-3 mb-3",
+            bs_icon("exclamation-triangle-fill", class = "me-1"),
+            "El modelo no tiene predictores categóricos. ",
+            "Ve a ", strong("Ajustar modelo"),
+            " y agrega al menos una variable categórica.")
+    })
+
+    output$sel_var_contraste_lm <- renderUI({
+      fit  <- modelo_lm(); req(fit)
+      cats <- input$preds_cat; req(length(cats) > 0)
+      selectInput(ns("var_contraste_lm"),
+                  label    = "Variable para contrastar:",
+                  choices  = cats, selected = cats[1])
+    })
+
+    output$tabla_contrastes_lm <- renderUI({
+      fit <- modelo_lm(); req(fit, input$var_contraste_lm)
+      tryCatch({
+        ct    <- modelbased::estimate_contrasts(
+          fit, contrast = input$var_contraste_lm,
+          p_adjust = input$metodo_ajuste_lm, verbose = FALSE)
+        df_ct <- as.data.frame(ct)
+        char_cols <- names(df_ct)[sapply(df_ct, function(x)
+          is.character(x) || is.factor(x))]
+        if (length(char_cols) >= 2)
+          etiqueta <- paste0(df_ct[[char_cols[1]]], " vs. ",
+                             df_ct[[char_cols[2]]])
+        else etiqueta <- paste0("Contraste ", seq_len(nrow(df_ct)))
+
+        diff_col <- if ("Difference" %in% names(df_ct)) "Difference"
+        else names(df_ct)[sapply(df_ct, is.numeric)][1]
+        ci_lo <- if ("CI_low"  %in% names(df_ct)) "CI_low" else NA
+        ci_hi <- if ("CI_high" %in% names(df_ct)) "CI_high" else NA
+        p_col <- if ("p" %in% names(df_ct)) "p"
+        else if ("p.value" %in% names(df_ct)) "p.value" else NA
+
+        filas <- lapply(seq_len(nrow(df_ct)), function(i) {
+          sig   <- if (!is.na(p_col)) !is.na(df_ct[[p_col]][i]) &&
+            df_ct[[p_col]][i] < 0.05 else FALSE
+          p_txt <- if (!is.na(p_col) && !is.na(df_ct[[p_col]][i])) {
+            pv <- df_ct[[p_col]][i]
+            if (pv < 0.001) "< 0.001 ***"
+            else if (pv < 0.01)  paste0(round(pv,3), " **")
+            else if (pv < 0.05)  paste0(round(pv,3), " *")
+            else round(pv, 3)
+          } else "—"
+          col_p <- if (sig) colores$exito else colores$texto
+          tags$tr(
+            tags$td(strong(etiqueta[i])),
+            tags$td(style="text-align:center;",
+                    round(df_ct[[diff_col]][i], 3)),
+            tags$td(style="text-align:center;",
+                    if (!is.na(ci_lo))
+                      paste0("[", round(df_ct[[ci_lo]][i],3), ", ",
+                             round(df_ct[[ci_hi]][i],3), "]")
+                    else "—"),
+            tags$td(style=paste0("text-align:center; color:", col_p,
+                                 "; font-weight:600;"), p_txt)
+          )
+        })
+
+        tags$table(
+          class = "table table-sm table-hover small mb-0",
+          tags$thead(tags$tr(
+            tags$th(style=paste0("background:", colores$primario,
+                                 " !important; color:#fff !important;"),
+                    "Contraste"),
+            tags$th(style=paste0("background:", colores$primario,
+                                 " !important; color:#fff !important;",
+                                 "text-align:center;"),
+                    paste0("Diferencia (", input$var_y, ")")),
+            tags$th(style=paste0("background:", colores$primario,
+                                 " !important; color:#fff !important;",
+                                 "text-align:center;"), "IC 95%"),
+            tags$th(style=paste0("background:", colores$primario,
+                                 " !important; color:#fff !important;",
+                                 "text-align:center;"), "p-valor")
+          )),
+          tags$tbody(filas)
+        )
+      }, error = function(e) {
+        div(class="text-muted small py-3",
+            "Ajusta el modelo con predictores categóricos.")
+      })
+    })
+
+    output$plot_contrastes_lm <- renderPlot({
+      fit <- modelo_lm(); req(fit, input$var_contraste_lm)
+      tryCatch({
+        ct    <- modelbased::estimate_contrasts(
+          fit, contrast = input$var_contraste_lm,
+          p_adjust = input$metodo_ajuste_lm, verbose = FALSE)
+        df_ct <- as.data.frame(ct)
+        char_cols <- names(df_ct)[sapply(df_ct, function(x)
+          is.character(x) || is.factor(x))]
+        if (length(char_cols) >= 2)
+          etiqueta <- paste0(df_ct[[char_cols[1]]], " vs. ",
+                             df_ct[[char_cols[2]]])
+        else etiqueta <- paste0("Contraste ", seq_len(nrow(df_ct)))
+
+        diff_col <- if ("Difference" %in% names(df_ct)) "Difference"
+        else names(df_ct)[sapply(df_ct, is.numeric)][1]
+        ci_lo <- if ("CI_low"  %in% names(df_ct)) df_ct$CI_low
+        else df_ct[[diff_col]] - 1
+        ci_hi <- if ("CI_high" %in% names(df_ct)) df_ct$CI_high
+        else df_ct[[diff_col]] + 1
+        p_vals <- if ("p" %in% names(df_ct)) df_ct$p
+        else if ("p.value" %in% names(df_ct)) df_ct$p.value
+        else rep(0.5, nrow(df_ct))
+
+        df_plot <- data.frame(
+          contraste = factor(etiqueta, levels = rev(unique(etiqueta))),
+          diff      = df_ct[[diff_col]],
+          lo = ci_lo, hi = ci_hi,
+          sig = !is.na(p_vals) & p_vals < 0.05
+        )
+
+        ggplot(df_plot, aes(x=diff, y=contraste, xmin=lo, xmax=hi,
+                            color=sig)) +
+          geom_vline(xintercept=0, linetype="dashed",
+                     color=colores$texto, linewidth=0.7) +
+          geom_errorbar(aes(ymin=lo, ymax=hi), width=0.25,
+                        linewidth=1.1, orientation="y") +
+          geom_point(size=3.5) +
+          scale_color_manual(
+            values=c(`TRUE`=colores$acento, `FALSE`=colores$primario),
+            labels=c(`TRUE`="Significativo", `FALSE`="No significativo"),
+            name=NULL) +
+          labs(x=paste0("Diferencia en ", input$var_y, " (unidades)"),
+               y=NULL,
+               subtitle=paste0("Ajuste p-valores: ",
+                               input$metodo_ajuste_lm, " · IC 95%")) +
+          theme_minimal(base_size=12) +
+          theme(panel.grid.minor=element_blank(),
+                panel.grid.major.y=element_blank(),
+                legend.position="bottom",
+                plot.subtitle=element_text(color=colores$texto, size=9),
+                plot.margin=margin(10,15,5,10))
+      }, error = function(e) {
+        ggplot() + annotate("text", x=0.5, y=0.5,
+                            label="Sin contrastes disponibles.",
+                            color=colores$texto, size=4) + theme_void()
+      })
+    }, res = 96)
+
+    # ────────────────────────────────────────────────────
+    # PESTAÑA 9: Diagnóstico
+    # ────────────────────────────────────────────────────
+
     # ────────────────────────────────────────────────────
 
     # Helper interno: construye un item del semáforo
@@ -1510,7 +2283,7 @@ mod_lm_server <- function(id) {
         geom_hline(yintercept = 0, linetype = "dashed",
                    color = colores$texto) +
         geom_point(color = colores$primario, alpha = 0.4, size = 1.5) +
-        geom_smooth(method = "loess", se = FALSE,
+        geom_smooth(method = "loess", formula = y ~ x, se = FALSE,
                     color = colores$acento, linewidth = 1) +
         labs(x = "Valores ajustados", y = "Residuos") +
         theme_minimal(base_size = 13) +
@@ -1543,7 +2316,7 @@ mod_lm_server <- function(id) {
       ) |>
         ggplot(aes(x = fit_v, y = sr)) +
         geom_point(color = colores$primario, alpha = 0.4, size = 1.5) +
-        geom_smooth(method = "loess", se = FALSE,
+        geom_smooth(method = "loess", formula = y ~ x, se = FALSE,
                     color = colores$acento, linewidth = 1) +
         labs(x = "Valores ajustados",
              y = "\u221a|residuos estandarizados|") +
@@ -1603,22 +2376,411 @@ mod_lm_server <- function(id) {
     }, res = 110)
 
     # ────────────────────────────────────────────────────
-    # PESTAÑA 6: Código R reproducible
+    # PESTAÑA 10: Performance
+    # ────────────────────────────────────────────────────
+
+    output$tabla_performance_lm <- renderUI({
+      fit <- modelo_lm()
+      if (is.null(fit)) return(
+        div(class = "text-muted small py-3",
+            bs_icon("arrow-left-circle", class = "me-1"),
+            "Ajusta el modelo primero.")
+      )
+      tryCatch({
+        s      <- summary(fit)
+        r2     <- round(s$r.squared, 4)
+        r2adj  <- round(s$adj.r.squared, 4)
+        sigma  <- round(s$sigma, 3)
+        aic_v  <- tryCatch(round(AIC(fit), 2),  error = function(e) NA)
+        bic_v  <- tryCatch(round(BIC(fit), 2),  error = function(e) NA)
+        aicc_v <- tryCatch(round(performance::performance_aicc(fit), 2),
+                           error = function(e) NA)
+        rmse_v <- tryCatch(round(performance::performance_rmse(fit, verbose = FALSE), 3),
+                           error = function(e) NA)
+        mae_v  <- tryCatch({
+          round(mean(abs(resid(fit))), 3)
+        }, error = function(e) NA)
+        ll_v   <- tryCatch(round(as.numeric(logLik(fit)), 2), error = function(e) NA)
+        np     <- length(coef(fit)) - 1L
+        n      <- nrow(fit$model)
+
+        col_r2 <- if (r2adj > 0.8) colores$exito else
+          if (r2adj > 0.5) colores$acento else colores$peligro
+
+        filas <- list(
+          list(g = "MUESTRA", m = "n (observaciones)", v = n,
+               i = "Tamaño de la muestra usada para ajustar el modelo."),
+          list(g = NULL, m = "k (predictores)", v = np,
+               i = "Número de predictores sin el intercepto."),
+          list(g = "VARIANZA EXPLICADA", m = "R²", v = r2,
+               i = paste0("Proporción de varianza en Y explicada por el modelo. ",
+                          "No penaliza por número de predictores.")),
+          list(g = NULL, m = "R² ajustado", v = r2adj,
+               i = paste0("R² corregido por el número de predictores. ",
+                          if (r2adj > 0.8) " Ajuste excelente."
+                          else if (r2adj > 0.5) " Ajuste moderado."
+                          else " Ajuste débil.")),
+          list(g = "ERROR DE PREDICCIÓN", m = "σ (error estándar residual)", v = sigma,
+               i = paste0("Error típico de predicción en unidades de Y. ",
+                          "Menor = predicciones más precisas.")),
+          list(g = NULL, m = "RMSE", v = rmse_v,
+               i = "Raíz del error cuadrático medio. Menor = mejor."),
+          list(g = NULL, m = "MAE", v = mae_v,
+               i = "Error absoluto medio. Más robusto que RMSE ante outliers."),
+          list(g = "CRITERIOS DE INFORMACIÓN", m = "AIC", v = aic_v,
+               i = "Criterio de Akaike. Menor = mejor. Penaliza complejidad."),
+          list(g = NULL, m = "AICc", v = aicc_v,
+               i = "AIC corregido para muestras pequeñas (n/k < 40)."),
+          list(g = NULL, m = "BIC", v = bic_v,
+               i = "Criterio Bayesiano de Schwarz. Penaliza más que AIC."),
+          list(g = "AJUSTE RELATIVO", m = "Log-verosimilitud", v = ll_v,
+               i = "Mayor = mejor ajuste. Base del AIC y BIC.")
+        )
+
+        filas_html <- lapply(filas, function(f) {
+          grupo_td <- if (!is.null(f$g))
+            tags$td(tags$span(class = "badge bg-secondary", f$g))
+          else
+            tags$td()
+
+          val_style <- if (!is.null(f$g) && f$g == "VARIANZA EXPLICADA" &&
+                           f$m == "R² ajustado")
+            paste0("color:", col_r2, "; font-weight:700;")
+          else ""
+
+          tags$tr(
+            grupo_td,
+            tags$td(strong(f$m)),
+            tags$td(style = val_style, f$v),
+            tags$td(class = "text-muted small", style = "font-size:0.78rem;", f$i)
+          )
+        })
+
+        tags$table(
+          class = "table table-sm table-hover small mb-0",
+          tags$thead(tags$tr(
+            tags$th("Grupo"), tags$th("Métrica"),
+            tags$th("Valor"), tags$th("Interpretación")
+          )),
+          tags$tbody(filas_html)
+        )
+      }, error = function(e) {
+        div(class = "text-danger small",
+            paste("Error al calcular métricas:", conditionMessage(e)))
+      })
+    })
+
+    output$plot_predobs_lm <- renderPlot({
+      fit <- modelo_lm(); req(fit)
+      tibble::tibble(
+        obs  = fitted(fit) + resid(fit),
+        pred = fitted(fit)
+      ) |>
+        ggplot(aes(x = obs, y = pred)) +
+        geom_abline(slope = 1, intercept = 0,
+                    linetype = "dashed",
+                    color = colores$texto, linewidth = 0.8) +
+        geom_point(color = colores$primario, alpha = 0.5, size = 2) +
+        geom_smooth(method = "loess", formula = y ~ x, se = FALSE,
+                    color = colores$acento, linewidth = 1) +
+        labs(x = "Observado", y = "Predicho",
+             subtitle = "Los puntos deben seguir la diagonal — desviaciones indican mal ajuste") +
+        theme_minimal(base_size = 12) +
+        theme(
+          panel.grid.minor = element_blank(),
+          plot.subtitle    = element_text(color = colores$texto, size = 9)
+        )
+    }, res = 110)
+
+    # ── Validación cruzada ────────────────────────────────
+
+    cv_resultados_lm <- reactiveVal(NULL)
+
+    observeEvent(input$correr_cv_lm, {
+      fit <- modelo_lm()
+      if (is.null(fit)) {
+        showNotification("Ajusta un modelo primero.",
+                         type = "warning", duration = 3)
+        return()
+      }
+      withProgress(message = "Corriendo validación cruzada...",
+                   value = 0.2, {
+                     tryCatch({
+                       df_cv <- datos_activos()
+                       preds <- c(input$preds_num, input$preds_cat)
+                       req(length(preds) > 0, input$var_y)
+
+                       fm <- as.formula(paste(input$var_y, "~",
+                                              paste(preds, collapse = " + ")))
+
+                       folds <- rsample::vfold_cv(
+                         df_cv, v = input$cv_folds_lm,
+                         strata = if (isTRUE(input$cv_estratificado_lm))
+                           input$var_y else NULL
+                       )
+
+                       tiene_cat <- any(sapply(
+                         df_cv[, preds, drop = FALSE],
+                         function(x) is.factor(x) || is.character(x)
+                       ))
+
+                       rec <- recipes::recipe(fm, data = df_cv)
+                       if (tiene_cat)
+                         rec <- recipes::step_dummy(rec, recipes::all_nominal_predictors())
+                       rec <- rec |>
+                         recipes::step_impute_median(recipes::all_numeric_predictors()) |>
+                         recipes::step_zv(recipes::all_predictors())
+
+                       modelo_parsnip <- parsnip::linear_reg() |>
+                         parsnip::set_engine("lm") |>
+                         parsnip::set_mode("regression")
+
+                       wf <- workflows::workflow() |>
+                         workflows::add_recipe(rec) |>
+                         workflows::add_model(modelo_parsnip)
+
+                       incProgress(0.5, detail = "Evaluando folds...")
+
+                       metricas <- yardstick::metric_set(
+                         yardstick::rmse,
+                         yardstick::rsq,
+                         yardstick::mae
+                       )
+
+                       res_cv <- tune::fit_resamples(
+                         wf, resamples = folds,
+                         metrics = metricas,
+                         control = tune::control_resamples()
+                       )
+                       cm <- tune::collect_metrics(res_cv)
+
+                       cv_resultados_lm(list(
+                         formula  = deparse(fm),
+                         folds    = input$cv_folds_lm,
+                         metricas = cm
+                       ))
+
+                     }, error = function(e) {
+                       showNotification(paste("Error en CV:", conditionMessage(e)),
+                                        type = "error", duration = 6)
+                     })
+                   })
+    })
+
+    output$resultado_cv_lm <- renderUI({
+      res <- cv_resultados_lm()
+      if (is.null(res)) return(
+        div(class = "text-muted small py-3",
+            bs_icon("arrow-repeat", class = "me-2"),
+            "Haz clic en ", strong("Correr CV"),
+            " para evaluar la capacidad predictiva.")
+      )
+      cm <- res$metricas
+
+      label_map <- c(
+        rmse = "RMSE (error cuadrático medio)",
+        rsq  = "R² (varianza explicada)",
+        mae  = "MAE (error absoluto medio)"
+      )
+
+      tarjetas <- lapply(seq_len(nrow(cm)), function(i) {
+        met <- cm$.metric[i]
+        col <- if (met == "rsq") colores$exito else colores$primario
+        card(
+          class = "text-center",
+          card_body(class = "p-2",
+                    h4(style = paste0("color:", col, "; font-weight:700;"),
+                       round(cm$mean[i], 3)),
+                    p(class = "small text-muted mb-0",
+                      strong(toupper(met))),
+                    p(class = "small text-muted mb-0",
+                      paste0("\u00b1", round(cm$std_err[i], 3), " EE"))
+          )
+        )
+      })
+
+      tagList(
+        do.call(layout_columns,
+                c(list(col_widths = rep(4, nrow(cm))),
+                  tarjetas)),
+        div(class = "alert alert-info small py-2 px-3 mt-2 mb-0",
+            bs_icon("info-circle", class = "me-1"),
+            strong(paste0(res$folds, "-fold CV · ")),
+            "Fórmula: ", code(res$formula), ". ",
+            "Los valores de CV estiman la capacidad de ",
+            strong("generalización"), " a datos no vistos.")
+      )
+    })
+
+    # ── Comparar modelos ──────────────────────────────────
+
+    modelos_guardados_lm <- reactiveVal(list())
+
+    observeEvent(input$guardar_modelo_lm, {
+      fit    <- modelo_lm()
+      nombre <- trimws(input$nombre_modelo_lm)
+      if (is.null(fit)) {
+        showNotification("Ajusta un modelo primero.",
+                         type = "warning", duration = 3)
+        return()
+      }
+      if (nchar(nombre) == 0) {
+        showNotification("Escribe un nombre para el modelo.",
+                         type = "warning", duration = 3)
+        return()
+      }
+      actual <- modelos_guardados_lm()
+      actual[[nombre]] <- list(
+        fit     = fit,
+        formula = deparse(formula(fit)),
+        preds   = c(input$preds_num, input$preds_cat),
+        var_y   = input$var_y,
+        datos   = datos_activos()
+      )
+      modelos_guardados_lm(actual)
+      showNotification(paste0("Modelo '", nombre, "' guardado."),
+                       type = "message", duration = 3)
+      updateTextInput(session, "nombre_modelo_lm", value = "")
+    })
+
+    observeEvent(input$limpiar_modelos_lm, {
+      modelos_guardados_lm(list())
+      showNotification("Modelos eliminados.", type = "message", duration = 2)
+    })
+
+    output$lista_modelos_guardados_lm <- renderUI({
+      mg <- modelos_guardados_lm()
+      if (length(mg) == 0) return(
+        p(class = "small text-muted mb-0", "Aún no hay modelos guardados.")
+      )
+      tagList(lapply(names(mg), function(nm) {
+        m <- mg[[nm]]
+        div(class = "d-flex align-items-center gap-2 mb-1",
+            bs_icon("check-circle-fill",
+                    style = paste0("color:", colores$exito)),
+            div(
+              p(class = "small mb-0", strong(nm)),
+              p(class = "small text-muted mb-0",
+                style = "font-size:0.75rem;", m$formula)
+            ))
+      }))
+    })
+
+    output$tabla_comparacion_lm <- renderUI({
+      mg <- modelos_guardados_lm()
+      if (length(mg) < 1) return(
+        div(class = "text-muted small py-3",
+            bs_icon("info-circle", class = "me-1"),
+            "Guarda al menos un modelo para ver la comparación.")
+      )
+      rows <- lapply(names(mg), function(nm) {
+        fit <- mg[[nm]]$fit
+        pm  <- tryCatch(
+          performance::model_performance(fit, verbose = FALSE),
+          error = function(e) NULL
+        )
+        if (is.null(pm)) return(NULL)
+        list(
+          nm   = nm,
+          aic  = round(pm$AIC, 1),
+          aicc = tryCatch(round(performance::performance_aicc(fit), 1),
+                          error = function(e) NA),
+          bic  = round(pm$BIC, 1),
+          r2   = round(pm$R2, 3),
+          r2adj = round(pm$R2_adjusted, 3)
+        )
+      })
+      rows <- rows[!sapply(rows, is.null)]
+      if (length(rows) == 0) return(NULL)
+
+      best_aicc <- which.min(sapply(rows, function(r) r$aicc))
+
+      tags$table(
+        class = "table table-sm table-hover small mb-0",
+        tags$thead(
+          style = paste0("background:", colores$primario, "; color:#fff;"),
+          tags$tr(
+            tags$th("Modelo"), tags$th("AIC"),
+            tags$th("AICc"),  tags$th("BIC"),
+            tags$th("R²"),    tags$th("R² adj.")
+          )
+        ),
+        tags$tbody(lapply(seq_along(rows), function(i) {
+          r  <- rows[[i]]
+          bg <- if (i == best_aicc)
+            "background:#f0f9f5; font-weight:600;" else ""
+          tags$tr(
+            style = bg,
+            tags$td(
+              if (i == best_aicc)
+                tagList(bs_icon("trophy-fill",
+                                style = paste0("color:", colores$acento,
+                                               "; margin-right:4px")), r$nm)
+              else r$nm
+            ),
+            tags$td(r$aic), tags$td(r$aicc), tags$td(r$bic),
+            tags$td(r$r2),  tags$td(r$r2adj)
+          )
+        }))
+      )
+    })
+
+    output$plot_comparacion_lm <- renderPlot({
+      mg <- modelos_guardados_lm()
+      req(length(mg) >= 2)
+      fits <- lapply(mg, function(m) m$fit)
+      tryCatch({
+        comp <- do.call(performance::compare_performance,
+                        c(fits, list(rank = TRUE, verbose = FALSE)))
+        p <- plot(comp) +
+          ggplot2::scale_color_manual(
+            values = colores$tableau[seq_along(mg)]) +
+          ggplot2::scale_fill_manual(
+            values = paste0(colores$tableau[seq_along(mg)], "33")) +
+          ggplot2::labs(title = NULL,
+                        subtitle = "Métricas normalizadas 0–1 · mayor área = mejor") +
+          see::theme_radar() +
+          ggplot2::theme(
+            legend.position  = "bottom",
+            plot.subtitle    = ggplot2::element_text(color = colores$texto, size = 9),
+            plot.margin      = ggplot2::margin(10, 10, 5, 10)
+          )
+        print(p)
+      }, error = function(e) {
+        ggplot() +
+          annotate("text", x = 0.5, y = 0.5,
+                   label = paste0("Guarda al menos 2 modelos\n",
+                                  "para ver el gráfico radar."),
+                   color = colores$texto, size = 5, hjust = 0.5) +
+          theme_void()
+      })
+    }, res = 96)
+
+    # ────────────────────────────────────────────────────
+    # PESTAÑA 10: Código R reproducible
     # ────────────────────────────────────────────────────
 
     codigo_generado <- reactive({
       req(input$var_y)
       preds <- c(input$preds_num, input$preds_cat)
-      formula_txt <- if (length(preds) > 0)
-        paste(input$var_y, "~", paste(preds, collapse = " + "))
+      ints  <- input$interacciones
+      terminos <- if (!is.null(ints) && length(ints) > 0)
+        c(preds, ints) else preds
+      formula_txt <- if (length(terminos) > 0)
+        paste(input$var_y, "~", paste(terminos, collapse = " + "))
       else paste(input$var_y, "~ 1")
 
       tiene_cat <- length(input$preds_cat) > 0
 
-      if (input$fuente_datos == "ejemplo") {
+      if (input$fuente_datos == "ejemplo_ave") {
         carga <- paste0(
-          "library(palmerpenguins)\n",
-          "datos <- penguins |> drop_na()\n"
+          "load(\"data/birdabundance_lm.rda\")\n",
+          "datos <- birdabundance_lm\n"
+        )
+      } else if (input$fuente_datos == "ejemplo_salud") {
+        carga <- paste0(
+          "load(\"data/birthwt_lm.rda\")\n",
+          "datos <- birthwt_lm\n"
         )
       } else {
         ext <- if (!is.null(input$archivo))

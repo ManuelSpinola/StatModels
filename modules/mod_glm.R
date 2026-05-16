@@ -261,7 +261,7 @@ mod_glm_ui <- function(id) {
                 div(class = "alert alert-warning small py-1 px-2 mb-0",
                     bs_icon("exclamation-triangle", class = "me-1"),
                     strong("Si falla:"),
-                    " cambia la familia en 'Construir el modelo'.")
+                    " cambia la familia en 'Ajustar modelo'.")
               )
             )
           ),
@@ -629,42 +629,55 @@ mod_glm_ui <- function(id) {
               uiOutput(ns("tipos_aplicados_msg"))
             ),
 
-            # Sub-tab 3: Explorar
-            nav_panel(
-              title = tagList(bs_icon("zoom-in", class = "me-1"),
-                              "Explorar"),
-              br(),
-              layout_columns(
-                col_widths = c(4, 8),
-                card(
-                  card_header(bs_icon("sliders", class = "me-1"),
-                              "Controles"),
-                  card_body(
-                    uiOutput(ns("sel_var_x")),
-                    uiOutput(ns("sel_color")),
-                    checkboxInput(ns("mostrar_suavizado"),
-                                  "Mostrar curva suavizada",
-                                  value = TRUE),
-                    tags$hr(),
-                    uiOutput(ns("cards_correlacion"))
-                  )
-                ),
-                div(
-                  plotOutput(ns("plot_scatter"), height = "380px"),
-                  uiOutput(ns("insight_scatter"))
-                )
+          )
+        )
+      ),
+
+
+      # ════════════════════════════════════════════════
+      # PESTAÑA 4: Explorar
+      # ════════════════════════════════════════════════
+      nav_panel(
+        title = tagList(bs_icon("zoom-in", class = "me-1"),
+                        "Explorar"),
+        card_body(
+          p(class = "small text-muted mb-3",
+            "Visualiza las relaciones entre variables antes de ajustar ",
+            "el modelo. El gráfico se adapta automáticamente a la ",
+            strong("familia seleccionada"), ": curva logística para ",
+            "binomial, curva Poisson para conteos."
+          ),
+          layout_columns(
+            col_widths = c(4, 8),
+
+            card(
+              card_header(bs_icon("sliders", class = "me-1"),
+                          "Controles"),
+              card_body(
+                uiOutput(ns("sel_var_x")),
+                uiOutput(ns("sel_color")),
+                checkboxInput(ns("mostrar_suavizado"),
+                              "Mostrar curva del modelo",
+                              value = TRUE),
+                tags$hr(),
+                uiOutput(ns("cards_correlacion"))
               )
+            ),
+
+            div(
+              plotOutput(ns("plot_scatter"), height = "400px"),
+              uiOutput(ns("insight_scatter"))
             )
           )
         )
       ),
 
       # ════════════════════════════════════════════════
-      # PESTAÑA 4: Construir el modelo
+      # PESTAÑA 5: Ajustar modelo
       # ════════════════════════════════════════════════
       nav_panel(
         title = tagList(bs_icon("gear", class = "me-1"),
-                        "Construir el modelo"),
+                        "Ajustar modelo"),
         card_body(
           layout_columns(
             col_widths = c(4, 8),
@@ -720,6 +733,26 @@ mod_glm_ui <- function(id) {
                   "Ajustar modelo",
                   class = "btn-primary w-100",
                   icon  = icon("play")
+                ),
+                tags$hr(),
+                p(class = "small fw-bold text-muted mb-1",
+                  bs_icon("floppy", class = "me-1"),
+                  "Guardar para comparar"),
+                p(class = "small text-muted mb-2",
+                  "Dale un nombre al modelo ajustado y guárdalo. ",
+                  "Cambia predictores o familia, reajusta y guarda otro ",
+                  "para comparar en la pestaña ",
+                  strong("Comparar modelos"), "."),
+                textInput(
+                  ns("nombre_modelo"),
+                  label       = NULL,
+                  placeholder = "Ej: solo_edad, logistica_full…"
+                ),
+                actionButton(
+                  ns("guardar_modelo"),
+                  "Guardar modelo",
+                  class = "btn-outline-primary w-100 btn-sm",
+                  icon  = icon("floppy-disk")
                 )
               )
             ),
@@ -750,7 +783,7 @@ mod_glm_ui <- function(id) {
       ),
 
       # ════════════════════════════════════════════════
-      # PESTAÑA 5: Parámetros
+      # PESTAÑA 6: Parámetros
       # ════════════════════════════════════════════════
       nav_panel(
         title = tagList(bs_icon("table", class = "me-1"), "Parámetros"),
@@ -802,7 +835,47 @@ mod_glm_ui <- function(id) {
       ),
 
       # ════════════════════════════════════════════════
-      # PESTAÑA 6: Efectos marginales
+      # PESTAÑA 7: Diagnóstico
+      # ════════════════════════════════════════════════
+      nav_panel(
+        title = tagList(bs_icon("clipboard-check", class = "me-1"),
+                        "Diagnóstico"),
+        card_body(
+          p(class = "small text-muted mb-3",
+            "Verificamos los supuestos descritos en la pestaña ",
+            strong("Fundamentos"), ". Las pruebas se adaptan ",
+            "automáticamente según la familia del modelo. ",
+            "Generado con ", strong("performance"), " de easystats."
+          ),
+
+          layout_columns(
+            col_widths = c(3, 9),
+
+            # Semáforo
+            div(
+              uiOutput(ns("semaforo_col1")),
+              uiOutput(ns("semaforo_col2"))
+            ),
+
+            # Gráficos
+            card(
+              card_header(
+                bs_icon("clipboard-check", class = "me-1"),
+                "Gráficos de diagnóstico",
+                span(class = "text-muted small ms-2",
+                     "— performance::check_model() · easystats")
+              ),
+              card_body(
+                class = "p-1",
+                plotOutput(ns("plot_check_model"), height = "650px")
+              )
+            )
+          )
+        )
+      ),
+
+      # ════════════════════════════════════════════════
+      # PESTAÑA 8: Efectos marginales
       # ════════════════════════════════════════════════
       nav_panel(
         title = tagList(bs_icon("graph-up-arrow", class = "me-1"),
@@ -900,7 +973,7 @@ mod_glm_ui <- function(id) {
       ),
 
       # ════════════════════════════════════════════════
-      # PESTAÑA 7: Contrastes
+      # PESTAÑA 9: Contrastes
       # ════════════════════════════════════════════════
       nav_panel(
         title = tagList(bs_icon("arrows-angle-expand", class = "me-1"),
@@ -963,7 +1036,7 @@ mod_glm_ui <- function(id) {
       ),
 
       # ════════════════════════════════════════════════
-      # PESTAÑA 8: Performance
+      # PESTAÑA 10: Performance
       # ════════════════════════════════════════════════
       nav_panel(
         title = tagList(bs_icon("speedometer2", class = "me-1"),
@@ -1033,39 +1106,30 @@ mod_glm_ui <- function(id) {
       ),
 
       # ════════════════════════════════════════════════
-      # PESTAÑA 9: Comparar modelos
+      # PESTAÑA 11: Comparar modelos
       # ════════════════════════════════════════════════
       nav_panel(
         title = tagList(bs_icon("arrow-left-right", class = "me-1"),
                         "Comparar modelos"),
         card_body(
           p(class = "small text-muted mb-3",
-            "Construye distintos modelos en la pestaña ",
-            strong("Construir el modelo"),
-            " y guárdalos aquí para compararlos por AIC, AICc y BIC."
+            "Ajusta distintos modelos en la pestaña ",
+            strong("Ajustar modelo"), ", guarda cada uno con un ",
+            "nombre descriptivo y compáralos aquí por AIC, AICc y BIC."
           ),
           layout_columns(
             col_widths = c(4, 8),
 
             card(
-              card_header(bs_icon("floppy", class = "me-1"),
-                          "Guardar modelo actual"),
+              card_header(bs_icon("list-check", class = "me-1"),
+                          "Modelos guardados"),
               card_body(
-                textInput(ns("nombre_modelo"),
-                          label       = "Nombre del modelo:",
-                          placeholder = "Ej: solo habitat, full…"),
-                actionButton(ns("guardar_modelo"),
-                             "Guardar modelo",
-                             class = "btn-primary w-100 mb-2",
-                             icon  = icon("floppy-disk")),
+                uiOutput(ns("lista_modelos_guardados")),
+                tags$hr(),
                 actionButton(ns("limpiar_modelos"),
                              "Limpiar todos",
                              class = "btn-outline-secondary w-100 btn-sm",
-                             icon  = icon("trash")),
-                tags$hr(),
-                p(class = "small fw-bold text-muted mb-1",
-                  "Modelos guardados:"),
-                uiOutput(ns("lista_modelos_guardados"))
+                             icon  = icon("trash"))
               )
             ),
 
@@ -1102,47 +1166,7 @@ mod_glm_ui <- function(id) {
       ),
 
       # ════════════════════════════════════════════════
-      # PESTAÑA 10: Diagnóstico
-      # ════════════════════════════════════════════════
-      nav_panel(
-        title = tagList(bs_icon("clipboard-check", class = "me-1"),
-                        "Diagnóstico"),
-        card_body(
-          p(class = "small text-muted mb-3",
-            "Verificamos los supuestos descritos en la pestaña ",
-            strong("Fundamentos"), ". Las pruebas se adaptan ",
-            "automáticamente según la familia del modelo. ",
-            "Generado con ", strong("performance"), " de easystats."
-          ),
-
-          layout_columns(
-            col_widths = c(3, 9),
-
-            # Semáforo
-            div(
-              uiOutput(ns("semaforo_col1")),
-              uiOutput(ns("semaforo_col2"))
-            ),
-
-            # Gráficos
-            card(
-              card_header(
-                bs_icon("clipboard-check", class = "me-1"),
-                "Gráficos de diagnóstico",
-                span(class = "text-muted small ms-2",
-                     "— performance::check_model() · easystats")
-              ),
-              card_body(
-                class = "p-1",
-                plotOutput(ns("plot_check_model"), height = "650px")
-              )
-            )
-          )
-        )
-      ),
-
-      # ════════════════════════════════════════════════
-      # PESTAÑA 11: Código R
+      # PESTAÑA 12: Código R
       # ════════════════════════════════════════════════
       nav_panel(
         title = tagList(bs_icon("code-slash", class = "me-1"),
@@ -1221,7 +1245,7 @@ mod_glm_server <- function(id) {
       )
     })
 
-    # Sincronizar familia en Construir el modelo con la elegida en Los datos
+    # Sincronizar familia en Ajustar modelo con la elegida en Los datos
     observeEvent(input$familia_datos, {
       req(nchar(input$familia_datos) > 0)
       updateSelectInput(session, "familia",
@@ -1564,7 +1588,7 @@ mod_glm_server <- function(id) {
     # Explorar
     output$sel_var_x <- renderUI({
       req(vars_numericas())
-      selectInput(ns("var_x"), label = "Variable X:",
+      selectInput(ns("var_x"), label = "Variable X (predictor):",
                   choices = vars_numericas(),
                   selected = vars_numericas()[1])
     })
@@ -1572,75 +1596,182 @@ mod_glm_server <- function(id) {
     output$sel_color <- renderUI({
       cats <- vars_categoricas()
       if (length(cats) == 0) return(NULL)
-      selectInput(ns("var_color"), label = "Colorear por:",
+      selectInput(ns("var_color"), label = "Colorear por (opcional):",
                   choices = c("Ninguna" = "ninguna", cats),
                   selected = "ninguna")
     })
 
     output$cards_correlacion <- renderUI({
-      df <- datos_activos(); req(df, input$var_x)
-      yv <- vars_numericas(); req(length(yv) >= 2)
-      yvar <- yv[yv != input$var_x][1]; req(yvar)
-      cor_val <- cor(df[[yvar]], df[[input$var_x]], use = "complete.obs")
-      layout_columns(
-        col_widths = c(6, 6),
-        card(class = "text-center border-0",
-             style = paste0("background:", colores$fondo),
-             card_body(class = "p-2",
-                       h4(style = paste0("color:", colores$primario,
-                                         "; font-weight:700;"),
-                          round(cor_val, 2)),
-                       p(class = "small text-muted mb-0", "Correlación (r)")
-             )),
-        card(class = "text-center border-0",
-             style = paste0("background:", colores$fondo),
-             card_body(class = "p-2",
-                       h4(style = paste0("color:", colores$acento,
-                                         "; font-weight:700;"),
-                          paste0(round(cor_val^2 * 100, 0), "%")),
-                       p(class = "small text-muted mb-0", "R² simple")
-             ))
-      )
+      df  <- datos_activos(); req(df, input$var_x)
+      fam <- input$familia
+      yv  <- if (fam == "binomial") vars_categoricas() else vars_numericas()
+      req(length(yv) >= 1)
+      yvar <- yv[yv != input$var_x][1]
+      if (is.null(yvar)) yvar <- yv[1]
+      req(yvar)
+
+      if (fam == "binomial") {
+        # Para binomial: proporción de Y=1 por grupos de X
+        tryCatch({
+          y_bin <- as.integer(as.character(df[[yvar]]))
+          prop  <- round(mean(y_bin, na.rm = TRUE), 3)
+          n_pos <- sum(y_bin == 1, na.rm = TRUE)
+          layout_columns(
+            col_widths = c(6, 6),
+            card(class = "text-center border-0",
+                 style = paste0("background:", colores$fondo),
+                 card_body(class = "p-2",
+                           h4(style = paste0("color:", colores$primario,
+                                             "; font-weight:700;"),
+                              paste0(round(prop * 100, 0), "%")),
+                           p(class = "small text-muted mb-0", "Prevalencia (Y=1)")
+                 )),
+            card(class = "text-center border-0",
+                 style = paste0("background:", colores$fondo),
+                 card_body(class = "p-2",
+                           h4(style = paste0("color:", colores$acento,
+                                             "; font-weight:700;"), n_pos),
+                           p(class = "small text-muted mb-0", "Casos positivos")
+                 ))
+          )
+        }, error = function(e) NULL)
+      } else {
+        # Para Poisson/BN: correlación con la Y numérica
+        yv2  <- vars_numericas()
+        req(length(yv2) >= 2)
+        yvar2 <- yv2[yv2 != input$var_x][1]
+        req(yvar2)
+        cor_val <- cor(df[[yvar2]], df[[input$var_x]], use = "complete.obs")
+        layout_columns(
+          col_widths = c(6, 6),
+          card(class = "text-center border-0",
+               style = paste0("background:", colores$fondo),
+               card_body(class = "p-2",
+                         h4(style = paste0("color:", colores$primario,
+                                           "; font-weight:700;"),
+                            round(cor_val, 2)),
+                         p(class = "small text-muted mb-0", "Correlación (r)")
+               )),
+          card(class = "text-center border-0",
+               style = paste0("background:", colores$fondo),
+               card_body(class = "p-2",
+                         h4(style = paste0("color:", colores$acento,
+                                           "; font-weight:700;"),
+                            paste0(round(cor_val^2 * 100, 0), "%")),
+                         p(class = "small text-muted mb-0", "R² simple")
+               ))
+        )
+      }
     })
 
-    output$plot_scatter <- renderPlot({
-      df <- datos_activos(); req(df, input$var_x)
-      yv <- vars_numericas(); req(length(yv) >= 2)
-      yvar <- yv[yv != input$var_x][1]; req(yvar)
-      p <- ggplot(df, aes(x = .data[[input$var_x]],
-                          y = .data[[yvar]]))
+    output$plot_scatter <- renderPlot(suppressWarnings({
+      df  <- datos_activos(); req(df, input$var_x)
+      fam <- input$familia
+
       usar_color <- !is.null(input$var_color) &&
         input$var_color != "ninguna" &&
         input$var_color %in% names(df)
-      if (usar_color)
-        p <- p + aes(color = .data[[input$var_color]]) +
-        scale_color_manual(values = colores$tableau,
-                           name = input$var_color)
-      p <- p + geom_point(alpha = 0.5, size = 2)
-      if (isTRUE(input$mostrar_suavizado))
-        p <- p + geom_smooth(method = "loess", se = TRUE,
-                             color = colores$primario,
-                             fill  = colores$secundario,
-                             alpha = 0.15, linewidth = 1.2)
-      p + labs(x = input$var_x, y = yvar,
-               subtitle = paste0("n = ", nrow(df), " observaciones")) +
-        theme_minimal(base_size = 13) +
-        theme(panel.grid.minor = element_blank(),
-              legend.position  = "bottom")
-    }, res = 96)
+
+      if (fam == "binomial") {
+        # ── Binomial: jitter + curva logística ────────────
+        yvar <- vars_categoricas()[1]; req(yvar)
+        df[[yvar]] <- as.integer(as.character(df[[yvar]]))
+
+        p <- ggplot(df, aes(x = .data[[input$var_x]],
+                            y = .data[[yvar]]))
+        if (usar_color)
+          p <- p + aes(color = .data[[input$var_color]]) +
+          scale_color_manual(values = colores$tableau,
+                             name = input$var_color)
+
+        p <- p +
+          geom_jitter(height = 0.05, alpha = 0.4, size = 2) +
+          geom_smooth(method = "glm", formula = y ~ x,
+                      method.args = list(family = binomial()),
+                      se = TRUE, color = colores$primario,
+                      fill = colores$secundario, inherit.aes = TRUE,
+                      alpha = 0.15, linewidth = 1.2,
+                      show.legend = FALSE) +
+          scale_y_continuous(breaks = c(0, 1),
+                             labels = c("0 (ausente)", "1 (presente)")) +
+          labs(x = input$var_x, y = yvar,
+               subtitle = paste0(
+                 "Curva logística · n = ", nrow(df), " observaciones")) +
+          theme_minimal(base_size = 13) +
+          theme(panel.grid.minor = element_blank(),
+                legend.position  = "bottom",
+                plot.subtitle    = element_text(color = colores$texto,
+                                                size = 10))
+
+      } else {
+        # ── Poisson / BN: scatter en escala log ───────────
+        yv2  <- vars_numericas(); req(length(yv2) >= 2)
+        yvar <- yv2[yv2 != input$var_x][1]; req(yvar)
+
+        p <- ggplot(df, aes(x = .data[[input$var_x]],
+                            y = .data[[yvar]]))
+        if (usar_color)
+          p <- p + aes(color = .data[[input$var_color]]) +
+          scale_color_manual(values = colores$tableau,
+                             name = input$var_color)
+
+        p <- p +
+          geom_point(alpha = 0.5, size = 2) +
+          geom_smooth(method = "glm", formula = y ~ x,
+                      method.args = list(family = poisson()),
+                      se = TRUE, color = colores$primario,
+                      fill = colores$secundario, inherit.aes = TRUE,
+                      alpha = 0.15, linewidth = 1.2,
+                      show.legend = FALSE) +
+          labs(x = input$var_x, y = yvar,
+               subtitle = paste0(
+                 "Curva Poisson (escala log) · n = ",
+                 nrow(df), " observaciones")) +
+          theme_minimal(base_size = 13) +
+          theme(panel.grid.minor = element_blank(),
+                legend.position  = "bottom",
+                plot.subtitle    = element_text(color = colores$texto,
+                                                size = 10))
+      }
+      print(p)
+    }), res = 96)
 
     output$insight_scatter <- renderUI({
-      df <- datos_activos(); req(df, input$var_x)
-      yv <- vars_numericas(); req(length(yv) >= 2)
-      yvar <- yv[yv != input$var_x][1]; req(yvar)
-      cor_val <- cor(df[[yvar]], df[[input$var_x]], use = "complete.obs")
-      dir <- if (cor_val > 0.5) "positiva y fuerte" else
-        if (cor_val > 0.2) "positiva y moderada" else
-          if (cor_val < -0.5) "negativa y fuerte" else "débil"
-      div(class = "alert alert-info small py-2 px-3 mt-2 mb-0",
-          bs_icon("lightbulb-fill", class = "me-1"),
-          paste0("La relación entre ", input$var_x, " y ", yvar,
-                 " es ", dir, " (r = ", round(cor_val, 2), ")."))
+      df  <- datos_activos(); req(df, input$var_x)
+      fam <- input$familia
+
+      if (fam == "binomial") {
+        yvar <- vars_categoricas()[1]; req(yvar)
+        tryCatch({
+          y_bin   <- as.integer(as.character(df[[yvar]]))
+          prop    <- round(mean(y_bin, na.rm = TRUE) * 100, 0)
+          # Comparar medias de X entre grupos
+          mu1 <- round(mean(df[[input$var_x]][y_bin == 1], na.rm = TRUE), 2)
+          mu0 <- round(mean(df[[input$var_x]][y_bin == 0], na.rm = TRUE), 2)
+          dir <- if (mu1 > mu0) "mayor" else "menor"
+          div(class = "alert alert-info small py-2 px-3 mt-2 mb-0",
+              bs_icon("lightbulb-fill", class = "me-1"),
+              paste0("La prevalencia de ", yvar, " es ", prop, "%. ",
+                     "Los casos positivos tienen en promedio ",
+                     dir, " valor de ", input$var_x,
+                     " (media Y=1: ", mu1, " · media Y=0: ", mu0, ")."))
+        }, error = function(e) NULL)
+
+      } else {
+        yv2  <- vars_numericas(); req(length(yv2) >= 2)
+        yvar <- yv2[yv2 != input$var_x][1]; req(yvar)
+        cor_val <- cor(df[[yvar]], df[[input$var_x]], use = "complete.obs")
+        dir <- if (cor_val > 0.5) "positiva y fuerte" else
+          if (cor_val > 0.2) "positiva y moderada" else
+            if (cor_val < -0.5) "negativa y fuerte" else "débil"
+        div(class = "alert alert-info small py-2 px-3 mt-2 mb-0",
+            bs_icon("lightbulb-fill", class = "me-1"),
+            paste0("La relación entre ", input$var_x, " y ", yvar,
+                   " es ", dir, " (r = ", round(cor_val, 2), "). ",
+                   "Esta variable sola explica el ",
+                   round(cor_val^2 * 100, 0),
+                   "% de la variación en ", yvar, "."))
+      }
     })
 
     # ────────────────────────────────────────────────────
@@ -2512,15 +2643,12 @@ mod_glm_server <- function(id) {
         ic_txt    <- paste0("[", round(lo*100,1), "%, ",
                             round(hi*100,1), "%]")
         etiqueta  <- paste0("P(", input$var_y, " = 1)")
-        color     <- if (pred > 0.7) colores$peligro else
-          if (pred > 0.4) colores$acento  else
-            colores$primario
       } else {
         valor_txt <- as.character(round(pred, 3))
         ic_txt    <- paste0("[", round(lo,3), ", ", round(hi,3), "]")
         etiqueta  <- paste0(input$var_y, " esperado")
-        color     <- colores$primario
       }
+      color <- colores$primario
 
       tagList(
         div(class = "text-center py-3",
@@ -2555,7 +2683,7 @@ mod_glm_server <- function(id) {
         div(class = "alert alert-warning small py-2 px-3 mb-3",
             bs_icon("exclamation-triangle-fill", class = "me-1"),
             "El modelo no tiene predictores categóricos. ",
-            "Ve a ", strong("Construir el modelo"),
+            "Ve a ", strong("Ajustar modelo"),
             " y agrega al menos una variable categórica.")
       }
     })
