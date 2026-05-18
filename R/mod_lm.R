@@ -539,6 +539,7 @@ mod_lm_ui <- function(id) {
           ),
           layout_columns(
             col_widths = c(4, 8),
+            fill = FALSE,
 
             card(
               card_header(bs_icon("sliders", class = "me-1"),
@@ -607,6 +608,24 @@ mod_lm_ui <- function(id) {
                     tags$hr()
                   )
                 ),
+                div(
+                  class = "mb-3",
+                  p(class = "small fw-bold text-muted mb-1",
+                    bs_icon("distribute-vertical", class = "me-1"),
+                    "Estandarización"),
+                  checkboxInput(
+                    ns("estandarizar"),
+                    label = tagList(
+                      "Estandarizar predictores numéricos",
+                      tags$small(class = "text-muted d-block mt-1",
+                                 "Permite comparar el peso relativo de cada predictor ",
+                                 "(β en unidades de SD). El modelo se ajusta en ",
+                                 "escala original — los efectos marginales y ",
+                                 "predicciones siempre en unidades reales.")
+                    ),
+                    value = FALSE
+                  )
+                ),
                 actionButton(
                   ns("ajustar"),
                   "Ajustar modelo",
@@ -666,7 +685,8 @@ mod_lm_ui <- function(id) {
       # ════════════════════════════════════════════════
       nav_panel(
         title = tagList(bs_icon("table", class = "me-1"), "Parámetros"),
-        card_body(
+        div(
+          class = "p-3",
           p(class = "small text-muted mb-3",
             "Cada ", strong("coeficiente β"), " indica cuánto cambia Y por ",
             "cada unidad adicional de X, manteniendo el resto constante. ",
@@ -678,6 +698,7 @@ mod_lm_ui <- function(id) {
           ),
           layout_columns(
             col_widths = c(6, 6),
+            fill = FALSE,
             card(
               card_header(
                 bs_icon("layout-text-sidebar", class = "me-1"),
@@ -685,7 +706,10 @@ mod_lm_ui <- function(id) {
                 span(class = "text-muted small ms-2",
                      "— parameters (easystats)")
               ),
-              card_body(uiOutput(ns("tabla_params_ui")))
+              card_body(
+                style = "overflow: visible; height: auto;",
+                uiOutput(ns("tabla_params_ui"))
+              )
             ),
             card(
               card_header(
@@ -695,18 +719,44 @@ mod_lm_ui <- function(id) {
                      "— coeficiente ± IC 95%")
               ),
               card_body(
+                style = "height: auto;",
                 p(class = "small text-muted",
                   "Si la barra cruza el cero (línea punteada), ",
                   "el efecto no es estadísticamente significativo."),
-                plotOutput(ns("plot_forest"), height = "260px")
+                plotOutput(ns("plot_forest"), height = "300px")
               )
             )
           ),
-          card(
-            class = "mt-3",
-            card_header(bs_icon("chat-text", class = "me-1"),
-                        "Interpretación — haz clic en una fila"),
-            card_body(uiOutput(ns("interp_coef")))
+          div(class = "mt-3",
+              card(
+                card_header(
+                  bs_icon("bar-chart-steps", class = "me-1"),
+                  "Importancia de variables",
+                  span(class = "text-muted small ms-2",
+                       "— β estandarizados · parameters (easystats)")
+                ),
+                card_body(
+                  style = "height: auto;",
+                  p(class = "small text-muted mb-2",
+                    "Las barras muestran el peso relativo de cada predictor ",
+                    "en unidades de desviación estándar (SD). ",
+                    strong("Azul"), " = efecto positivo · ",
+                    strong("rojo"), " = efecto negativo. ",
+                    "Barras transparentes = no significativo (p ≥ 0.05)."
+                  ),
+                  plotOutput(ns("plot_importancia_lm"), height = "300px")
+                )
+              )
+          ),
+          div(class = "mt-3",
+              card(
+                card_header(bs_icon("chat-text", class = "me-1"),
+                            "Interpretación — haz clic en una fila"),
+                card_body(
+                  style = "overflow: visible; height: auto;",
+                  uiOutput(ns("interp_coef"))
+                )
+              )
           )
         )
       ),
@@ -737,6 +787,7 @@ mod_lm_ui <- function(id) {
               card_header(bs_icon("sliders", class = "me-1"),
                           "Controles"),
               card_body(
+                style = "overflow: visible; height: auto;",
                 p(class = "small text-muted mb-2",
                   "Selecciona el predictor focal. ",
                   "El resto se mantiene en sus valores típicos."),
@@ -1537,6 +1588,28 @@ mod_lm_server <- function(id) {
       })
     }, ignoreNULL = FALSE)
 
+    # ── Modelo estandarizado (para importancia de variables) ──
+
+    modelo_lm_std <- eventReactive(input$ajustar, {
+      df    <- datos_activos(); req(df, input$var_y)
+      preds <- c(input$preds_num, input$preds_cat)
+      req(length(preds) > 0)
+      preds_num <- input$preds_num
+      if (length(preds_num) == 0) return(NULL)
+
+      ints     <- input$interacciones
+      terminos <- if (!is.null(ints) && length(ints) > 0)
+        c(preds, ints) else preds
+      fm <- as.formula(
+        paste(input$var_y, "~", paste(terminos, collapse = " + "))
+      )
+
+      tryCatch({
+        df_std <- datawizard::standardize(df, select = preds_num)
+        lm(fm, data = df_std)
+      }, error = function(e) NULL)
+    }, ignoreNULL = FALSE)
+
     # ── Métricas ─────────────────────────────────────────
 
     output$cards_metricas <- renderUI({
@@ -1637,24 +1710,58 @@ mod_lm_server <- function(id) {
         div(class = "text-muted small py-3",
             "Ajusta el modelo primero.")
       )
-      s        <- summary(fit)
-      coef_mat <- coef(s)
-      ci       <- confint(fit, level = 0.95)
 
-      filas <- lapply(seq_len(nrow(coef_mat)), function(i) {
-        nm   <- rownames(coef_mat)[i]
-        est  <- round(coef_mat[i, 1], 3)
-        se   <- round(coef_mat[i, 2], 3)
-        pval <- coef_mat[i, 4]
-        lo   <- round(ci[i, 1], 3)
-        hi   <- round(ci[i, 2], 3)
+      std <- isTRUE(input$estandarizar)
 
-        p_txt <- if (pval < 0.001) "< 0.001 ***" else
-          if (pval < 0.01)  paste0(round(pval, 3), " **") else
-            if (pval < 0.05)  paste0(round(pval, 3), " *")  else
-              round(pval, 3)
-        col_p <- if (pval < 0.001) colores$exito else
-          if (pval < 0.05)  colores$acento else colores$texto
+      # Obtener parámetros — estandarizados o crudos
+      mp <- tryCatch(
+        parameters::model_parameters(
+          fit, ci = 0.95,
+          standardize = if (std) "refit" else NULL,
+          verbose = FALSE
+        ),
+        error = function(e) NULL
+      )
+
+      if (is.null(mp)) {
+        # Fallback to base R
+        s        <- summary(fit)
+        coef_mat <- coef(s)
+        ci_mat   <- confint(fit, level = 0.95)
+        mp_df <- data.frame(
+          Parameter = rownames(coef_mat),
+          Coefficient = coef_mat[,1],
+          SE = coef_mat[,2],
+          CI_low = ci_mat[,1],
+          CI_high = ci_mat[,2],
+          p = coef_mat[,4]
+        )
+      } else {
+        mp_df <- as.data.frame(mp)
+      }
+
+      col_est <- if (std) "Std_Coefficient" else "Coefficient"
+      if (!col_est %in% names(mp_df)) col_est <- "Coefficient"
+
+      encabezado <- if (std)
+        "β estandarizado (SD)" else "Estimado"
+
+      filas <- lapply(seq_len(nrow(mp_df)), function(i) {
+        nm   <- as.character(mp_df$Parameter[i])
+        est  <- round(mp_df[[col_est]][i], 3)
+        se   <- round(mp_df$SE[i], 3)
+        pval <- mp_df$p[i]
+        lo   <- round(mp_df$CI_low[i], 3)
+        hi   <- round(mp_df$CI_high[i], 3)
+
+        p_txt <- if (!is.na(pval)) {
+          if (pval < 0.001) "< 0.001 ***" else
+            if (pval < 0.01)  paste0(round(pval,3), " **") else
+              if (pval < 0.05)  paste0(round(pval,3), " *") else
+                round(pval, 3)
+        } else "—"
+        col_p <- if (!is.na(pval) && pval < 0.001) colores$exito else
+          if (!is.na(pval) && pval < 0.05) colores$acento else colores$texto
 
         tags$tr(
           style   = "cursor:pointer;",
@@ -1671,33 +1778,70 @@ mod_lm_server <- function(id) {
         )
       })
 
-      tags$table(
-        class = "table table-sm table-hover small mb-0",
-        tags$thead(tags$tr(
-          tags$th("Parámetro"), tags$th("Estimado"),
-          tags$th("EE"), tags$th("IC 95%"), tags$th("p-valor")
-        )),
-        tags$tbody(filas)
+      tagList(
+        if (std) div(
+          class = "alert alert-info small py-2 px-3 mb-2",
+          bs_icon("distribute-vertical", class = "me-1"),
+          strong("Coeficientes estandarizados (β)."),
+          " Cada estimado está en unidades de desviación estándar — ",
+          "mayor |β| indica mayor peso relativo del predictor. ",
+          "Efectos marginales y predicciones siguen en escala original."
+        ),
+        tags$table(
+          class = "table table-sm table-hover small mb-0",
+          tags$thead(tags$tr(
+            tags$th("Parámetro"), tags$th(encabezado),
+            tags$th("EE"), tags$th("IC 95%"), tags$th("p-valor")
+          )),
+          tags$tbody(filas)
+        )
       )
     })
 
     output$plot_forest <- renderPlot({
       fit <- modelo_lm()
       req(fit)
-      ci    <- confint(fit, level = 0.95)
-      coefs <- coef(fit)
-      pvals <- coef(summary(fit))[, 4]
-      nms   <- names(coefs)
+      std <- isTRUE(input$estandarizar)
 
-      df_f <- tibble::tibble(
-        term = factor(nms, levels = rev(nms)),
-        est  = coefs,
-        lo   = ci[, 1],
-        hi   = ci[, 2],
-        sig  = pvals < 0.05
-      ) |> dplyr::filter(term != "(Intercept)")
+      mp <- tryCatch(
+        parameters::model_parameters(
+          fit, ci = 0.95,
+          standardize = if (std) "refit" else NULL,
+          verbose = FALSE
+        ),
+        error = function(e) NULL
+      )
+
+      if (is.null(mp)) {
+        ci    <- confint(fit, level = 0.95)
+        coefs <- coef(fit)
+        pvals <- coef(summary(fit))[, 4]
+        df_f  <- tibble::tibble(
+          term = names(coefs),
+          est  = coefs, lo = ci[,1], hi = ci[,2],
+          sig  = pvals < 0.05
+        )
+      } else {
+        mp_df <- as.data.frame(mp)
+        col_est <- if (std && "Std_Coefficient" %in% names(mp_df))
+          "Std_Coefficient" else "Coefficient"
+        df_f <- tibble::tibble(
+          term = as.character(mp_df$Parameter),
+          est  = mp_df[[col_est]],
+          lo   = mp_df$CI_low,
+          hi   = mp_df$CI_high,
+          sig  = !is.na(mp_df$p) & mp_df$p < 0.05
+        )
+      }
+
+      df_f <- df_f |>
+        dplyr::filter(term != "(Intercept)") |>
+        dplyr::mutate(term = factor(term, levels = rev(unique(term))))
 
       if (nrow(df_f) == 0) return(invisible(NULL))
+
+      x_label <- if (std) "β estandarizado (SD)" else
+        paste0("Coeficiente (unidades de ", input$var_y, ")")
 
       ggplot(df_f, aes(x = est, y = term,
                        xmin = lo, xmax = hi, color = sig)) +
@@ -1714,7 +1858,7 @@ mod_lm_server <- function(id) {
                      `FALSE` = "No significativo"),
           name   = NULL
         ) +
-        labs(x = "Coeficiente (unidades de Y)", y = NULL,
+        labs(x = x_label, y = NULL,
              subtitle = "IC 95% — si incluye el 0, el efecto no es significativo") +
         theme_minimal(base_size = 12) +
         theme(
@@ -1723,6 +1867,88 @@ mod_lm_server <- function(id) {
           legend.position    = "bottom",
           plot.subtitle      = element_text(color = colores$texto, size = 9),
           legend.text        = element_text(size = 9)
+        )
+    }, res = 110)
+
+    output$plot_importancia_lm <- renderPlot({
+      fit <- modelo_lm(); req(fit)
+
+      fit_std <- modelo_lm_std()
+
+      # Usar modelo estandarizado si está disponible
+      mp <- if (!is.null(fit_std)) {
+        tryCatch(
+          parameters::model_parameters(fit_std, ci = 0.95, verbose = FALSE),
+          error = function(e) NULL
+        )
+      } else NULL
+
+      # Fallback a coeficientes crudos
+      if (is.null(mp)) {
+        mp <- tryCatch(
+          parameters::model_parameters(fit, ci = 0.95, verbose = FALSE),
+          error = function(e) NULL
+        )
+      }
+
+      if (is.null(mp)) return(
+        ggplot() + annotate("text", x=0.5, y=0.5,
+                            label="No se pudieron calcular los parámetros.",
+                            color=colores$texto, size=4) + theme_void()
+      )
+
+      df_imp <- as.data.frame(mp)
+      col_est <- "Coefficient"
+      es_std  <- !is.null(fit_std)
+
+      df_imp <- df_imp |>
+        dplyr::filter(Parameter != "(Intercept)") |>
+        dplyr::mutate(
+          abs_est   = abs(.data[[col_est]]),
+          direccion = ifelse(.data[[col_est]] >= 0, "Positivo", "Negativo"),
+          sig       = !is.na(p) & p < 0.05,
+          Parameter = factor(Parameter,
+                             levels = Parameter[order(abs_est)])
+        ) |>
+        dplyr::arrange(abs_est)
+
+      if (nrow(df_imp) == 0) return(invisible(NULL))
+
+      df_imp$sig_chr <- ifelse(df_imp$sig, "sig", "no_sig")
+
+      x_label <- if (es_std) "Importancia (β estandarizado en SD)"
+      else paste0("Importancia (coeficiente en unidades de ", input$var_y, ")")
+
+      ggplot(df_imp,
+             aes(x = abs_est, y = Parameter,
+                 fill = direccion, alpha = sig_chr)) +
+        geom_col(width = 0.65) +
+        geom_text(aes(label = sprintf("%+.3f", .data[[col_est]])),
+                  hjust = -0.15, size = 3.5,
+                  color = colores$texto) +
+        scale_fill_manual(
+          values = c("Positivo" = colores$primario,
+                     "Negativo" = colores$peligro),
+          name = "Dirección"
+        ) +
+        scale_alpha_manual(
+          values = c("sig" = 1, "no_sig" = 0.35),
+          guide  = "none"
+        ) +
+        scale_x_continuous(expand = expansion(mult = c(0, 0.2))) +
+        labs(
+          x        = x_label,
+          y        = NULL,
+          subtitle = "Barras transparentes = p ≥ 0.05 · Mayor barra = mayor peso relativo"
+        ) +
+        theme_minimal(base_size = 12) +
+        theme(
+          panel.grid.minor   = element_blank(),
+          panel.grid.major.y = element_blank(),
+          legend.position    = "bottom",
+          plot.subtitle      = element_text(color = colores$texto, size = 9),
+          legend.text        = element_text(size = 9),
+          plot.margin        = margin(10, 20, 5, 10)
         )
     }, res = 110)
 

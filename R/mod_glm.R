@@ -649,6 +649,7 @@ mod_glm_ui <- function(id) {
           ),
           layout_columns(
             col_widths = c(4, 8),
+            fill = FALSE,
 
             card(
               card_header(bs_icon("sliders", class = "me-1"),
@@ -728,6 +729,25 @@ mod_glm_ui <- function(id) {
                     tags$hr()
                   )
                 ),
+                div(
+                  class = "mb-3",
+                  p(class = "small fw-bold text-muted mb-1",
+                    bs_icon("distribute-vertical", class = "me-1"),
+                    "Estandarización"),
+                  checkboxInput(
+                    ns("estandarizar"),
+                    label = tagList(
+                      "Estandarizar predictores numéricos",
+                      tags$small(class = "text-muted d-block mt-1",
+                                 "Mejora la estabilidad numérica del algoritmo ",
+                                 "iterativo y permite comparar el peso relativo ",
+                                 "de cada predictor (β en unidades de SD). ",
+                                 "Los efectos marginales y predicciones siempre ",
+                                 "se muestran en escala original.")
+                    ),
+                    value = FALSE
+                  )
+                ),
                 actionButton(
                   ns("ajustar"),
                   "Ajustar modelo",
@@ -787,12 +807,14 @@ mod_glm_ui <- function(id) {
       # ════════════════════════════════════════════════
       nav_panel(
         title = tagList(bs_icon("table", class = "me-1"), "Parámetros"),
-        card_body(
+        div(
+          class = "p-3",
 
           uiOutput(ns("params_intro")),
 
           layout_columns(
             col_widths = c(6, 6),
+            fill = FALSE,
             card(
               card_header(
                 bs_icon("layout-text-sidebar", class = "me-1"),
@@ -800,7 +822,10 @@ mod_glm_ui <- function(id) {
                 span(class = "text-muted small ms-2",
                      "— parameters (easystats)")
               ),
-              card_body(uiOutput(ns("tabla_params_ui")))
+              card_body(
+                style = "overflow: visible; height: auto;",
+                uiOutput(ns("tabla_params_ui"))
+              )
             ),
             card(
               card_header(
@@ -810,26 +835,61 @@ mod_glm_ui <- function(id) {
                      "— coeficiente ± IC 95%")
               ),
               card_body(
-                plotOutput(ns("plot_forest"), height = "260px")
+                style = "height: auto;",
+                p(class = "small text-muted",
+                  "Si la barra cruza el cero (línea punteada), ",
+                  "el efecto no es estadísticamente significativo."),
+                plotOutput(ns("plot_forest"), height = "300px")
               )
             )
           ),
 
-          # Escala transformada (OR o IRR)
-          card(
-            class = "mt-3",
-            card_header(
-              bs_icon("arrow-left-right", class = "me-1"),
-              uiOutput(ns("transformed_header"))
-            ),
-            card_body(uiOutput(ns("tabla_transformada")))
+          div(class = "mt-3",
+              card(
+                card_header(
+                  bs_icon("bar-chart-steps", class = "me-1"),
+                  "Importancia de variables",
+                  span(class = "text-muted small ms-2",
+                       "— β estandarizados · parameters (easystats)")
+                ),
+                card_body(
+                  style = "height: auto;",
+                  p(class = "small text-muted mb-2",
+                    "Las barras muestran el peso relativo de cada predictor ",
+                    "en unidades de desviación estándar (SD) en la ",
+                    strong("escala del enlace"), ". ",
+                    strong("Azul"), " = efecto positivo · ",
+                    strong("rojo"), " = efecto negativo. ",
+                    "Barras transparentes = no significativo (p ≥ 0.05)."
+                  ),
+                  plotOutput(ns("plot_importancia_glm"), height = "300px")
+                )
+              )
           ),
 
-          card(
-            class = "mt-3",
-            card_header(bs_icon("chat-text", class = "me-1"),
-                        "Interpretación — haz clic en una fila"),
-            card_body(uiOutput(ns("interp_coef")))
+          # Escala transformada (OR o IRR)
+          div(class = "mt-3",
+              card(
+                card_header(
+                  bs_icon("arrow-left-right", class = "me-1"),
+                  uiOutput(ns("transformed_header"))
+                ),
+                card_body(
+                  style = "overflow: visible; height: auto;",
+                  uiOutput(ns("tabla_transformada"))
+                )
+              )
+          ),
+
+          div(class = "mt-3",
+              card(
+                card_header(bs_icon("chat-text", class = "me-1"),
+                            "Interpretación — haz clic en una fila"),
+                card_body(
+                  style = "overflow: visible; height: auto;",
+                  uiOutput(ns("interp_coef"))
+                )
+              )
           )
         )
       ),
@@ -898,6 +958,7 @@ mod_glm_ui <- function(id) {
               card_header(bs_icon("sliders", class = "me-1"),
                           "Controles"),
               card_body(
+                style = "overflow: visible; height: auto;",
                 p(class = "small text-muted mb-2",
                   "Selecciona el predictor focal. ",
                   "El resto se mantiene en sus valores típicos."),
@@ -1899,6 +1960,35 @@ mod_glm_server <- function(id) {
     }, ignoreNULL = FALSE)
 
     # Métricas básicas
+    # ── Modelo estandarizado (para importancia de variables) ──
+
+    modelo_glm_std <- eventReactive(input$ajustar, {
+      df    <- datos_activos(); req(df, input$var_y)
+      preds <- c(input$preds_num, input$preds_cat)
+      req(length(preds) > 0)
+      preds_num <- input$preds_num
+      if (length(preds_num) == 0) return(NULL)
+
+      ints     <- input$interacciones
+      terminos <- if (!is.null(ints) && length(ints) > 0)
+        c(preds, ints) else preds
+      fm <- as.formula(
+        paste(input$var_y, "~", paste(terminos, collapse = " + "))
+      )
+
+      fam_obj <- switch(input$familia,
+                        "binomial" = binomial(),
+                        "poisson"  = poisson(),
+                        "nbinom2"  = MASS::negative.binomial(theta = 1),
+                        binomial()
+      )
+
+      tryCatch({
+        df_std <- datawizard::standardize(df, select = preds_num)
+        glm(fm, data = df_std, family = fam_obj)
+      }, error = function(e) NULL)
+    }, ignoreNULL = FALSE)
+
     output$cards_metricas <- renderUI({
       fit <- modelo_glm()
       if (is.null(fit)) return(
@@ -2083,24 +2173,29 @@ mod_glm_server <- function(id) {
         div(class = "text-muted small py-3", "Ajusta el modelo primero.")
       )
       tryCatch({
-        mp  <- parameters::model_parameters(fit, ci = 0.95,
-                                            verbose = FALSE,
-                                            component = "conditional")
+        std <- isTRUE(input$estandarizar)
+        mp  <- parameters::model_parameters(
+          fit, ci = 0.95, verbose = FALSE,
+          component    = "conditional",
+          standardize  = if (std) "refit" else NULL
+        )
         df  <- as.data.frame(mp)
 
         # Filtrar solo parámetros condicionales (excluir dispersión)
-        # glmmTMB con nbinom2 devuelve dos (Intercept) — el segundo es dispersión
         if ("Component" %in% names(df)) {
           df <- df[df$Component == "conditional", ]
         } else {
-          # Eliminar duplicados de (Intercept) — quedarse con el primero
           df <- df[!duplicated(df$Parameter) |
                      df$Parameter != "(Intercept)", ]
         }
 
+        col_est     <- if (std && "Std_Coefficient" %in% names(df))
+          "Std_Coefficient" else "Coefficient"
+        encabezado  <- if (std) "β estand. (SD)" else "Estimado"
+
         filas <- lapply(seq_len(nrow(df)), function(i) {
           nm   <- df$Parameter[i]
-          est  <- round(df$Coefficient[i], 3)
+          est  <- round(df[[col_est]][i], 3)
           se   <- round(df$SE[i], 3)
           lo   <- round(df$CI_low[i], 3)
           hi   <- round(df$CI_high[i], 3)
@@ -2129,25 +2224,35 @@ mod_glm_server <- function(id) {
           )
         })
 
-        tags$table(
-          class = "table table-sm table-hover small mb-0",
-          tags$thead(tags$tr(
-            tags$th(style = paste0("background:", colores$primario,
-                                   " !important; color:#fff !important;"), "Parámetro"),
-            tags$th(style = paste0("background:", colores$primario,
-                                   " !important; color:#fff !important; text-align:center;"),
-                    "Estimado"),
-            tags$th(style = paste0("background:", colores$primario,
-                                   " !important; color:#fff !important; text-align:center;"),
-                    "EE"),
-            tags$th(style = paste0("background:", colores$primario,
-                                   " !important; color:#fff !important; text-align:center;"),
-                    "IC 95%"),
-            tags$th(style = paste0("background:", colores$primario,
-                                   " !important; color:#fff !important; text-align:center;"),
-                    "p-valor")
-          )),
-          tags$tbody(filas)
+        tagList(
+          if (std) div(
+            class = "alert alert-info small py-2 px-3 mb-2",
+            bs_icon("distribute-vertical", class = "me-1"),
+            strong("Coeficientes estandarizados (β)."),
+            " Mayor |β| indica mayor peso relativo del predictor. ",
+            "Los efectos marginales y predicciones siguen en escala original."
+          ),
+          tags$table(
+            class = "table table-sm table-hover small mb-0",
+            tags$thead(tags$tr(
+              tags$th(style = paste0("background:", colores$primario,
+                                     " !important; color:#fff !important;"),
+                      "Parámetro"),
+              tags$th(style = paste0("background:", colores$primario,
+                                     " !important; color:#fff !important;",
+                                     " text-align:center;"), encabezado),
+              tags$th(style = paste0("background:", colores$primario,
+                                     " !important; color:#fff !important;",
+                                     " text-align:center;"), "EE"),
+              tags$th(style = paste0("background:", colores$primario,
+                                     " !important; color:#fff !important;",
+                                     " text-align:center;"), "IC 95%"),
+              tags$th(style = paste0("background:", colores$primario,
+                                     " !important; color:#fff !important;",
+                                     " text-align:center;"), "p-valor")
+            )),
+            tags$tbody(filas)
+          )
         )
       }, error = function(e) {
         div(class = "text-muted small", "Error al obtener parámetros.")
@@ -2174,7 +2279,7 @@ mod_glm_server <- function(id) {
                          color = sig)) +
           geom_vline(xintercept = 0, linetype = "dashed",
                      color = colores$texto, linewidth = 0.7) +
-          geom_errorbar(aes(ymin=CI_low, ymax=CI_high), width=0.25, linewidth=1.1, orientation="y") +
+          geom_errorbar(width=0.25, linewidth=1.1) +
           geom_point(size = 3.5) +
           scale_color_manual(
             values = c(`TRUE`  = colores$acento,
@@ -2308,6 +2413,110 @@ mod_glm_server <- function(id) {
             "Error al transformar parámetros.")
       })
     })
+
+    output$plot_importancia_glm <- renderPlot({
+      fit <- modelo_glm(); req(fit)
+
+      # Try standardized first, fall back to raw coefficients
+      fit_std <- modelo_glm_std()
+
+      # Usar modelo estandarizado si está disponible
+      mp <- if (!is.null(fit_std)) {
+        tryCatch(
+          parameters::model_parameters(
+            fit_std, ci = 0.95,
+            component = "conditional",
+            verbose   = FALSE
+          ),
+          error = function(e) NULL
+        )
+      } else NULL
+
+      # Fallback a coeficientes crudos
+      if (is.null(mp)) {
+        mp <- tryCatch(
+          parameters::model_parameters(
+            fit, ci = 0.95,
+            component = "conditional",
+            verbose   = FALSE
+          ),
+          error = function(e) NULL
+        )
+      }
+
+      if (is.null(mp)) return(
+        ggplot() + annotate("text", x=0.5, y=0.5,
+                            label="No se pudieron calcular los parámetros.",
+                            color=colores$texto, size=4) + theme_void()
+      )
+
+      df_imp <- as.data.frame(mp)
+      if ("Component" %in% names(df_imp))
+        df_imp <- df_imp[df_imp$Component == "conditional", ]
+
+      col_est <- "Coefficient"
+      es_std  <- !is.null(fit_std)
+
+      df_imp <- df_imp |>
+        dplyr::filter(Parameter != "(Intercept)") |>
+        dplyr::mutate(
+          abs_est   = abs(.data[[col_est]]),
+          direccion = ifelse(.data[[col_est]] >= 0, "Positivo", "Negativo"),
+          sig       = !is.na(p) & p < 0.05,
+          Parameter = factor(Parameter,
+                             levels = Parameter[order(abs_est)])
+        ) |>
+        dplyr::arrange(abs_est)
+
+      if (nrow(df_imp) == 0) return(invisible(NULL))
+
+      fam <- isolate(input$familia)
+      es_std <- "Std_Coefficient" %in% names(as.data.frame(mp))
+      escala_nota <- if (es_std) switch(fam,
+                                        "binomial" = "Importancia (β estand., escala logit)",
+                                        "poisson"  = "Importancia (β estand., escala log)",
+                                        "nbinom2"  = "Importancia (β estand., escala log)",
+                                        "Importancia (β estandarizado)"
+      ) else switch(fam,
+                    "binomial" = "Importancia (coeficiente crudo, escala logit)",
+                    "poisson"  = "Importancia (coeficiente crudo, escala log)",
+                    "Importancia (coeficiente crudo)"
+      )
+
+      df_imp$sig_chr <- ifelse(df_imp$sig, "sig", "no_sig")
+
+      ggplot(df_imp,
+             aes(x = abs_est, y = Parameter,
+                 fill = direccion, alpha = sig_chr)) +
+        geom_col(width = 0.65) +
+        geom_text(aes(label = sprintf("%+.3f", .data[[col_est]])),
+                  hjust = -0.15, size = 3.5,
+                  color = colores$texto) +
+        scale_fill_manual(
+          values = c("Positivo" = colores$primario,
+                     "Negativo" = colores$peligro),
+          name = "Dirección"
+        ) +
+        scale_alpha_manual(
+          values = c("sig" = 1, "no_sig" = 0.35),
+          guide  = "none"
+        ) +
+        scale_x_continuous(expand = expansion(mult = c(0, 0.2))) +
+        labs(
+          x        = escala_nota,
+          y        = NULL,
+          subtitle = "Barras transparentes = p ≥ 0.05 · Mayor barra = mayor peso relativo"
+        ) +
+        theme_minimal(base_size = 12) +
+        theme(
+          panel.grid.minor   = element_blank(),
+          panel.grid.major.y = element_blank(),
+          legend.position    = "bottom",
+          plot.subtitle      = element_text(color = colores$texto, size = 9),
+          legend.text        = element_text(size = 9),
+          plot.margin        = margin(10, 20, 5, 10)
+        )
+    }, res = 96)
 
     output$interp_coef <- renderUI({
       fit <- modelo_glm(); req(fit)
