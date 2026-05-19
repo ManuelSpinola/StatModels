@@ -455,7 +455,7 @@ mod_glm_ui <- function(id) {
                       "¿Qué tipo de variable respuesta tienes?"),
                     tags$div(
                       style = paste0(
-                        "display:grid; grid-template-columns:1fr 1fr 1fr;",
+                        "display:grid; grid-template-columns:1fr 1fr;",
                         "gap:8px; margin-bottom:12px;"
                       ),
 
@@ -510,6 +510,33 @@ mod_glm_ui <- function(id) {
                             "color:#fff; padding:1px 6px;",
                             "border-radius:4px;"
                           ), "log")
+                      ),
+
+                      # Quasipoisson
+                      tags$div(
+                        id = ns("card_quasipoisson"),
+                        style = paste0(
+                          "background:var(--color-background-secondary);",
+                          "border:1.5px solid var(--color-border-tertiary);",
+                          "border-radius:10px; padding:10px 12px;",
+                          "cursor:pointer;"
+                        ),
+                        onclick = paste0(
+                          "Shiny.setInputValue('", ns("familia_datos"),
+                          "', 'quasipoisson', {priority:'event'})"
+                        ),
+                        tags$div(style="font-size:18px; color:#6B3FA0;",
+                                 bs_icon("bar-chart-steps")),
+                        tags$p(style="font-size:13px; font-weight:500;",
+                               "Quasipoisson"),
+                        tags$p(style="font-size:11px; color:#555; margin:0;",
+                               "Conteos sobredispersos \u03c6"),
+                        tags$span(
+                          style=paste0(
+                            "font-size:10px; background:#6B3FA0;",
+                            "color:#fff; padding:1px 6px;",
+                            "border-radius:4px;"
+                          ), "log · QAIC")
                       ),
 
                       # Binomial negativa
@@ -698,6 +725,7 @@ mod_glm_ui <- function(id) {
                   choices = c(
                     "Binomial (logística)"    = "binomial",
                     "Poisson"                 = "poisson",
+                    "Quasipoisson"            = "quasipoisson",
                     "Binomial negativa"       = "nbinom2"
                   ),
                   selected = "binomial"
@@ -1283,6 +1311,11 @@ mod_glm_server <- function(id) {
         "Cáncer de pulmón — con offset (salud)"  = "danish",
         "Cargar mis propios datos"               = "propio"
       ),
+      quasipoisson = c(
+        "Abundancia Brachy — ácaros (ecología)" = "mite_poi",
+        "Riqueza de hormigas (ecología)"         = "ants",
+        "Cargar mis propios datos"               = "propio"
+      ),
       nbinom2 = c(
         "Cangrejos herradura (biología)"         = "hcrabs",
         "Cargar mis propios datos"               = "propio"
@@ -1443,21 +1476,21 @@ mod_glm_server <- function(id) {
       req(fuente)
 
       if (fuente == "mite_log") {
-        load("data/mite_logistic.rda"); mite_logistic
+        { e <- new.env(); load(system.file("app/data/mite_logistic.rda", package = "StatModels"), envir = e); e$mite_logistic }
       } else if (fuente == "mite_poi") {
-        load("data/mite_counts.rda"); mite_counts
+        { e <- new.env(); load(system.file("app/data/mite_counts.rda", package = "StatModels"), envir = e); e$mite_counts }
       } else if (fuente == "pima") {
-        load("data/pima_glm.rda"); pima_glm
+        { e <- new.env(); load(system.file("app/data/pima_glm.rda", package = "StatModels"), envir = e); e$pima_glm }
       } else if (fuente == "cowles") {
-        load("data/cowles_glm.rda"); cowles_glm
+        { e <- new.env(); load(system.file("app/data/cowles_glm.rda", package = "StatModels"), envir = e); e$cowles_glm }
       } else if (fuente == "ants") {
-        load("data/ants_glm.rda"); ants_glm
+        { e <- new.env(); load(system.file("app/data/ants_glm.rda", package = "StatModels"), envir = e); e$ants_glm }
       } else if (fuente == "insurance") {
-        load("data/insurance_glm.rda"); insurance_glm
+        { e <- new.env(); load(system.file("app/data/insurance_glm.rda", package = "StatModels"), envir = e); e$insurance_glm }
       } else if (fuente == "danish") {
-        load("data/danish_glm.rda"); danish_glm
+        { e <- new.env(); load(system.file("app/data/danish_glm.rda", package = "StatModels"), envir = e); e$danish_glm }
       } else if (fuente == "hcrabs") {
-        load("data/hcrabs_glm.rda"); hcrabs_glm
+        { e <- new.env(); load(system.file("app/data/hcrabs_glm.rda", package = "StatModels"), envir = e); e$hcrabs_glm }
       } else {
         req(input$archivo)
         ext <- tools::file_ext(input$archivo$name)
@@ -1940,9 +1973,10 @@ mod_glm_server <- function(id) {
       withProgress(message = "Ajustando modelo GLM...", value = 0.5, {
         fit <- tryCatch({
           fam_glm <- switch(input$familia,
-                            "binomial" = stats::binomial(link = input$enlace),
-                            "poisson"  = stats::poisson(link  = input$enlace),
-                            "nbinom2"  = NULL)
+                            "binomial"     = stats::binomial(link = input$enlace),
+                            "poisson"      = stats::poisson(link  = input$enlace),
+                            "quasipoisson" = stats::quasipoisson(link = "log"),
+                            "nbinom2"      = NULL)
           if (input$familia == "nbinom2") {
             MASS::glm.nb(fm, data = df)
           } else {
@@ -3666,43 +3700,99 @@ mod_glm_server <- function(id) {
             bs_icon("info-circle", class="me-1"),
             "Guarda al menos un modelo para ver la comparación.")
       )
+
+      # Detectar si hay modelos quasipoisson
+      tiene_quasi <- any(sapply(mg, function(m) m$familia == "quasipoisson"))
+
       rows <- lapply(names(mg), function(nm) {
         fit <- mg[[nm]]$fit
-        pm  <- tryCatch(
-          performance::model_performance(fit, verbose=FALSE),
-          error=function(e) NULL)
-        if (is.null(pm)) return(NULL)
-        list(nm=nm, aic=round(pm$AIC,1),
-             aicc=round(performance::performance_aicc(fit),1),
-             bic=round(pm$BIC,1),
-             fam=mg[[nm]]$familia)
+        fam <- mg[[nm]]$familia
+
+        if (fam == "quasipoisson") {
+          # QAIC via AICcmodavg
+          phi <- tryCatch(summary(fit)$dispersion, error = function(e) 1)
+          # Reajustar como Poisson para logLik
+          fm_poisson <- tryCatch({
+            update(fit, family = poisson(link = "log"))
+          }, error = function(e) NULL)
+
+          qaic <- tryCatch({
+            if (!is.null(fm_poisson))
+              AICcmodavg::AICc(fm_poisson, c.hat = phi)
+            else NA
+          }, error = function(e) NA)
+
+          list(nm = nm, fam = fam,
+               aic  = "\u2014 (quasi)",
+               aicc = if (!is.na(qaic)) round(qaic, 1) else "\u2014",
+               bic  = "\u2014 (quasi)",
+               phi  = round(phi, 3),
+               es_quasi = TRUE)
+        } else {
+          pm <- tryCatch(
+            performance::model_performance(fit, verbose = FALSE),
+            error = function(e) NULL)
+          if (is.null(pm)) return(NULL)
+          list(nm   = nm, fam = fam,
+               aic  = round(pm$AIC, 1),
+               aicc = round(performance::performance_aicc(fit), 1),
+               bic  = round(pm$BIC, 1),
+               phi  = NA,
+               es_quasi = FALSE)
+        }
       })
       rows <- rows[!sapply(rows, is.null)]
       if (length(rows) == 0) return(NULL)
 
-      best_aicc <- which.min(sapply(rows, function(r) r$aicc))
+      # Seleccionar mejor por QAICc o AICc según contexto
+      criterio <- sapply(rows, function(r) {
+        v <- r$aicc
+        if (is.character(v)) Inf else as.numeric(v)
+      })
+      best <- which.min(criterio)
 
-      tags$table(
-        class="table table-sm table-hover small mb-0",
-        tags$thead(style=paste0("background:",colores$primario,
-                                "; color:#fff;"),
-                   tags$tr(
-                     tags$th("Modelo"), tags$th("Familia"),
-                     tags$th("AIC"), tags$th("AICc"), tags$th("BIC")
-                   )),
-        tags$tbody(lapply(seq_along(rows), function(i) {
-          r  <- rows[[i]]
-          bg <- if (i==best_aicc)
-            "background:#f0f9f5; font-weight:600;" else ""
-          tags$tr(style=bg,
-                  tags$td(if(i==best_aicc)
-                    tagList(bs_icon("trophy-fill",
-                                    style=paste0("color:",colores$acento,
-                                                 "; margin-right:4px")), r$nm)
-                    else r$nm),
-                  tags$td(r$fam),
-                  tags$td(r$aic), tags$td(r$aicc), tags$td(r$bic))
-        }))
+      tagList(
+        if (tiene_quasi)
+          div(class = "alert alert-info small py-2 px-3 mb-2",
+              bs_icon("info-circle", class = "me-1"),
+              "Los modelos ", strong("quasipoisson"), " usan ",
+              strong("QAICc"), " (corregido por sobredispersión \u03c6) ",
+              "en lugar de AICc. No son directamente comparables con ",
+              "modelos de otras familias."),
+
+        tags$table(
+          class = "table table-sm table-hover small mb-0",
+          tags$thead(
+            style = paste0("background:", colores$primario, "; color:#fff;"),
+            tags$tr(
+              tags$th("Modelo"), tags$th("Familia"),
+              tags$th(if (tiene_quasi) "AICc / QAICc" else "AICc"),
+              tags$th("AIC / \u2014"),
+              tags$th("BIC / \u2014"),
+              if (tiene_quasi) tags$th("\u03c6 (dispersión)") else NULL
+            )
+          ),
+          tags$tbody(lapply(seq_along(rows), function(i) {
+            r  <- rows[[i]]
+            bg <- if (i == best)
+              "background:#f0f9f5; font-weight:600;" else ""
+            tags$tr(
+              style = bg,
+              tags$td(if (i == best)
+                tagList(bs_icon("trophy-fill",
+                                style = paste0("color:", colores$acento,
+                                               "; margin-right:4px")), r$nm)
+                else r$nm),
+              tags$td(r$fam),
+              tags$td(r$aicc),
+              tags$td(r$aic),
+              tags$td(r$bic),
+              if (tiene_quasi)
+                tags$td(if (!is.na(r$phi)) r$phi else "\u2014")
+              else NULL
+            )
+          }))
+        )
       )
     })
 
@@ -3947,21 +4037,21 @@ mod_glm_server <- function(id) {
 
       fuente <- input$fuente_datos
       carga <- if (fuente == "mite_log")
-        'load("data/mite_logistic.rda")\ndatos <- mite_logistic\n'
+        'load(system.file("app/data/mite_logistic.rda", package = "StatModels")\ndatos <- mite_logistic\n'
       else if (fuente == "mite_poi")
-        'load("data/mite_counts.rda")\ndatos <- mite_counts\n'
+        'load(system.file("app/data/mite_counts.rda", package = "StatModels")\ndatos <- mite_counts\n'
       else if (fuente == "pima")
-        'load("data/pima_glm.rda")\ndatos <- pima_glm\n'
+        'load(system.file("app/data/pima_glm.rda", package = "StatModels")\ndatos <- pima_glm\n'
       else if (fuente == "cowles")
-        'load("data/cowles_glm.rda")\ndatos <- cowles_glm\n'
+        'load(system.file("app/data/cowles_glm.rda", package = "StatModels")\ndatos <- cowles_glm\n'
       else if (fuente == "ants")
-        'load("data/ants_glm.rda")\ndatos <- ants_glm\n'
+        'load(system.file("app/data/ants_glm.rda", package = "StatModels")\ndatos <- ants_glm\n'
       else if (fuente == "insurance")
-        'load("data/insurance_glm.rda")\ndatos <- insurance_glm\n'
+        'load(system.file("app/data/insurance_glm.rda", package = "StatModels")\ndatos <- insurance_glm\n'
       else if (fuente == "danish")
-        'load("data/danish_glm.rda")\ndatos <- danish_glm\n'
+        'load(system.file("app/data/danish_glm.rda", package = "StatModels")\ndatos <- danish_glm\n'
       else if (fuente == "hcrabs")
-        'load("data/hcrabs_glm.rda")\ndatos <- hcrabs_glm\n'
+        'load(system.file("app/data/hcrabs_glm.rda", package = "StatModels")\ndatos <- hcrabs_glm\n'
       else
         'datos <- read.csv("tu_archivo.csv")\n'
 

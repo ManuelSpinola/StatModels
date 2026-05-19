@@ -4,13 +4,11 @@
 #' @noRd
 app_ui <- function() {
 
-  # ── Recursos estáticos ──────────────────────────────────
   golem::add_resource_path(
     "www",
     system.file("app/www", package = "StatModels")
   )
 
-  # ── UI principal ─────────────────────────────────────────
   page_navbar(
     header = shinyjs::useShinyjs(),
     title  = div(
@@ -39,22 +37,13 @@ app_ui <- function() {
       mod_glm_ui("glm")
     ),
 
-    # ── Próximamente ──────────────────────────────────────
     nav_panel(
       title = "Modelo aditivo generalizado (GAM)",
       icon  = bs_icon("bezier2"),
-      proximamente_ui(
-        icono     = "bezier2",
-        titulo    = "Modelo aditivo generalizado (GAM)",
-        subtitulo = paste0(
-          "Reemplaza los efectos lineales por funciones suaves no param\u00e9tricas. ",
-          "Ideal cuando la relaci\u00f3n entre X e Y no es lineal. ",
-          "Paquete: mgcv."
-        ),
-        datasets  = "palmerpenguins \u00b7 mgcv::gamSim()"
-      )
+      mod_gam_ui("gam")
     ),
 
+    # ── Próximamente ──────────────────────────────────────
     nav_panel(
       title = "Modelos mixtos (LMM / GLMM)",
       icon  = bs_icon("diagram-3"),

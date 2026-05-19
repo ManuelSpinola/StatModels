@@ -43,6 +43,7 @@ Imports:
     effectsize,
     correlation,
     report,
+    AICcmodavg,
     golem
 Suggests:
     testthat (>= 3.0.0)

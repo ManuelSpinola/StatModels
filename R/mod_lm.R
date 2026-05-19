@@ -460,67 +460,85 @@ mod_lm_ui <- function(id) {
       nav_panel(
         title = tagList(bs_icon("table", class = "me-1"), "Los datos"),
         card_body(
+          navset_pill(
 
-          layout_columns(
-            col_widths = c(4, 8),
-
-            card(
-              card_header(bs_icon("database", class = "me-1"),
-                          "Fuente de datos"),
-              card_body(
-                radioButtons(
-                  ns("fuente_datos"),
-                  label   = NULL,
-                  choices = c(
-                    "Densidad de especie de ave (Loyn, 1987)"  = "ejemplo_ave",
-                    "Peso al nacer — salud perinatal (Hosmer)" = "ejemplo_salud",
-                    "Cargar mis propios datos"                  = "propio"
-                  ),
-                  selected = "ejemplo_ave"
-                ),
-                conditionalPanel(
-                  condition = paste0("input['", ns("fuente_datos"),
-                                     "'] == 'propio'"),
-                  tags$hr(),
-                  fileInput(
-                    ns("archivo"),
-                    label       = "Seleccionar archivo:",
-                    accept      = c(".csv", ".xlsx", ".xls"),
-                    buttonLabel = "Buscar…",
-                    placeholder = "CSV o Excel"
-                  ),
-                  selectInput(
-                    ns("separador"),
-                    label    = "Separador (CSV):",
-                    choices  = c(
-                      "Coma (,)"         = ",",
-                      "Punto y coma (;)" = ";",
-                      "Tabulador"        = "\t"
+            nav_panel(
+              title = tagList(bs_icon("database", class = "me-1"), "Cargar datos"),
+              br(),
+              layout_columns(
+                col_widths = c(4, 8),
+                card(
+                  card_header(bs_icon("folder2-open", class = "me-1"),
+                              "Fuente de datos"),
+                  card_body(
+                    style = "overflow: visible; height: auto;",
+                    uiOutput(ns("sel_fuente_datos")),
+                    tags$hr(),
+                    fileInput(
+                      ns("archivo"),
+                      label       = "Seleccionar archivo:",
+                      accept      = c(".csv", ".xlsx", ".xls"),
+                      buttonLabel = "Buscar\u2026",
+                      placeholder = "CSV o Excel"
                     ),
-                    selected = ","
-                  ),
-                  p(class = "small text-muted mb-0",
-                    bs_icon("info-circle", class = "me-1"),
-                    "La primera fila debe contener los nombres ",
-                    "de las columnas.")
+                    selectInput(
+                      ns("separador"),
+                      label    = "Separador (CSV):",
+                      choices  = c(
+                        "Coma (,)"         = ",",
+                        "Punto y coma (;)" = ";",
+                        "Tabulador"        = "\t"
+                      ),
+                      selected = ","
+                    ),
+                    p(class = "small text-muted mb-0",
+                      bs_icon("info-circle", class = "me-1"),
+                      "La primera fila debe contener los nombres de las columnas."),
+                    tags$hr(),
+                    uiOutput(ns("info_dataset")),
+                    uiOutput(ns("resumen_datos"))
+                  )
                 ),
-                tags$hr(),
-                uiOutput(ns("info_dataset_que_es")),
-                uiOutput(ns("resumen_datos"))
+                card(
+                  card_header(bs_icon("eye", class = "me-1"), "Vista previa"),
+                  card_body(
+                    style = "overflow: auto;",
+                    uiOutput(ns("cards_datos")),
+                    br(),
+                    DTOutput(ns("tabla_preview"))
+                  )
+                )
               )
             ),
 
-            div(
-              uiOutput(ns("cards_datos")),
+            nav_panel(
+              title = tagList(bs_icon("sliders2", class = "me-1"),
+                              "Tipos de variables"),
               br(),
-              card(
-                card_header(bs_icon("eye", class = "me-1"),
-                            "Vista previa"),
-                card_body(DTOutput(ns("tabla_preview")))
-              )
+              p(class = "small text-muted mb-3",
+                "Verifica que cada variable tenga el tipo correcto. ",
+                "Las variables ", strong("categ\u00f3ricas"),
+                " deben ser ", strong("Factor"), ". ",
+                "Las variables codificadas como n\u00fameros pero que ",
+                "representan grupos deben cambiarse a Factor antes de modelar."
+              ),
+              layout_columns(
+                col_widths = c(10, 2),
+                uiOutput(ns("tabla_tipos")),
+                div(
+                  class = "pt-2",
+                  actionButton(ns("aplicar_tipos"), "Aplicar tipos",
+                               class = "btn-primary w-100", icon = icon("check")),
+                  br(), br(),
+                  actionButton(ns("resetear_tipos"), "Restaurar",
+                               class = "btn-outline-secondary w-100 btn-sm",
+                               icon = icon("rotate-left"))
+                )
+              ),
+              uiOutput(ns("tipos_aplicados_msg"))
             )
-          ),
 
+          )
         )
       ),
 
@@ -1189,7 +1207,108 @@ mod_lm_server <- function(id) {
     ns <- session$ns
 
     # ── Info dinámica del dataset en pestaña ¿Qué es? ─────────
-    output$info_dataset_que_es <- renderUI({
+        # Tipos de variables
+    tipos_usuario <- reactiveVal(NULL)
+    observeEvent(input$fuente_datos, { tipos_usuario(NULL) })
+    observeEvent(input$resetear_tipos, {
+      tipos_usuario(NULL)
+      showNotification("Tipos restaurados.", type = "message", duration = 2)
+    })
+    observeEvent(input$aplicar_tipos, {
+      df  <- datos_activos(); req(df)
+      nms <- names(df)
+      nuevos <- lapply(nms, function(nm) input[[paste0("tipo_", nm)]])
+      names(nuevos) <- nms
+      tipos_usuario(nuevos)
+      showNotification("Tipos aplicados.", type = "message", duration = 2)
+    })
+    output$sel_fuente_datos <- renderUI({
+      radioButtons(
+        ns("fuente_datos"),
+        label   = tagList(bs_icon("database", class = "me-1"),
+                          "Dataset de ejemplo:"),
+        choices = c(
+          "Densidad de especie de ave (Loyn, 1987)"  = "ejemplo_ave",
+          "Peso al nacer \u2014 salud perinatal (Hosmer)" = "ejemplo_salud",
+          "Cargar mis propios datos"                  = "propio"
+        ),
+        selected = "ejemplo_ave"
+      )
+    })
+
+        output$tabla_tipos <- renderUI({
+      df <- datos_activos(); req(df)
+      tu <- tipos_usuario()
+      filas <- lapply(names(df), function(nm) {
+        col    <- df[[nm]]
+        actual <- if (is.factor(col) || is.character(col)) "factor" else "numeric"
+        icono  <- if (actual == "factor")
+          bs_icon("tag-fill", style = paste0("color:", colores$acento))
+        else
+          bs_icon("123", style = paste0("color:", colores$primario))
+        sel <- if (!is.null(tu) && !is.null(tu[[nm]])) tu[[nm]] else actual
+        tags$tr(
+          tags$td(style = "vertical-align:middle; padding:5px 8px;",
+                  div(class = "d-flex align-items-center gap-2", icono, strong(nm))),
+          tags$td(style = "vertical-align:middle; padding:5px 8px;",
+                  tags$span(class = "badge",
+                            style = paste0("background:",
+                              if (actual == "factor") colores$acento
+                              else colores$primario, "; font-size:0.75rem;"),
+                            if (actual == "factor") "Factor" else "Num\u00e9rico")),
+          tags$td(style = "padding:5px 8px;",
+                  selectInput(
+                    inputId  = paste0(ns("tipo_"), nm),
+                    label    = NULL,
+                    choices  = c("Num\u00e9rico" = "numeric",
+                                 "Factor (categ\u00f3rico)" = "factor",
+                                 "Excluir" = "excluir"),
+                    selected = sel, width = "180px")),
+          tags$td(style = "vertical-align:middle; padding:5px 8px;",
+                  if (!is.null(tu) && !is.null(tu[[nm]]) && tu[[nm]] != actual)
+                    tags$span(class = "badge",
+                              style = paste0("background:", colores$exito),
+                              "Modificado")
+                  else
+                    tags$span(class = "text-muted small", "Sin cambios"))
+        )
+      })
+      tags$table(
+        class = "table table-sm table-hover small mb-0",
+        tags$thead(
+          style = paste0("background:", colores$primario,
+                         " !important; color:#fff !important;"),
+          tags$tr(
+            tags$th(style = "padding:7px 8px;", "Variable"),
+            tags$th(style = "padding:7px 8px;", "Tipo detectado"),
+            tags$th(style = "padding:7px 8px;", "Tipo a usar"),
+            tags$th(style = "padding:7px 8px;", "Estado")
+          )
+        ),
+        tags$tbody(filas)
+      )
+    })
+
+    output$tipos_aplicados_msg <- renderUI({
+      tu <- tipos_usuario(); if (is.null(tu)) return(NULL)
+      df <- datos_activos(); req(df)
+      n_cambios <- sum(sapply(names(tu), function(nm) {
+        if (!nm %in% names(df)) return(FALSE)
+        actual <- if (is.factor(df[[nm]]) || is.character(df[[nm]]))
+          "factor" else "numeric"
+        !is.null(tu[[nm]]) && tu[[nm]] != actual && tu[[nm]] != "excluir"
+      }))
+      n_excl <- sum(sapply(tu, function(t) !is.null(t) && t == "excluir"))
+      if (n_cambios == 0 && n_excl == 0) return(NULL)
+      div(class = "alert alert-info small py-2 px-3 mt-2 mb-0",
+          bs_icon("check-circle-fill", class = "me-1",
+                  style = paste0("color:", colores$exito)),
+          if (n_cambios > 0) paste0(n_cambios, " variable(s) convertida(s). "),
+          if (n_excl > 0) paste0(n_excl, " variable(s) excluida(s). "),
+          "El modelo usar\u00e1 estos tipos.")
+    })
+
+    output$info_dataset <- renderUI({
       fuente <- input$fuente_datos
       if (is.null(fuente) || fuente == "ejemplo_ave") {
         div(
@@ -1235,52 +1354,44 @@ mod_lm_server <- function(id) {
     # ────────────────────────────────────────────────────
 
     datos_activos <- reactive({
-      if (input$fuente_datos == "ejemplo_ave") {
+      fuente <- input$fuente_datos
+      req(!is.null(fuente) && nchar(fuente) > 0)
+      if (fuente == "ejemplo_ave") {
         tryCatch({
           e <- new.env()
-          load("data/birdabundance_lm.rda", envir = e)
+          load(system.file("app/data/birdabundance_lm.rda",
+                           package = "StatModels"), envir = e)
           e$birdabundance_lm
         }, error = function(err) {
-          showNotification(
-            "Archivo data/birdabundance_lm.rda no encontrado. Colócalo en la carpeta data/.",
-            type = "error", duration = 6
-          )
+          showNotification("Archivo birdabundance_lm.rda no encontrado.",
+                           type = "error", duration = 6)
           NULL
         })
-      } else if (input$fuente_datos == "ejemplo_salud") {
+      } else if (fuente == "ejemplo_salud") {
         tryCatch({
           e <- new.env()
-          load("data/birthwt_lm.rda", envir = e)
+          load(system.file("app/data/birthwt_lm.rda",
+                           package = "StatModels"), envir = e)
           e$birthwt_lm
         }, error = function(err) {
-          showNotification(
-            "Archivo data/birthwt_lm.rda no encontrado.",
-            type = "error", duration = 6
-          )
+          showNotification("Archivo birthwt_lm.rda no encontrado.",
+                           type = "error", duration = 6)
           NULL
         })
       } else {
         req(input$archivo)
         ext <- tools::file_ext(input$archivo$name)
         tryCatch({
-          df <- if (ext %in% c("xlsx", "xls")) {
+          df <- if (ext %in% c("xlsx", "xls"))
             readxl::read_excel(input$archivo$datapath)
-          } else {
-            readr::read_delim(
-              input$archivo$datapath,
-              delim     = input$separador,
-              show_col_types = FALSE
-            )
-          }
-          df |>
-            dplyr::mutate(dplyr::across(
-              where(is.character), factor
-            ))
+          else
+            readr::read_delim(input$archivo$datapath,
+                              delim = input$separador,
+                              show_col_types = FALSE)
+          df |> dplyr::mutate(dplyr::across(where(is.character), factor))
         }, error = function(e) {
-          showNotification(
-            paste("Error al leer el archivo:", conditionMessage(e)),
-            type = "error", duration = 6
-          )
+          showNotification(paste("Error al leer el archivo:", conditionMessage(e)),
+                           type = "error", duration = 6)
           NULL
         })
       }
@@ -1308,7 +1419,7 @@ mod_lm_server <- function(id) {
         bs_icon("check-circle-fill",
                 style = paste0("color:", colores$exito),
                 class = "me-1"),
-        paste0(nrow(df), " filas · ", ncol(df), " columnas cargadas.")
+        paste0(nrow(df), " filas · ", ncol(df), " columnas")
       )
     })
 
@@ -1334,7 +1445,7 @@ mod_lm_server <- function(id) {
           card_body(class = "p-2",
                     h3(style = paste0("color:", colores$acento,
                                       "; font-weight:700;"), nnum),
-                    p(class = "small text-muted mb-0", "Variables numéricas")
+                    p(class = "small text-muted mb-0", "Num\u00e9ricas")
           )
         ),
         card(
@@ -1342,7 +1453,7 @@ mod_lm_server <- function(id) {
           card_body(class = "p-2",
                     h3(style = paste0("color:", colores$secundario,
                                       "; font-weight:700;"), ncat),
-                    p(class = "small text-muted mb-0", "Variables categóricas")
+                    p(class = "small text-muted mb-0", "Categ\u00f3ricas")
           )
         )
       )

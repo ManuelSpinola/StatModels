@@ -10,7 +10,6 @@ library(bslib)
 library(bsicons)
 library(tidyverse)
 library(DT)
-library(palmerpenguins)
 library(readxl)
 library(car)
 # GLM
