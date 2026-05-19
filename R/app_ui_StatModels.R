@@ -1,6 +1,10 @@
 #' Application UI
 #'
 #' @return A Shiny UI object.
+#' @import shiny
+#' @import bslib
+#' @import bsicons
+#' @import shinyjs
 #' @noRd
 app_ui <- function() {
 
