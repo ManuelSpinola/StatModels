@@ -43,20 +43,10 @@ app_ui <- function() {
       mod_gam_ui("gam")
     ),
 
-    # ── Próximamente ──────────────────────────────────────
     nav_panel(
       title = "Modelos mixtos (LMM / GLMM)",
       icon  = bs_icon("diagram-3"),
-      proximamente_ui(
-        icono     = "diagram-3",
-        titulo    = "Modelos mixtos (LMM / GLMM)",
-        subtitulo = paste0(
-          "Modelan datos con estructura jer\u00e1rquica o medidas repetidas. ",
-          "Combinan efectos fijos (poblacionales) y efectos aleatorios ",
-          "(individuos, sitios, grupos). Paquete: lme4."
-        ),
-        datasets  = "lme4::sleepstudy \u00b7 lme4::cbpp"
-      )
+      mod_lmm_ui("lmm")
     ),
 
     nav_spacer(),
