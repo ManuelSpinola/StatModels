@@ -44,7 +44,8 @@ Imports:
     correlation,
     report,
     AICcmodavg,
-    golem
+    golem,
+    pkgload
 Suggests:
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
