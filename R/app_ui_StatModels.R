@@ -13,7 +13,7 @@ app_ui <- function() {
     system.file("app/www", package = "StatModels")
   )
 
-  page_navbar(
+  bslib::page_navbar(
     header = shinyjs::useShinyjs(),
     title  = div(
       style = "display: flex; align-items: center; gap: 10px; margin-top: 4px;",
@@ -29,39 +29,39 @@ app_ui <- function() {
     ),
 
     # ── Módulos activos ───────────────────────────────────
-    nav_panel(
+    bslib::nav_panel(
       title = "Modelo lineal general (LM)",
-      icon  = bs_icon("graph-up"),
+      icon  = bsicons::bs_icon("graph-up"),
       mod_lm_ui("lm")
     ),
 
-    nav_panel(
+    bslib::nav_panel(
       title = "Modelo lineal generalizado (GLM)",
-      icon  = bs_icon("toggles"),
+      icon  = bsicons::bs_icon("toggles"),
       mod_glm_ui("glm")
     ),
 
-    nav_panel(
+    bslib::nav_panel(
       title = "Modelo aditivo generalizado (GAM)",
-      icon  = bs_icon("bezier2"),
+      icon  = bsicons::bs_icon("bezier2"),
       mod_gam_ui("gam")
     ),
 
-    nav_panel(
+    bslib::nav_panel(
       title = "Modelos mixtos (LMM / GLMM)",
-      icon  = bs_icon("diagram-3"),
+      icon  = bsicons::bs_icon("diagram-3"),
       mod_lmm_ui("lmm")
     ),
 
-    nav_spacer(),
+    bslib::nav_spacer(),
 
-    nav_panel(
+    bslib::nav_panel(
       title = "Acerca de",
-      icon  = bs_icon("info-circle"),
+      icon  = bsicons::bs_icon("info-circle"),
       mod_acerca_de_ui("acerca_de")
     ),
 
-    nav_item(
+    bslib::nav_item(
       tags$span(class = "text-white-50 small", "StatModels v1.0")
     )
   )
