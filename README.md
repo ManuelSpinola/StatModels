@@ -11,8 +11,8 @@
 |--------|-------------|--------|
 | Modelo lineal (LM) | Regresión lineal simple, múltiple, ANOVA, ANCOVA | ✅ Disponible |
 | Modelo lineal generalizado (GLM) | Logístico, Poisson, Binomial negativa | ✅ Disponible |
-| Modelo aditivo generalizado (GAM) | Efectos no lineales con mgcv | 🔄 Próximamente |
-| Modelos mixtos (LMM/GLMM) | Efectos aleatorios con lme4 | 🔄 Próximamente |
+| Modelo aditivo generalizado (GAM) | Efectos no lineales con mgcv | ✅ Disponible |
+| Modelos mixtos (LMM) | Efectos aleatorios con lme4 | ✅ Disponible |
 
 ## Instalación
 
