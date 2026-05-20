@@ -4,26 +4,10 @@
 # Paleta: Tableau Color Blind (coherente con StatSuite)
 # ============================================================
 
-library(shiny)
-library(shinyjs)
-library(bslib)
-library(bsicons)
-library(tidyverse)
-library(DT)
-library(readxl)
-library(car)
 # GLM
-library(MASS)         # glm.nb para binomial negativa
 # Ecosistema tidymodels (para validación cruzada)
-library(tidymodels)   # carga rsample, recipes, parsnip, workflows, tune, yardstick
-library(purrr)
 # Ecosistema easystats
-library(performance)
-library(parameters)
-library(modelbased)
-library(marginaleffects)  # requerido por modelbased::estimate_relation()
 options(marginaleffects_safe = FALSE)
-library(see)
 
 # ── Paleta de colores (idéntica a StatSuite) ───────────────
 colores <- list(

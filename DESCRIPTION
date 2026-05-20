@@ -8,8 +8,9 @@ Authors@R:
            comment = c(ORCID = ""))
 Description: A Shiny-based interactive platform for statistical modeling,
     part of the StatSuite ecosystem. Includes modules for linear models (LM),
-    generalized linear models (GLM), and more. Designed for teaching and
-    research in ecology and biodiversity sciences.
+    generalized linear models (GLM), generalized additive models (GAM), and
+    linear mixed models (LMM/GLMM). Designed for teaching and research in
+    ecology and biodiversity sciences.
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
@@ -24,25 +25,28 @@ Imports:
     tibble,
     readr,
     readxl,
+    purrr,
+    scales,
+    DT,
+    car,
+    MASS,
+    mgcv,
+    gratia,
+    lme4,
+    lmerTest,
+    lattice,
     parameters,
     performance,
     modelbased,
     datawizard,
-    emmeans,
-    marginaleffects,
+    see,
+    AICcmodavg,
     rsample,
     recipes,
     parsnip,
     workflows,
     tune,
     yardstick,
-    MASS,
-    see,
-    insight,
-    effectsize,
-    correlation,
-    report,
-    AICcmodavg,
     golem,
     pkgload
 Suggests:
