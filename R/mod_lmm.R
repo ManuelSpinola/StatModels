@@ -549,7 +549,48 @@ mod_lmm_ui <- function(id) {
       ), # /PESTAÑA 6
 
       # ════════════════════════════════════════════════
-      # PESTAÑA 7: Parámetros
+      # PESTAÑA 7: Performance
+      # ════════════════════════════════════════════════
+      nav_panel(
+        title = tagList(bs_icon("speedometer2", class = "me-1"),
+                        "Performance"),
+        div(
+          class = "p-3",
+          layout_columns(
+            col_widths = c(6, 6),
+            fill = FALSE,
+            card(
+              card_header(
+                bs_icon("speedometer2", class = "me-1"),
+                "M\u00e9tricas del modelo",
+                span(class = "text-muted small ms-2",
+                     "\u2014 performance \u00b7 easystats")
+              ),
+              card_body(
+                style = "overflow: visible; height: auto;",
+                uiOutput(ns("tabla_performance"))
+              )
+            ),
+            card(
+              card_header(
+                bs_icon("pie-chart", class = "me-1"),
+                "ICC \u2014 Correlaci\u00f3n intraclase",
+                span(class = "text-muted small ms-2",
+                     "\u2014 performance::icc()")
+              ),
+              card_body(
+                style = "overflow: visible; height: auto;",
+                uiOutput(ns("tabla_icc")),
+                br(),
+                plotOutput(ns("plot_icc"), height = "200px")
+              )
+            )
+          )
+        )
+      ), # /PESTAÑA 9
+
+      # ════════════════════════════════════════════════
+      # PESTAÑA 8: Parámetros
       # ════════════════════════════════════════════════
       nav_panel(
         title = tagList(bs_icon("list-ol", class = "me-1"),
@@ -602,7 +643,7 @@ mod_lmm_ui <- function(id) {
       ), # /PESTAÑA 7
 
       # ════════════════════════════════════════════════
-      # PESTAÑA 8: Efectos marginales
+      # PESTAÑA 9: Efectos marginales
       # ════════════════════════════════════════════════
       nav_panel(
         title = tagList(bs_icon("graph-up-arrow", class = "me-1"),
@@ -655,48 +696,56 @@ mod_lmm_ui <- function(id) {
       ), # /PESTAÑA 8
 
       # ════════════════════════════════════════════════
-      # PESTAÑA 9: Performance
+      # PESTAÑA 10: Contrastes
       # ════════════════════════════════════════════════
       nav_panel(
-        title = tagList(bs_icon("speedometer2", class = "me-1"),
-                        "Performance"),
+        title = tagList(bs_icon("arrows-angle-expand", class = "me-1"),
+                        "Contrastes"),
         div(
           class = "p-3",
+          p(class = "small text-muted mb-3",
+            "Comparaci\u00f3n entre niveles de predictores categ\u00f3ricos, ",
+            "controlando por el resto del modelo. ",
+            "Generado con ", strong("modelbased::estimate_contrasts()"), "."),
+          uiOutput(ns("contrasts_no_cat_msg")),
           layout_columns(
-            col_widths = c(6, 6),
-            fill = FALSE,
+            col_widths = c(4, 8),
             card(
-              card_header(
-                bs_icon("speedometer2", class = "me-1"),
-                "M\u00e9tricas del modelo",
-                span(class = "text-muted small ms-2",
-                     "\u2014 performance \u00b7 easystats")
-              ),
+              card_header(bs_icon("sliders", class = "me-1"), "Controles"),
               card_body(
-                style = "overflow: visible; height: auto;",
-                uiOutput(ns("tabla_performance"))
+                uiOutput(ns("sel_var_contraste")),
+                tags$hr(),
+                selectInput(
+                  ns("metodo_ajuste"),
+                  label   = "Ajuste de p-valores:",
+                  choices = c("Sin ajuste" = "none",
+                              "Bonferroni"  = "bonferroni",
+                              "Holm"        = "holm",
+                              "FDR (BH)"    = "fdr"),
+                  selected = "none"
+                )
               )
             ),
-            card(
-              card_header(
-                bs_icon("pie-chart", class = "me-1"),
-                "ICC \u2014 Correlaci\u00f3n intraclase",
-                span(class = "text-muted small ms-2",
-                     "\u2014 performance::icc()")
+            div(
+              card(class = "mb-3",
+                card_header(bs_icon("table", class = "me-1"),
+                            "Tabla de contrastes"),
+                card_body(uiOutput(ns("tabla_contrastes")))
               ),
-              card_body(
-                style = "overflow: visible; height: auto;",
-                uiOutput(ns("tabla_icc")),
-                br(),
-                plotOutput(ns("plot_icc"), height = "200px")
+              card(class = "mb-0",
+                card_header(bs_icon("bar-chart-fill", class = "me-1"),
+                            "Visualizaci\u00f3n"),
+                card_body(
+                  plotOutput(ns("plot_contrastes"), height = "280px")
+                )
               )
             )
           )
         )
-      ), # /PESTAÑA 9
+      ), # /PESTAÑA 11
 
       # ════════════════════════════════════════════════
-      # PESTAÑA 10: Comparar modelos
+      # PESTAÑA 11: Comparar modelos
       # ════════════════════════════════════════════════
       nav_panel(
         title = tagList(bs_icon("arrow-left-right", class = "me-1"),
@@ -745,55 +794,6 @@ mod_lmm_ui <- function(id) {
           )
         )
       ), # /PESTAÑA 10
-
-      # ════════════════════════════════════════════════
-      # PESTAÑA 11: Contrastes
-      # ════════════════════════════════════════════════
-      nav_panel(
-        title = tagList(bs_icon("arrows-angle-expand", class = "me-1"),
-                        "Contrastes"),
-        div(
-          class = "p-3",
-          p(class = "small text-muted mb-3",
-            "Comparaci\u00f3n entre niveles de predictores categ\u00f3ricos, ",
-            "controlando por el resto del modelo. ",
-            "Generado con ", strong("modelbased::estimate_contrasts()"), "."),
-          uiOutput(ns("contrasts_no_cat_msg")),
-          layout_columns(
-            col_widths = c(4, 8),
-            card(
-              card_header(bs_icon("sliders", class = "me-1"), "Controles"),
-              card_body(
-                uiOutput(ns("sel_var_contraste")),
-                tags$hr(),
-                selectInput(
-                  ns("metodo_ajuste"),
-                  label   = "Ajuste de p-valores:",
-                  choices = c("Sin ajuste" = "none",
-                              "Bonferroni"  = "bonferroni",
-                              "Holm"        = "holm",
-                              "FDR (BH)"    = "fdr"),
-                  selected = "none"
-                )
-              )
-            ),
-            div(
-              card(class = "mb-3",
-                card_header(bs_icon("table", class = "me-1"),
-                            "Tabla de contrastes"),
-                card_body(uiOutput(ns("tabla_contrastes")))
-              ),
-              card(class = "mb-0",
-                card_header(bs_icon("bar-chart-fill", class = "me-1"),
-                            "Visualizaci\u00f3n"),
-                card_body(
-                  plotOutput(ns("plot_contrastes"), height = "280px")
-                )
-              )
-            )
-          )
-        )
-      ), # /PESTAÑA 11
 
       # ════════════════════════════════════════════════
       # PESTAÑA 12: Código R
@@ -1374,7 +1374,120 @@ mod_lmm_server <- function(id) {
     })
 
     # ────────────────────────────────────────────────────
-    # PESTAÑA 7: Parámetros
+    # PESTAÑA 7: Performance
+    # ────────────────────────────────────────────────────
+
+    output$tabla_performance <- renderUI({
+      fm <- modelo_lmm(); req(fm)
+      tryCatch({
+        pm  <- performance::model_performance(fm, verbose = FALSE)
+        r2  <- tryCatch(performance::r2_nakagawa(fm, verbose = FALSE),
+                        error = function(e) NULL)
+        r2m <- if (!is.null(r2)) round(r2$R2_marginal, 4) else NA
+        r2c <- if (!is.null(r2)) round(r2$R2_conditional, 4) else NA
+        n   <- nrow(fm@frame)
+
+        filas <- list(
+          list(m = "n (observaciones)", v = n,
+               i = "Tama\u00f1o de la muestra."),
+          list(m = "R\u00b2 marginal",
+               v = if (!is.na(r2m)) r2m else "\u2014",
+               i = "Varianza explicada por efectos fijos."),
+          list(m = "R\u00b2 condicional",
+               v = if (!is.na(r2c)) r2c else "\u2014",
+               i = "Varianza explicada por efectos fijos + aleatorios."),
+          list(m = "AIC",
+               v = round(pm$AIC, 2),
+               i = "Criterio de Akaike. Menor = mejor."),
+          list(m = "BIC",
+               v = round(pm$BIC, 2),
+               i = "Criterio Bayesiano."),
+          list(m = "Singular fit",
+               v = if (lme4::isSingular(fm)) "\u26a0 S\u00ed" else "\u2713 No",
+               i = "Sobreparametrizaci\u00f3n de efectos aleatorios.")
+        )
+        tags$table(
+          class = "table table-sm table-hover small mb-0",
+          tags$thead(tags$tr(
+            tags$th("M\u00e9trica"), tags$th("Valor"),
+            tags$th("Interpretaci\u00f3n")
+          )),
+          tags$tbody(lapply(filas, function(f) {
+            tags$tr(
+              tags$td(strong(f$m)),
+              tags$td(f$v),
+              tags$td(class = "text-muted small", f$i)
+            )
+          }))
+        )
+      }, error = function(e) {
+        div(class="text-muted small", "Ajusta el modelo primero.")
+      })
+    })
+
+    output$tabla_icc <- renderUI({
+      fm <- modelo_lmm(); req(fm)
+      tryCatch({
+        icc_ <- performance::icc(fm, verbose = FALSE)
+        layout_columns(
+          col_widths = c(6, 6),
+          card(class = "text-center border-0",
+               style = paste0("background:", colores$fondo),
+               card_body(class = "p-2",
+                 h3(style = paste0("color:", colores$primario,
+                                   "; font-weight:700;"),
+                    round(icc_$ICC_adjusted, 3)),
+                 p(class = "small text-muted mb-0", "ICC ajustado"))),
+          card(class = "text-center border-0",
+               style = paste0("background:", colores$fondo),
+               card_body(class = "p-2",
+                 h3(style = paste0("color:", colores$acento,
+                                   "; font-weight:700;"),
+                    round(icc_$ICC_unadjusted, 3)),
+                 p(class = "small text-muted mb-0", "ICC no ajustado")))
+        )
+      }, error = function(e) {
+        p(class = "small text-muted", "ICC no disponible.")
+      })
+    })
+
+    output$plot_icc <- renderPlot({
+      fm <- modelo_lmm(); req(fm)
+      tryCatch({
+        r2  <- performance::r2_nakagawa(fm, verbose = FALSE)
+        r2m <- r2$R2_marginal
+        r2c <- r2$R2_conditional
+        icc_ <- r2c - r2m
+        res  <- 1 - r2c
+
+        df_pie <- data.frame(
+          componente = c("Efectos fijos", "Efectos aleatorios", "Residual"),
+          valor      = c(r2m, icc_, res)
+        )
+        df_pie$componente <- factor(df_pie$componente,
+                                     levels = df_pie$componente)
+
+        ggplot2::ggplot(df_pie,
+                        ggplot2::aes(x = 2, y = valor,
+                                     fill = componente)) +
+          ggplot2::geom_col(width = 1) +
+          ggplot2::coord_polar(theta = "y") +
+          ggplot2::xlim(0.5, 2.5) +
+          ggplot2::scale_fill_manual(
+            values = c(colores$primario, colores$acento, "#CCCCCC")) +
+          ggplot2::labs(fill = "Componente",
+                        subtitle = "Descomposici\u00f3n de la varianza") +
+          ggplot2::theme_void(base_size = 11) +
+          ggplot2::theme(legend.position = "right",
+                         plot.subtitle = ggplot2::element_text(
+                           color = colores$texto, size = 9))
+      }, error = function(e) {
+        ggplot2::ggplot() + ggplot2::theme_void()
+      })
+    }, res = 96)
+
+    # ────────────────────────────────────────────────────
+    # PESTAÑA 8: Parámetros
     # ────────────────────────────────────────────────────
 
     output$tabla_efectos_fijos <- renderUI({
@@ -1474,7 +1587,7 @@ mod_lmm_server <- function(id) {
     }, res = 96)
 
     # ────────────────────────────────────────────────────
-    # PESTAÑA 8: Efectos marginales
+    # PESTAÑA 9: Efectos marginales
     # ────────────────────────────────────────────────────
 
     output$sel_pred_efecto <- renderUI({
@@ -1593,240 +1706,7 @@ mod_lmm_server <- function(id) {
     })
 
     # ────────────────────────────────────────────────────
-    # PESTAÑA 9: Performance
-    # ────────────────────────────────────────────────────
-
-    output$tabla_performance <- renderUI({
-      fm <- modelo_lmm(); req(fm)
-      tryCatch({
-        pm  <- performance::model_performance(fm, verbose = FALSE)
-        r2  <- tryCatch(performance::r2_nakagawa(fm, verbose = FALSE),
-                        error = function(e) NULL)
-        r2m <- if (!is.null(r2)) round(r2$R2_marginal, 4) else NA
-        r2c <- if (!is.null(r2)) round(r2$R2_conditional, 4) else NA
-        n   <- nrow(fm@frame)
-
-        filas <- list(
-          list(m = "n (observaciones)", v = n,
-               i = "Tama\u00f1o de la muestra."),
-          list(m = "R\u00b2 marginal",
-               v = if (!is.na(r2m)) r2m else "\u2014",
-               i = "Varianza explicada por efectos fijos."),
-          list(m = "R\u00b2 condicional",
-               v = if (!is.na(r2c)) r2c else "\u2014",
-               i = "Varianza explicada por efectos fijos + aleatorios."),
-          list(m = "AIC",
-               v = round(pm$AIC, 2),
-               i = "Criterio de Akaike. Menor = mejor."),
-          list(m = "BIC",
-               v = round(pm$BIC, 2),
-               i = "Criterio Bayesiano."),
-          list(m = "Singular fit",
-               v = if (lme4::isSingular(fm)) "\u26a0 S\u00ed" else "\u2713 No",
-               i = "Sobreparametrizaci\u00f3n de efectos aleatorios.")
-        )
-        tags$table(
-          class = "table table-sm table-hover small mb-0",
-          tags$thead(tags$tr(
-            tags$th("M\u00e9trica"), tags$th("Valor"),
-            tags$th("Interpretaci\u00f3n")
-          )),
-          tags$tbody(lapply(filas, function(f) {
-            tags$tr(
-              tags$td(strong(f$m)),
-              tags$td(f$v),
-              tags$td(class = "text-muted small", f$i)
-            )
-          }))
-        )
-      }, error = function(e) {
-        div(class="text-muted small", "Ajusta el modelo primero.")
-      })
-    })
-
-    output$tabla_icc <- renderUI({
-      fm <- modelo_lmm(); req(fm)
-      tryCatch({
-        icc_ <- performance::icc(fm, verbose = FALSE)
-        layout_columns(
-          col_widths = c(6, 6),
-          card(class = "text-center border-0",
-               style = paste0("background:", colores$fondo),
-               card_body(class = "p-2",
-                 h3(style = paste0("color:", colores$primario,
-                                   "; font-weight:700;"),
-                    round(icc_$ICC_adjusted, 3)),
-                 p(class = "small text-muted mb-0", "ICC ajustado"))),
-          card(class = "text-center border-0",
-               style = paste0("background:", colores$fondo),
-               card_body(class = "p-2",
-                 h3(style = paste0("color:", colores$acento,
-                                   "; font-weight:700;"),
-                    round(icc_$ICC_unadjusted, 3)),
-                 p(class = "small text-muted mb-0", "ICC no ajustado")))
-        )
-      }, error = function(e) {
-        p(class = "small text-muted", "ICC no disponible.")
-      })
-    })
-
-    output$plot_icc <- renderPlot({
-      fm <- modelo_lmm(); req(fm)
-      tryCatch({
-        r2  <- performance::r2_nakagawa(fm, verbose = FALSE)
-        r2m <- r2$R2_marginal
-        r2c <- r2$R2_conditional
-        icc_ <- r2c - r2m
-        res  <- 1 - r2c
-
-        df_pie <- data.frame(
-          componente = c("Efectos fijos", "Efectos aleatorios", "Residual"),
-          valor      = c(r2m, icc_, res)
-        )
-        df_pie$componente <- factor(df_pie$componente,
-                                     levels = df_pie$componente)
-
-        ggplot2::ggplot(df_pie,
-                        ggplot2::aes(x = 2, y = valor,
-                                     fill = componente)) +
-          ggplot2::geom_col(width = 1) +
-          ggplot2::coord_polar(theta = "y") +
-          ggplot2::xlim(0.5, 2.5) +
-          ggplot2::scale_fill_manual(
-            values = c(colores$primario, colores$acento, "#CCCCCC")) +
-          ggplot2::labs(fill = "Componente",
-                        subtitle = "Descomposici\u00f3n de la varianza") +
-          ggplot2::theme_void(base_size = 11) +
-          ggplot2::theme(legend.position = "right",
-                         plot.subtitle = ggplot2::element_text(
-                           color = colores$texto, size = 9))
-      }, error = function(e) {
-        ggplot2::ggplot() + ggplot2::theme_void()
-      })
-    }, res = 96)
-
-    # ────────────────────────────────────────────────────
-    # PESTAÑA 10: Comparar modelos
-    # ────────────────────────────────────────────────────
-
-    modelos_guardados <- reactiveVal(list())
-
-    observeEvent(input$guardar_modelo, {
-      fm     <- modelo_lmm()
-      nombre <- trimws(input$nombre_modelo)
-      if (is.null(fm)) {
-        showNotification("Ajusta un modelo primero.",
-                         type = "warning", duration = 3); return()
-      }
-      if (nchar(nombre) == 0) {
-        showNotification("Escribe un nombre.",
-                         type = "warning", duration = 3); return()
-      }
-      lst <- modelos_guardados()
-      lst[[nombre]] <- list(fit     = fm,
-                            formula = paste(deparse(formula(fm)),
-                                            collapse = " "))
-      modelos_guardados(lst)
-      updateTextInput(session, "nombre_modelo", value = "")
-      showNotification(paste0("Modelo '", nombre, "' guardado."),
-                       type = "message", duration = 3)
-    })
-
-    observeEvent(input$limpiar_modelos, {
-      modelos_guardados(list())
-      showNotification("Modelos eliminados.", type = "message", duration = 2)
-    })
-
-    output$lista_modelos_guardados <- renderUI({
-      mg <- modelos_guardados()
-      if (length(mg) == 0) return(
-        p(class = "small text-muted", "A\u00fan no hay modelos guardados.")
-      )
-      tagList(lapply(names(mg), function(nm) {
-        div(class = "d-flex align-items-center gap-2 mb-1",
-            bs_icon("check-circle-fill",
-                    style = paste0("color:", colores$exito)),
-            div(p(class = "small mb-0", strong(nm)),
-                p(class = "small text-muted mb-0",
-                  style = "font-size:0.75rem;", mg[[nm]]$formula)))
-      }))
-    })
-
-    output$tabla_comparacion <- renderUI({
-      mg <- modelos_guardados()
-      if (length(mg) < 1) return(
-        div(class = "text-muted small py-3",
-            "Guarda al menos un modelo para ver la comparaci\u00f3n.")
-      )
-      rows <- lapply(names(mg), function(nm) {
-        fm  <- mg[[nm]]$fit
-        pm  <- tryCatch(
-          performance::model_performance(fm, verbose = FALSE),
-          error = function(e) NULL)
-        if (is.null(pm)) return(NULL)
-        r2 <- tryCatch(performance::r2_nakagawa(fm, verbose = FALSE),
-                       error = function(e) NULL)
-        list(nm   = nm,
-             aic  = round(pm$AIC, 1),
-             bic  = round(pm$BIC, 1),
-             r2m  = if (!is.null(r2)) round(r2$R2_marginal, 3) else NA,
-             r2c  = if (!is.null(r2)) round(r2$R2_conditional, 3) else NA)
-      })
-      rows <- rows[!sapply(rows, is.null)]
-      if (length(rows) == 0) return(NULL)
-      best <- which.min(sapply(rows, function(r) r$aic))
-      tags$table(
-        class = "table table-sm table-hover small mb-0",
-        tags$thead(
-          style = paste0("background:", colores$primario,
-                         "; color:#fff;"),
-          tags$tr(tags$th("Modelo"), tags$th("AIC"), tags$th("BIC"),
-                  tags$th("R\u00b2 marg."), tags$th("R\u00b2 cond."))
-        ),
-        tags$tbody(lapply(seq_along(rows), function(i) {
-          r  <- rows[[i]]
-          bg <- if (i == best) "background:#f0f9f5; font-weight:600;" else ""
-          tags$tr(style = bg,
-            tags$td(if (i == best)
-              tagList(bs_icon("trophy-fill",
-                              style = paste0("color:", colores$acento,
-                                             "; margin-right:4px")), r$nm)
-              else r$nm),
-            tags$td(r$aic), tags$td(r$bic),
-            tags$td(r$r2m), tags$td(r$r2c))
-        }))
-      )
-    })
-
-    output$plot_comparacion <- renderPlot({
-      mg <- modelos_guardados(); req(length(mg) >= 2)
-      fits <- lapply(mg, function(m) m$fit)
-      tryCatch({
-        comp <- do.call(performance::compare_performance,
-                        c(fits, list(rank = TRUE, verbose = FALSE)))
-        p <- plot(comp) +
-          ggplot2::scale_color_manual(
-            values = colores$tableau[seq_along(mg)]) +
-          ggplot2::scale_fill_manual(
-            values = paste0(colores$tableau[seq_along(mg)], "33")) +
-          ggplot2::labs(title = NULL,
-                        subtitle = "M\u00e9tricas normalizadas \u00b7 mayor \u00e1rea = mejor") +
-          see::theme_radar() +
-          ggplot2::theme(legend.position = "bottom",
-                         plot.subtitle = ggplot2::element_text(
-                           color = colores$texto, size = 9))
-        print(p)
-      }, error = function(e) {
-        ggplot2::ggplot() +
-          ggplot2::annotate("text", x=0.5, y=0.5,
-                            label="Guarda al menos 2 modelos.",
-                            color=colores$texto, size=4) +
-          ggplot2::theme_void()
-      })
-    }, res = 96)
-
-    # ────────────────────────────────────────────────────
-    # PESTAÑA 11: Contrastes
+    # PESTAÑA 10: Contrastes
     # ────────────────────────────────────────────────────
 
     output$contrasts_no_cat_msg <- renderUI({
@@ -1965,6 +1845,126 @@ mod_lmm_server <- function(id) {
         ggplot2::ggplot() +
           ggplot2::annotate("text", x=0.5, y=0.5,
                             label="Sin contrastes disponibles.",
+                            color=colores$texto, size=4) +
+          ggplot2::theme_void()
+      })
+    }, res = 96)
+
+    # ────────────────────────────────────────────────────
+    # PESTAÑA 11: Comparar modelos
+    # ────────────────────────────────────────────────────
+
+    modelos_guardados <- reactiveVal(list())
+
+    observeEvent(input$guardar_modelo, {
+      fm     <- modelo_lmm()
+      nombre <- trimws(input$nombre_modelo)
+      if (is.null(fm)) {
+        showNotification("Ajusta un modelo primero.",
+                         type = "warning", duration = 3); return()
+      }
+      if (nchar(nombre) == 0) {
+        showNotification("Escribe un nombre.",
+                         type = "warning", duration = 3); return()
+      }
+      lst <- modelos_guardados()
+      lst[[nombre]] <- list(fit     = fm,
+                            formula = paste(deparse(formula(fm)),
+                                            collapse = " "))
+      modelos_guardados(lst)
+      updateTextInput(session, "nombre_modelo", value = "")
+      showNotification(paste0("Modelo '", nombre, "' guardado."),
+                       type = "message", duration = 3)
+    })
+
+    observeEvent(input$limpiar_modelos, {
+      modelos_guardados(list())
+      showNotification("Modelos eliminados.", type = "message", duration = 2)
+    })
+
+    output$lista_modelos_guardados <- renderUI({
+      mg <- modelos_guardados()
+      if (length(mg) == 0) return(
+        p(class = "small text-muted", "A\u00fan no hay modelos guardados.")
+      )
+      tagList(lapply(names(mg), function(nm) {
+        div(class = "d-flex align-items-center gap-2 mb-1",
+            bs_icon("check-circle-fill",
+                    style = paste0("color:", colores$exito)),
+            div(p(class = "small mb-0", strong(nm)),
+                p(class = "small text-muted mb-0",
+                  style = "font-size:0.75rem;", mg[[nm]]$formula)))
+      }))
+    })
+
+    output$tabla_comparacion <- renderUI({
+      mg <- modelos_guardados()
+      if (length(mg) < 1) return(
+        div(class = "text-muted small py-3",
+            "Guarda al menos un modelo para ver la comparaci\u00f3n.")
+      )
+      rows <- lapply(names(mg), function(nm) {
+        fm  <- mg[[nm]]$fit
+        pm  <- tryCatch(
+          performance::model_performance(fm, verbose = FALSE),
+          error = function(e) NULL)
+        if (is.null(pm)) return(NULL)
+        r2 <- tryCatch(performance::r2_nakagawa(fm, verbose = FALSE),
+                       error = function(e) NULL)
+        list(nm   = nm,
+             aic  = round(pm$AIC, 1),
+             bic  = round(pm$BIC, 1),
+             r2m  = if (!is.null(r2)) round(r2$R2_marginal, 3) else NA,
+             r2c  = if (!is.null(r2)) round(r2$R2_conditional, 3) else NA)
+      })
+      rows <- rows[!sapply(rows, is.null)]
+      if (length(rows) == 0) return(NULL)
+      best <- which.min(sapply(rows, function(r) r$aic))
+      tags$table(
+        class = "table table-sm table-hover small mb-0",
+        tags$thead(
+          style = paste0("background:", colores$primario,
+                         "; color:#fff;"),
+          tags$tr(tags$th("Modelo"), tags$th("AIC"), tags$th("BIC"),
+                  tags$th("R\u00b2 marg."), tags$th("R\u00b2 cond."))
+        ),
+        tags$tbody(lapply(seq_along(rows), function(i) {
+          r  <- rows[[i]]
+          bg <- if (i == best) "background:#f0f9f5; font-weight:600;" else ""
+          tags$tr(style = bg,
+            tags$td(if (i == best)
+              tagList(bs_icon("trophy-fill",
+                              style = paste0("color:", colores$acento,
+                                             "; margin-right:4px")), r$nm)
+              else r$nm),
+            tags$td(r$aic), tags$td(r$bic),
+            tags$td(r$r2m), tags$td(r$r2c))
+        }))
+      )
+    })
+
+    output$plot_comparacion <- renderPlot({
+      mg <- modelos_guardados(); req(length(mg) >= 2)
+      fits <- lapply(mg, function(m) m$fit)
+      tryCatch({
+        comp <- do.call(performance::compare_performance,
+                        c(fits, list(rank = TRUE, verbose = FALSE)))
+        p <- plot(comp) +
+          ggplot2::scale_color_manual(
+            values = colores$tableau[seq_along(mg)]) +
+          ggplot2::scale_fill_manual(
+            values = paste0(colores$tableau[seq_along(mg)], "33")) +
+          ggplot2::labs(title = NULL,
+                        subtitle = "M\u00e9tricas normalizadas \u00b7 mayor \u00e1rea = mejor") +
+          see::theme_radar() +
+          ggplot2::theme(legend.position = "bottom",
+                         plot.subtitle = ggplot2::element_text(
+                           color = colores$texto, size = 9))
+        print(p)
+      }, error = function(e) {
+        ggplot2::ggplot() +
+          ggplot2::annotate("text", x=0.5, y=0.5,
+                            label="Guarda al menos 2 modelos.",
                             color=colores$texto, size=4) +
           ggplot2::theme_void()
       })

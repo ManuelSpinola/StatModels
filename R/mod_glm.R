@@ -831,7 +831,117 @@ mod_glm_ui <- function(id) {
       ),
 
       # ════════════════════════════════════════════════
-      # PESTAÑA 6: Parámetros
+      # PESTAÑA 6: Diagnóstico
+      # ════════════════════════════════════════════════
+      nav_panel(
+        title = tagList(bs_icon("clipboard-check", class = "me-1"),
+                        "Diagnóstico"),
+        card_body(
+          p(class = "small text-muted mb-3",
+            "Verificamos los supuestos descritos en la pestaña ",
+            strong("Fundamentos"), ". Las pruebas se adaptan ",
+            "automáticamente según la familia del modelo. ",
+            "Generado con ", strong("performance"), " de easystats."
+          ),
+
+          layout_columns(
+            col_widths = c(3, 9),
+
+            # Semáforo
+            div(
+              uiOutput(ns("semaforo_col1")),
+              uiOutput(ns("semaforo_col2"))
+            ),
+
+            # Gráficos
+            card(
+              card_header(
+                bs_icon("clipboard-check", class = "me-1"),
+                "Gráficos de diagnóstico",
+                span(class = "text-muted small ms-2",
+                     "— performance::check_model() · easystats")
+              ),
+              card_body(
+                class = "p-1",
+                plotOutput(ns("plot_check_model"), height = "650px")
+              )
+            )
+          )
+        )
+      ),
+
+      # ════════════════════════════════════════════════
+      # PESTAÑA 7: Performance
+      # ════════════════════════════════════════════════
+      nav_panel(
+        title = tagList(bs_icon("speedometer2", class = "me-1"),
+                        "Performance"),
+        card_body(
+
+          p(class = "small text-muted mb-3",
+            "Las métricas de performance del GLM difieren del LM. ",
+            "No hay R² directo — se usan pseudo-R², criterios de ",
+            "información y métricas específicas por familia. ",
+            "Generadas con ", strong("performance::model_performance()"),
+            " de easystats."
+          ),
+
+          layout_columns(
+            col_widths = c(6, 6),
+
+            card(
+              card_header(
+                bs_icon("speedometer2", class = "me-1"),
+                "Métricas del modelo",
+                span(class = "text-muted small ms-2",
+                     "— model_performance() · easystats")
+              ),
+              card_body(uiOutput(ns("tabla_performance")))
+            ),
+
+            div(
+              # Curva ROC — solo para logística
+              uiOutput(ns("card_roc")),
+
+              card(
+                card_header(
+                  bs_icon("arrow-repeat", class = "me-1"),
+                  "Validación cruzada",
+                  span(class = "text-muted small ms-2",
+                       "— vfold_cv() · tidymodels")
+                ),
+                card_body(
+                  p(class = "small text-muted mb-2",
+                    "¿Cuánto error cometo al predecir ",
+                    strong("datos nuevos"), "?"
+                  ),
+                  layout_columns(
+                    col_widths = c(4, 4, 4),
+                    numericInput(
+                      ns("cv_folds"),
+                      label = "Folds:",
+                      value = 10, min = 3, max = 20
+                    ),
+                    div(class = "pt-4",
+                        checkboxInput(ns("cv_estratificado"),
+                                      "Estratificar",
+                                      value = TRUE)),
+                    div(class = "pt-4",
+                        actionButton(ns("correr_cv"), "Correr CV",
+                                     class = "btn-primary w-100",
+                                     icon  = icon("rotate")))
+                  ),
+                  tags$hr(),
+                  uiOutput(ns("resultado_cv"))
+                )
+              )
+            )
+          )
+        )
+      ),
+
+      # ════════════════════════════════════════════════
+      # PESTAÑA 8: Parámetros
       # ════════════════════════════════════════════════
       nav_panel(
         title = tagList(bs_icon("table", class = "me-1"), "Parámetros"),
@@ -923,47 +1033,7 @@ mod_glm_ui <- function(id) {
       ),
 
       # ════════════════════════════════════════════════
-      # PESTAÑA 7: Diagnóstico
-      # ════════════════════════════════════════════════
-      nav_panel(
-        title = tagList(bs_icon("clipboard-check", class = "me-1"),
-                        "Diagnóstico"),
-        card_body(
-          p(class = "small text-muted mb-3",
-            "Verificamos los supuestos descritos en la pestaña ",
-            strong("Fundamentos"), ". Las pruebas se adaptan ",
-            "automáticamente según la familia del modelo. ",
-            "Generado con ", strong("performance"), " de easystats."
-          ),
-
-          layout_columns(
-            col_widths = c(3, 9),
-
-            # Semáforo
-            div(
-              uiOutput(ns("semaforo_col1")),
-              uiOutput(ns("semaforo_col2"))
-            ),
-
-            # Gráficos
-            card(
-              card_header(
-                bs_icon("clipboard-check", class = "me-1"),
-                "Gráficos de diagnóstico",
-                span(class = "text-muted small ms-2",
-                     "— performance::check_model() · easystats")
-              ),
-              card_body(
-                class = "p-1",
-                plotOutput(ns("plot_check_model"), height = "650px")
-              )
-            )
-          )
-        )
-      ),
-
-      # ════════════════════════════════════════════════
-      # PESTAÑA 8: Efectos marginales
+      # PESTAÑA 9: Efectos marginales
       # ════════════════════════════════════════════════
       nav_panel(
         title = tagList(bs_icon("graph-up-arrow", class = "me-1"),
@@ -1062,7 +1132,7 @@ mod_glm_ui <- function(id) {
       ),
 
       # ════════════════════════════════════════════════
-      # PESTAÑA 9: Contrastes
+      # PESTAÑA 10: Contrastes
       # ════════════════════════════════════════════════
       nav_panel(
         title = tagList(bs_icon("arrows-angle-expand", class = "me-1"),
@@ -1117,76 +1187,6 @@ mod_glm_ui <- function(id) {
                 ),
                 card_body(
                   plotOutput(ns("plot_contrastes"), height = "300px")
-                )
-              )
-            )
-          )
-        )
-      ),
-
-      # ════════════════════════════════════════════════
-      # PESTAÑA 10: Performance
-      # ════════════════════════════════════════════════
-      nav_panel(
-        title = tagList(bs_icon("speedometer2", class = "me-1"),
-                        "Performance"),
-        card_body(
-
-          p(class = "small text-muted mb-3",
-            "Las métricas de performance del GLM difieren del LM. ",
-            "No hay R² directo — se usan pseudo-R², criterios de ",
-            "información y métricas específicas por familia. ",
-            "Generadas con ", strong("performance::model_performance()"),
-            " de easystats."
-          ),
-
-          layout_columns(
-            col_widths = c(6, 6),
-
-            card(
-              card_header(
-                bs_icon("speedometer2", class = "me-1"),
-                "Métricas del modelo",
-                span(class = "text-muted small ms-2",
-                     "— model_performance() · easystats")
-              ),
-              card_body(uiOutput(ns("tabla_performance")))
-            ),
-
-            div(
-              # Curva ROC — solo para logística
-              uiOutput(ns("card_roc")),
-
-              card(
-                card_header(
-                  bs_icon("arrow-repeat", class = "me-1"),
-                  "Validación cruzada",
-                  span(class = "text-muted small ms-2",
-                       "— vfold_cv() · tidymodels")
-                ),
-                card_body(
-                  p(class = "small text-muted mb-2",
-                    "¿Cuánto error cometo al predecir ",
-                    strong("datos nuevos"), "?"
-                  ),
-                  layout_columns(
-                    col_widths = c(4, 4, 4),
-                    numericInput(
-                      ns("cv_folds"),
-                      label = "Folds:",
-                      value = 10, min = 3, max = 20
-                    ),
-                    div(class = "pt-4",
-                        checkboxInput(ns("cv_estratificado"),
-                                      "Estratificar",
-                                      value = TRUE)),
-                    div(class = "pt-4",
-                        actionButton(ns("correr_cv"), "Correr CV",
-                                     class = "btn-primary w-100",
-                                     icon  = icon("rotate")))
-                  ),
-                  tags$hr(),
-                  uiOutput(ns("resultado_cv"))
                 )
               )
             )

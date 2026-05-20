@@ -630,7 +630,66 @@ mod_gam_ui <- function(id) {
     ), # /PESTAÑA 6
 
     # ════════════════════════════════════════════════
-    # PESTAÑA 7: Parámetros
+    # PESTAÑA 7: Performance
+    # ════════════════════════════════════════════════
+    nav_panel(
+      title = tagList(bs_icon("speedometer2", class = "me-1"),
+                      "Performance"),
+      div(
+        class = "p-3",
+        p(class = "small text-muted mb-3",
+          "M\u00e9tricas de rendimiento del GAM: devianza explicada, R\u00b2, RMSE, ",
+          "y validaci\u00f3n cruzada para estimar el error de predicci\u00f3n en datos nuevos."
+        ),
+        layout_columns(
+          col_widths = c(6, 6),
+          fill = FALSE,
+          card(
+            card_header(
+              bs_icon("speedometer2", class = "me-1"),
+              "M\u00e9tricas del modelo",
+              span(class = "text-muted small ms-2",
+                   "— performance \u00b7 easystats")
+            ),
+            card_body(
+              style = "overflow: visible; height: auto;",
+              uiOutput(ns("tabla_performance"))
+            )
+          ),
+          card(
+            card_header(
+              bs_icon("arrow-repeat", class = "me-1"),
+              "Validaci\u00f3n cruzada",
+              span(class = "text-muted small ms-2",
+                   "— vfold_cv() \u00b7 tidymodels")
+            ),
+            card_body(
+              style = "overflow: visible; height: auto;",
+              p(class = "small text-muted mb-2",
+                "\u00bfCu\u00e1nto error cometo al predecir ",
+                strong("datos nuevos"), "?"),
+              layout_columns(
+                col_widths = c(4, 4, 4),
+                numericInput(ns("cv_folds"), "Folds:", value = 10,
+                             min = 3, max = 20),
+                div(class = "pt-4",
+                    checkboxInput(ns("cv_estratificado"),
+                                  "Estratificar", value = FALSE)),
+                div(class = "pt-4",
+                    actionButton(ns("correr_cv"), "Correr CV",
+                                 class = "btn-primary w-100",
+                                 icon = icon("rotate")))
+              ),
+              tags$hr(),
+              uiOutput(ns("resultado_cv"))
+            )
+          )
+        )
+      )
+    ), # /PESTAÑA 9
+
+    # ════════════════════════════════════════════════
+    # PESTAÑA 8: Parámetros
     # ════════════════════════════════════════════════
     nav_panel(
       title = tagList(bs_icon("list-ol", class = "me-1"),
@@ -696,11 +755,11 @@ mod_gam_ui <- function(id) {
     ), # /PESTAÑA 7
 
     # ════════════════════════════════════════════════
-    # PESTAÑA 8: Efectos suaves
+    # PESTAÑA 9: Efectos marginales
     # ════════════════════════════════════════════════
     nav_panel(
       title = tagList(bs_icon("bezier2", class = "me-1"),
-                      "Efectos suaves"),
+                      "Efectos marginales"),
       div(
         class = "p-3",
         p(class = "small text-muted mb-3",
@@ -770,7 +829,7 @@ mod_gam_ui <- function(id) {
     ), # /PESTAÑA 8
 
     # ════════════════════════════════════════════════
-    # PESTAÑA 9: Contrastes
+    # PESTAÑA 10: Contrastes
     # ════════════════════════════════════════════════
     nav_panel(
       title = tagList(bs_icon("arrows-angle-expand", class = "me-1"),
@@ -820,65 +879,6 @@ mod_gam_ui <- function(id) {
               card_body(
                 plotOutput(ns("plot_contrastes_gam"), height = "300px")
               )
-            )
-          )
-        )
-      )
-    ), # /PESTAÑA 9
-
-    # ════════════════════════════════════════════════
-    # PESTAÑA 10: Performance
-    # ════════════════════════════════════════════════
-    nav_panel(
-      title = tagList(bs_icon("speedometer2", class = "me-1"),
-                      "Performance"),
-      div(
-        class = "p-3",
-        p(class = "small text-muted mb-3",
-          "M\u00e9tricas de rendimiento del GAM: devianza explicada, R\u00b2, RMSE, ",
-          "y validaci\u00f3n cruzada para estimar el error de predicci\u00f3n en datos nuevos."
-        ),
-        layout_columns(
-          col_widths = c(6, 6),
-          fill = FALSE,
-          card(
-            card_header(
-              bs_icon("speedometer2", class = "me-1"),
-              "M\u00e9tricas del modelo",
-              span(class = "text-muted small ms-2",
-                   "— performance \u00b7 easystats")
-            ),
-            card_body(
-              style = "overflow: visible; height: auto;",
-              uiOutput(ns("tabla_performance"))
-            )
-          ),
-          card(
-            card_header(
-              bs_icon("arrow-repeat", class = "me-1"),
-              "Validaci\u00f3n cruzada",
-              span(class = "text-muted small ms-2",
-                   "— vfold_cv() \u00b7 tidymodels")
-            ),
-            card_body(
-              style = "overflow: visible; height: auto;",
-              p(class = "small text-muted mb-2",
-                "\u00bfCu\u00e1nto error cometo al predecir ",
-                strong("datos nuevos"), "?"),
-              layout_columns(
-                col_widths = c(4, 4, 4),
-                numericInput(ns("cv_folds"), "Folds:", value = 10,
-                             min = 3, max = 20),
-                div(class = "pt-4",
-                    checkboxInput(ns("cv_estratificado"),
-                                  "Estratificar", value = FALSE)),
-                div(class = "pt-4",
-                    actionButton(ns("correr_cv"), "Correr CV",
-                                 class = "btn-primary w-100",
-                                 icon = icon("rotate")))
-              ),
-              tags$hr(),
-              uiOutput(ns("resultado_cv"))
             )
           )
         )
@@ -1560,7 +1560,151 @@ mod_gam_server <- function(id) {
     })
 
     # ────────────────────────────────────────────────────
-    # PESTAÑA 7: Parámetros
+    # PESTAÑA 7: Performance
+    # ────────────────────────────────────────────────────
+
+    output$tabla_performance <- renderUI({
+      fm <- modelo_gam(); req(fm)
+      tryCatch({
+        s      <- summary(fm)
+        dev_ex <- round(s$dev.expl * 100, 1)
+        r2_adj <- round(s$r.sq, 4)
+        aic_v  <- round(AIC(fm), 2)
+        gcv_v  <- round(fm$gcv.ubre, 3)
+        rmse_v <- round(performance::performance_rmse(fm, verbose = FALSE), 3)
+        n      <- nrow(fm$model)
+        edf_tot <- round(sum(s$edf), 2)
+
+        filas <- list(
+          list(m = "n (observaciones)", v = n,
+               i = "Tama\u00f1o de la muestra."),
+          list(m = "EDF total", v = edf_tot,
+               i = "Suma de grados de libertad efectivos de todos los splines."),
+          list(m = "Devianza explicada (%)", v = paste0(dev_ex, "%"),
+               i = "Proporci\u00f3n de devianza explicada. Equivalente del R\u00b2 para GAMs."),
+          list(m = "R\u00b2 ajustado", v = r2_adj,
+               i = "R\u00b2 ajustado por complejidad del modelo."),
+          list(m = "RMSE", v = rmse_v,
+               i = "Ra\u00edz del error cuadr\u00e1tico medio."),
+          list(m = "AIC", v = aic_v,
+               i = "Criterio de Akaike. Menor = mejor."),
+          list(m = paste0("GCV/REML (", fm$method, ")"), v = gcv_v,
+               i = "Puntuaci\u00f3n usada para seleccionar el par\u00e1metro de suavizado.")
+        )
+
+        tags$table(
+          class = "table table-sm table-hover small mb-0",
+          tags$thead(tags$tr(
+            tags$th("M\u00e9trica"), tags$th("Valor"),
+            tags$th("Interpretaci\u00f3n")
+          )),
+          tags$tbody(lapply(filas, function(f) {
+            tags$tr(
+              tags$td(strong(f$m)),
+              tags$td(f$v),
+              tags$td(class = "text-muted small", f$i)
+            )
+          }))
+        )
+      }, error = function(e) {
+        div(class = "text-muted small", "Ajusta el modelo primero.")
+      })
+    })
+
+    cv_resultados <- reactiveVal(NULL)
+
+    observeEvent(input$correr_cv, {
+      fm <- modelo_gam()
+      if (is.null(fm)) {
+        showNotification("Ajusta un modelo primero.",
+                         type = "warning", duration = 3)
+        return()
+      }
+      withProgress(message = "Corriendo validaci\u00f3n cruzada...",
+                   value = 0.2, {
+        tryCatch({
+          df_cv   <- datos_activos()
+          splines <- input$sel_preds_spline_input
+          lineal  <- input$preds_lineal
+          req(length(splines) > 0, input$var_y)
+
+          terminos_s <- paste0("s(", splines, ", k=", input$k_spline,
+                               ", bs='", input$bs_spline, "')")
+          terminos_l <- if (!is.null(lineal) && length(lineal) > 0)
+            lineal else character(0)
+          fm_formula <- as.formula(
+            paste(input$var_y, "~",
+                  paste(c(terminos_s, terminos_l), collapse = " + "))
+          )
+
+          rec <- recipes::recipe(fm_formula, data = df_cv) |>
+            recipes::step_dummy(recipes::all_nominal_predictors()) |>
+            recipes::step_impute_median(recipes::all_numeric_predictors()) |>
+            recipes::step_zv(recipes::all_predictors())
+
+          modelo_p <- parsnip::gen_additive_mod(
+            select_features = FALSE,
+            adjust_deg_free = input$k_spline
+          ) |>
+            parsnip::set_engine("mgcv", method = input$metodo_gam) |>
+            parsnip::set_mode("regression")
+
+          wf <- workflows::workflow() |>
+            workflows::add_recipe(rec) |>
+            workflows::add_model(modelo_p, formula = fm_formula)
+
+          folds <- rsample::vfold_cv(df_cv, v = input$cv_folds,
+                                     strata = if (isTRUE(input$cv_estratificado))
+                                       input$var_y else NULL)
+
+          incProgress(0.5, detail = "Evaluando folds...")
+
+          metricas <- yardstick::metric_set(
+            yardstick::rmse, yardstick::rsq, yardstick::mae
+          )
+
+          res_cv <- tune::fit_resamples(
+            wf, resamples = folds, metrics = metricas,
+            control = tune::control_resamples()
+          )
+          cv_resultados(tune::collect_metrics(res_cv))
+        }, error = function(e) {
+          showNotification(paste("Error en CV:", conditionMessage(e)),
+                           type = "error", duration = 6)
+        })
+      })
+    })
+
+    output$resultado_cv <- renderUI({
+      cm <- cv_resultados()
+      if (is.null(cm)) return(
+        div(class = "text-muted small py-3",
+            bs_icon("arrow-repeat", class = "me-2"),
+            "Haz clic en ", strong("Correr CV"), ".")
+      )
+      tarjetas <- lapply(seq_len(nrow(cm)), function(i) {
+        col <- if (cm$.metric[i] == "rsq") colores$exito else colores$primario
+        card(class = "text-center",
+             card_body(class = "p-2",
+               h4(style = paste0("color:",col,"; font-weight:700;"),
+                  round(cm$mean[i], 3)),
+               p(class = "small text-muted mb-0", toupper(cm$.metric[i])),
+               p(class = "small text-muted mb-0",
+                 paste0("\u00b1", round(cm$std_err[i], 3), " EE"))
+             ))
+      })
+      tagList(
+        do.call(layout_columns,
+                c(list(col_widths = rep(4, nrow(cm))), tarjetas)),
+        div(class = "alert alert-info small py-2 px-3 mt-2 mb-0",
+            bs_icon("info-circle", class = "me-1"),
+            strong(paste0(input$cv_folds, "-fold CV")),
+            " \u2014 estimaci\u00f3n del error en datos no vistos.")
+      )
+    })
+
+    # ────────────────────────────────────────────────────
+    # PESTAÑA 8: Parámetros
     # ────────────────────────────────────────────────────
 
     output$tabla_params_parametricos <- renderUI({
@@ -1722,7 +1866,7 @@ mod_gam_server <- function(id) {
     }, res = 96)
 
     # ────────────────────────────────────────────────────
-    # PESTAÑA 8: Efectos suaves
+    # PESTAÑA 9: Efectos marginales
     # ────────────────────────────────────────────────────
 
     output$sel_pred_efecto <- renderUI({
@@ -1868,7 +2012,7 @@ mod_gam_server <- function(id) {
     })
 
     # ────────────────────────────────────────────────────
-    # PESTAÑA 9: Contrastes
+    # PESTAÑA 10: Contrastes
     # ────────────────────────────────────────────────────
 
     output$contrasts_no_cat_msg_gam <- renderUI({
@@ -2021,150 +2165,6 @@ mod_gam_server <- function(id) {
           ggplot2::theme_void()
       })
     }, res = 96)
-
-    # ────────────────────────────────────────────────────
-    # PESTAÑA 10: Performance
-    # ────────────────────────────────────────────────────
-
-    output$tabla_performance <- renderUI({
-      fm <- modelo_gam(); req(fm)
-      tryCatch({
-        s      <- summary(fm)
-        dev_ex <- round(s$dev.expl * 100, 1)
-        r2_adj <- round(s$r.sq, 4)
-        aic_v  <- round(AIC(fm), 2)
-        gcv_v  <- round(fm$gcv.ubre, 3)
-        rmse_v <- round(performance::performance_rmse(fm, verbose = FALSE), 3)
-        n      <- nrow(fm$model)
-        edf_tot <- round(sum(s$edf), 2)
-
-        filas <- list(
-          list(m = "n (observaciones)", v = n,
-               i = "Tama\u00f1o de la muestra."),
-          list(m = "EDF total", v = edf_tot,
-               i = "Suma de grados de libertad efectivos de todos los splines."),
-          list(m = "Devianza explicada (%)", v = paste0(dev_ex, "%"),
-               i = "Proporci\u00f3n de devianza explicada. Equivalente del R\u00b2 para GAMs."),
-          list(m = "R\u00b2 ajustado", v = r2_adj,
-               i = "R\u00b2 ajustado por complejidad del modelo."),
-          list(m = "RMSE", v = rmse_v,
-               i = "Ra\u00edz del error cuadr\u00e1tico medio."),
-          list(m = "AIC", v = aic_v,
-               i = "Criterio de Akaike. Menor = mejor."),
-          list(m = paste0("GCV/REML (", fm$method, ")"), v = gcv_v,
-               i = "Puntuaci\u00f3n usada para seleccionar el par\u00e1metro de suavizado.")
-        )
-
-        tags$table(
-          class = "table table-sm table-hover small mb-0",
-          tags$thead(tags$tr(
-            tags$th("M\u00e9trica"), tags$th("Valor"),
-            tags$th("Interpretaci\u00f3n")
-          )),
-          tags$tbody(lapply(filas, function(f) {
-            tags$tr(
-              tags$td(strong(f$m)),
-              tags$td(f$v),
-              tags$td(class = "text-muted small", f$i)
-            )
-          }))
-        )
-      }, error = function(e) {
-        div(class = "text-muted small", "Ajusta el modelo primero.")
-      })
-    })
-
-    cv_resultados <- reactiveVal(NULL)
-
-    observeEvent(input$correr_cv, {
-      fm <- modelo_gam()
-      if (is.null(fm)) {
-        showNotification("Ajusta un modelo primero.",
-                         type = "warning", duration = 3)
-        return()
-      }
-      withProgress(message = "Corriendo validaci\u00f3n cruzada...",
-                   value = 0.2, {
-        tryCatch({
-          df_cv   <- datos_activos()
-          splines <- input$sel_preds_spline_input
-          lineal  <- input$preds_lineal
-          req(length(splines) > 0, input$var_y)
-
-          terminos_s <- paste0("s(", splines, ", k=", input$k_spline,
-                               ", bs='", input$bs_spline, "')")
-          terminos_l <- if (!is.null(lineal) && length(lineal) > 0)
-            lineal else character(0)
-          fm_formula <- as.formula(
-            paste(input$var_y, "~",
-                  paste(c(terminos_s, terminos_l), collapse = " + "))
-          )
-
-          rec <- recipes::recipe(fm_formula, data = df_cv) |>
-            recipes::step_dummy(recipes::all_nominal_predictors()) |>
-            recipes::step_impute_median(recipes::all_numeric_predictors()) |>
-            recipes::step_zv(recipes::all_predictors())
-
-          modelo_p <- parsnip::gen_additive_mod(
-            select_features = FALSE,
-            adjust_deg_free = input$k_spline
-          ) |>
-            parsnip::set_engine("mgcv", method = input$metodo_gam) |>
-            parsnip::set_mode("regression")
-
-          wf <- workflows::workflow() |>
-            workflows::add_recipe(rec) |>
-            workflows::add_model(modelo_p, formula = fm_formula)
-
-          folds <- rsample::vfold_cv(df_cv, v = input$cv_folds,
-                                     strata = if (isTRUE(input$cv_estratificado))
-                                       input$var_y else NULL)
-
-          incProgress(0.5, detail = "Evaluando folds...")
-
-          metricas <- yardstick::metric_set(
-            yardstick::rmse, yardstick::rsq, yardstick::mae
-          )
-
-          res_cv <- tune::fit_resamples(
-            wf, resamples = folds, metrics = metricas,
-            control = tune::control_resamples()
-          )
-          cv_resultados(tune::collect_metrics(res_cv))
-        }, error = function(e) {
-          showNotification(paste("Error en CV:", conditionMessage(e)),
-                           type = "error", duration = 6)
-        })
-      })
-    })
-
-    output$resultado_cv <- renderUI({
-      cm <- cv_resultados()
-      if (is.null(cm)) return(
-        div(class = "text-muted small py-3",
-            bs_icon("arrow-repeat", class = "me-2"),
-            "Haz clic en ", strong("Correr CV"), ".")
-      )
-      tarjetas <- lapply(seq_len(nrow(cm)), function(i) {
-        col <- if (cm$.metric[i] == "rsq") colores$exito else colores$primario
-        card(class = "text-center",
-             card_body(class = "p-2",
-               h4(style = paste0("color:",col,"; font-weight:700;"),
-                  round(cm$mean[i], 3)),
-               p(class = "small text-muted mb-0", toupper(cm$.metric[i])),
-               p(class = "small text-muted mb-0",
-                 paste0("\u00b1", round(cm$std_err[i], 3), " EE"))
-             ))
-      })
-      tagList(
-        do.call(layout_columns,
-                c(list(col_widths = rep(4, nrow(cm))), tarjetas)),
-        div(class = "alert alert-info small py-2 px-3 mt-2 mb-0",
-            bs_icon("info-circle", class = "me-1"),
-            strong(paste0(input$cv_folds, "-fold CV")),
-            " \u2014 estimaci\u00f3n del error en datos no vistos.")
-      )
-    })
 
     # ────────────────────────────────────────────────────
     # PESTAÑA 11: Comparar modelos

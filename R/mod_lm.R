@@ -699,7 +699,176 @@ mod_lm_ui <- function(id) {
       ),
 
       # ════════════════════════════════════════════════
-      # PESTAÑA 6: Parámetros
+      # PESTAÑA 6: Diagnóstico
+      # ════════════════════════════════════════════════
+      nav_panel(
+        title = tagList(bs_icon("clipboard-check", class = "me-1"),
+                        "Diagnóstico"),
+        card_body(
+          p(class = "small text-muted mb-3",
+            "Verificamos los ", strong("cinco supuestos del modelo lineal general"),
+            " descritos en la pestaña ", strong("Fundamentos"), ". ",
+            "Generado con ", strong("performance::check_model()"),
+            " del ecosistema easystats."
+          ),
+
+          layout_columns(
+            col_widths = c(4, 4, 4),
+
+            # ── Col 1: semáforo ────────────────────────
+            div(
+              uiOutput(ns("semaforo_col1")),
+              uiOutput(ns("semaforo_col2"))
+            ),
+
+            # ── Col 2: residuos + Q-Q ──────────────────
+            div(
+              card(
+                class = "mb-2",
+                card_header(
+                  class = "py-1",
+                  bs_icon("graph-up", class = "me-1"),
+                  "Residuos vs. ajustados",
+                  span(class = "text-muted small ms-1", "— linealidad")
+                ),
+                card_body(
+                  class = "p-1",
+                  plotOutput(ns("plot_resid"), height = "240px")
+                )
+              ),
+              card(
+                class = "mb-0",
+                card_header(
+                  class = "py-1",
+                  bs_icon("bar-chart", class = "me-1"),
+                  "Q-Q normal",
+                  span(class = "text-muted small ms-1", "— normalidad")
+                ),
+                card_body(
+                  class = "p-1",
+                  plotOutput(ns("plot_qq"), height = "240px")
+                )
+              )
+            ),
+
+            # ── Col 3: scale-location + VIF ───────────
+            div(
+              card(
+                class = "mb-2",
+                card_header(
+                  class = "py-1",
+                  bs_icon("rulers", class = "me-1"),
+                  "Scale-location",
+                  span(class = "text-muted small ms-1",
+                       "— homocedasticidad")
+                ),
+                card_body(
+                  class = "p-1",
+                  plotOutput(ns("plot_scale"), height = "240px")
+                )
+              ),
+              card(
+                class = "mb-0",
+                card_header(
+                  class = "py-1",
+                  bs_icon("bar-chart-line", class = "me-1"),
+                  "VIF",
+                  span(class = "text-muted small ms-1",
+                       "— multicolinealidad")
+                ),
+                card_body(
+                  class = "p-1",
+                  plotOutput(ns("plot_vif"), height = "240px")
+                )
+              )
+            )
+          )
+        )
+      ),
+
+      # ════════════════════════════════════════════════
+      # PESTAÑA 7: Performance
+      # ════════════════════════════════════════════════
+      nav_panel(
+        title = tagList(bs_icon("speedometer2", class = "me-1"),
+                        "Performance"),
+        card_body(
+
+          p(class = "small text-muted mb-3",
+            "Métricas de rendimiento del modelo lineal: R², RMSE, MAE ",
+            "y validación cruzada para estimar el error de predicción ",
+            "en datos nuevos. Generadas con ",
+            strong("performance::model_performance()"),
+            " y ", strong("tidymodels (vfold_cv)"), "."
+          ),
+
+          layout_columns(
+            col_widths = c(6, 6),
+
+            card(
+              card_header(
+                bs_icon("speedometer2", class = "me-1"),
+                "Métricas del modelo",
+                span(class = "text-muted small ms-2",
+                     "— model_performance() · easystats")
+              ),
+              card_body(uiOutput(ns("tabla_performance_lm")))
+            ),
+
+            div(
+              card(
+                class = "mb-3",
+                card_header(
+                  bs_icon("graph-up-arrow", class = "me-1"),
+                  "Predicho vs. Observado",
+                  span(class = "text-muted small ms-2",
+                       "— entrenamiento completo")
+                ),
+                card_body(
+                  plotOutput(ns("plot_predobs_lm"), height = "240px")
+                )
+              ),
+
+              card(
+                class = "mb-0",
+                card_header(
+                  bs_icon("arrow-repeat", class = "me-1"),
+                  "Validación cruzada",
+                  span(class = "text-muted small ms-2",
+                       "— vfold_cv() · tidymodels")
+                ),
+                card_body(
+                  p(class = "small text-muted mb-2",
+                    "¿Cuánto error cometo al predecir ",
+                    strong("datos nuevos"), "?"
+                  ),
+                  layout_columns(
+                    col_widths = c(4, 4, 4),
+                    numericInput(
+                      ns("cv_folds_lm"),
+                      label = "Folds:",
+                      value = 10, min = 3, max = 20
+                    ),
+                    div(class = "pt-4",
+                        checkboxInput(ns("cv_estratificado_lm"),
+                                      "Estratificar",
+                                      value = FALSE)),
+                    div(class = "pt-4",
+                        actionButton(ns("correr_cv_lm"), "Correr CV",
+                                     class = "btn-primary w-100",
+                                     icon  = icon("rotate")))
+                  ),
+                  tags$hr(),
+                  uiOutput(ns("resultado_cv_lm"))
+                )
+              )
+            )
+          )
+        )
+      ),
+
+      # ════════════════════════════════════════════════
+      # PESTAÑA 8: Parámetros
       # ════════════════════════════════════════════════
       nav_panel(
         title = tagList(bs_icon("table", class = "me-1"), "Parámetros"),
@@ -781,7 +950,7 @@ mod_lm_ui <- function(id) {
 
 
       # ════════════════════════════════════════════════
-      # PESTAÑA 7: Efectos marginales
+      # PESTAÑA 9: Efectos marginales
       # ════════════════════════════════════════════════
       nav_panel(
         title = tagList(bs_icon("graph-up-arrow", class = "me-1"),
@@ -878,7 +1047,7 @@ mod_lm_ui <- function(id) {
       ),
 
       # ════════════════════════════════════════════════
-      # PESTAÑA 8: Contrastes
+      # PESTAÑA 10: Contrastes
       # ════════════════════════════════════════════════
       nav_panel(
         title = tagList(bs_icon("arrows-angle-expand", class = "me-1"),
@@ -934,175 +1103,6 @@ mod_lm_ui <- function(id) {
                 ),
                 card_body(
                   plotOutput(ns("plot_contrastes_lm"), height = "300px")
-                )
-              )
-            )
-          )
-        )
-      ),
-
-      # ════════════════════════════════════════════════
-      # PESTAÑA 9: Diagnóstico
-      # ════════════════════════════════════════════════
-      nav_panel(
-        title = tagList(bs_icon("clipboard-check", class = "me-1"),
-                        "Diagnóstico"),
-        card_body(
-          p(class = "small text-muted mb-3",
-            "Verificamos los ", strong("cinco supuestos del modelo lineal general"),
-            " descritos en la pestaña ", strong("Fundamentos"), ". ",
-            "Generado con ", strong("performance::check_model()"),
-            " del ecosistema easystats."
-          ),
-
-          layout_columns(
-            col_widths = c(4, 4, 4),
-
-            # ── Col 1: semáforo ────────────────────────
-            div(
-              uiOutput(ns("semaforo_col1")),
-              uiOutput(ns("semaforo_col2"))
-            ),
-
-            # ── Col 2: residuos + Q-Q ──────────────────
-            div(
-              card(
-                class = "mb-2",
-                card_header(
-                  class = "py-1",
-                  bs_icon("graph-up", class = "me-1"),
-                  "Residuos vs. ajustados",
-                  span(class = "text-muted small ms-1", "— linealidad")
-                ),
-                card_body(
-                  class = "p-1",
-                  plotOutput(ns("plot_resid"), height = "240px")
-                )
-              ),
-              card(
-                class = "mb-0",
-                card_header(
-                  class = "py-1",
-                  bs_icon("bar-chart", class = "me-1"),
-                  "Q-Q normal",
-                  span(class = "text-muted small ms-1", "— normalidad")
-                ),
-                card_body(
-                  class = "p-1",
-                  plotOutput(ns("plot_qq"), height = "240px")
-                )
-              )
-            ),
-
-            # ── Col 3: scale-location + VIF ───────────
-            div(
-              card(
-                class = "mb-2",
-                card_header(
-                  class = "py-1",
-                  bs_icon("rulers", class = "me-1"),
-                  "Scale-location",
-                  span(class = "text-muted small ms-1",
-                       "— homocedasticidad")
-                ),
-                card_body(
-                  class = "p-1",
-                  plotOutput(ns("plot_scale"), height = "240px")
-                )
-              ),
-              card(
-                class = "mb-0",
-                card_header(
-                  class = "py-1",
-                  bs_icon("bar-chart-line", class = "me-1"),
-                  "VIF",
-                  span(class = "text-muted small ms-1",
-                       "— multicolinealidad")
-                ),
-                card_body(
-                  class = "p-1",
-                  plotOutput(ns("plot_vif"), height = "240px")
-                )
-              )
-            )
-          )
-        )
-      ),
-
-      # ════════════════════════════════════════════════
-      # PESTAÑA 10: Performance
-      # ════════════════════════════════════════════════
-      nav_panel(
-        title = tagList(bs_icon("speedometer2", class = "me-1"),
-                        "Performance"),
-        card_body(
-
-          p(class = "small text-muted mb-3",
-            "Métricas de rendimiento del modelo lineal: R², RMSE, MAE ",
-            "y validación cruzada para estimar el error de predicción ",
-            "en datos nuevos. Generadas con ",
-            strong("performance::model_performance()"),
-            " y ", strong("tidymodels (vfold_cv)"), "."
-          ),
-
-          layout_columns(
-            col_widths = c(6, 6),
-
-            card(
-              card_header(
-                bs_icon("speedometer2", class = "me-1"),
-                "Métricas del modelo",
-                span(class = "text-muted small ms-2",
-                     "— model_performance() · easystats")
-              ),
-              card_body(uiOutput(ns("tabla_performance_lm")))
-            ),
-
-            div(
-              card(
-                class = "mb-3",
-                card_header(
-                  bs_icon("graph-up-arrow", class = "me-1"),
-                  "Predicho vs. Observado",
-                  span(class = "text-muted small ms-2",
-                       "— entrenamiento completo")
-                ),
-                card_body(
-                  plotOutput(ns("plot_predobs_lm"), height = "240px")
-                )
-              ),
-
-              card(
-                class = "mb-0",
-                card_header(
-                  bs_icon("arrow-repeat", class = "me-1"),
-                  "Validación cruzada",
-                  span(class = "text-muted small ms-2",
-                       "— vfold_cv() · tidymodels")
-                ),
-                card_body(
-                  p(class = "small text-muted mb-2",
-                    "¿Cuánto error cometo al predecir ",
-                    strong("datos nuevos"), "?"
-                  ),
-                  layout_columns(
-                    col_widths = c(4, 4, 4),
-                    numericInput(
-                      ns("cv_folds_lm"),
-                      label = "Folds:",
-                      value = 10, min = 3, max = 20
-                    ),
-                    div(class = "pt-4",
-                        checkboxInput(ns("cv_estratificado_lm"),
-                                      "Estratificar",
-                                      value = FALSE)),
-                    div(class = "pt-4",
-                        actionButton(ns("correr_cv_lm"), "Correr CV",
-                                     class = "btn-primary w-100",
-                                     icon  = icon("rotate")))
-                  ),
-                  tags$hr(),
-                  uiOutput(ns("resultado_cv_lm"))
                 )
               )
             )
@@ -1812,684 +1812,7 @@ mod_lm_server <- function(id) {
     })
 
     # ────────────────────────────────────────────────────
-    # PESTAÑA 6: Parámetros
-    # ────────────────────────────────────────────────────
-
-    output$tabla_params_ui <- renderUI({
-      fit <- modelo_lm()
-      if (is.null(fit)) return(
-        div(class = "text-muted small py-3",
-            "Ajusta el modelo primero.")
-      )
-
-      std <- isTRUE(input$estandarizar)
-
-      # Obtener parámetros — estandarizados o crudos
-      mp <- tryCatch(
-        parameters::model_parameters(
-          fit, ci = 0.95,
-          standardize = if (std) "refit" else NULL,
-          verbose = FALSE
-        ),
-        error = function(e) NULL
-      )
-
-      if (is.null(mp)) {
-        # Fallback to base R
-        s        <- summary(fit)
-        coef_mat <- coef(s)
-        ci_mat   <- confint(fit, level = 0.95)
-        mp_df <- data.frame(
-          Parameter = rownames(coef_mat),
-          Coefficient = coef_mat[,1],
-          SE = coef_mat[,2],
-          CI_low = ci_mat[,1],
-          CI_high = ci_mat[,2],
-          p = coef_mat[,4]
-        )
-      } else {
-        mp_df <- as.data.frame(mp)
-      }
-
-      col_est <- if (std) "Std_Coefficient" else "Coefficient"
-      if (!col_est %in% names(mp_df)) col_est <- "Coefficient"
-
-      encabezado <- if (std)
-        "β estandarizado (SD)" else "Estimado"
-
-      filas <- lapply(seq_len(nrow(mp_df)), function(i) {
-        nm   <- as.character(mp_df$Parameter[i])
-        est  <- round(mp_df[[col_est]][i], 3)
-        se   <- round(mp_df$SE[i], 3)
-        pval <- mp_df$p[i]
-        lo   <- round(mp_df$CI_low[i], 3)
-        hi   <- round(mp_df$CI_high[i], 3)
-
-        p_txt <- if (!is.na(pval)) {
-          if (pval < 0.001) "< 0.001 ***" else
-            if (pval < 0.01)  paste0(round(pval,3), " **") else
-              if (pval < 0.05)  paste0(round(pval,3), " *") else
-                round(pval, 3)
-        } else "—"
-        col_p <- if (!is.na(pval) && pval < 0.001) colores$exito else
-          if (!is.na(pval) && pval < 0.05) colores$acento else colores$texto
-
-        tags$tr(
-          style   = "cursor:pointer;",
-          onclick = sprintf(
-            "Shiny.setInputValue('%s', '%s', {priority:'event'})",
-            ns("param_seleccionado"), nm
-          ),
-          tags$td(strong(nm)),
-          tags$td(est),
-          tags$td(se),
-          tags$td(paste0("[", lo, ", ", hi, "]")),
-          tags$td(style = paste0("color:", col_p, "; font-weight:600;"),
-                  p_txt)
-        )
-      })
-
-      tagList(
-        if (std) div(
-          class = "alert alert-info small py-2 px-3 mb-2",
-          bs_icon("distribute-vertical", class = "me-1"),
-          strong("Coeficientes estandarizados (β)."),
-          " Cada estimado está en unidades de desviación estándar — ",
-          "mayor |β| indica mayor peso relativo del predictor. ",
-          "Efectos marginales y predicciones siguen en escala original."
-        ),
-        tags$table(
-          class = "table table-sm table-hover small mb-0",
-          tags$thead(tags$tr(
-            tags$th("Parámetro"), tags$th(encabezado),
-            tags$th("EE"), tags$th("IC 95%"), tags$th("p-valor")
-          )),
-          tags$tbody(filas)
-        )
-      )
-    })
-
-    output$plot_forest <- renderPlot({
-      fit <- modelo_lm()
-      req(fit)
-      std <- isTRUE(input$estandarizar)
-
-      mp <- tryCatch(
-        parameters::model_parameters(
-          fit, ci = 0.95,
-          standardize = if (std) "refit" else NULL,
-          verbose = FALSE
-        ),
-        error = function(e) NULL
-      )
-
-      if (is.null(mp)) {
-        ci    <- confint(fit, level = 0.95)
-        coefs <- coef(fit)
-        pvals <- coef(summary(fit))[, 4]
-        df_f  <- tibble::tibble(
-          term = names(coefs),
-          est  = coefs, lo = ci[,1], hi = ci[,2],
-          sig  = pvals < 0.05
-        )
-      } else {
-        mp_df <- as.data.frame(mp)
-        col_est <- if (std && "Std_Coefficient" %in% names(mp_df))
-          "Std_Coefficient" else "Coefficient"
-        df_f <- tibble::tibble(
-          term = as.character(mp_df$Parameter),
-          est  = mp_df[[col_est]],
-          lo   = mp_df$CI_low,
-          hi   = mp_df$CI_high,
-          sig  = !is.na(mp_df$p) & mp_df$p < 0.05
-        )
-      }
-
-      df_f <- df_f |>
-        dplyr::filter(term != "(Intercept)") |>
-        dplyr::mutate(term = factor(term, levels = rev(unique(term))))
-
-      if (nrow(df_f) == 0) return(invisible(NULL))
-
-      x_label <- if (std) "β estandarizado (SD)" else
-        paste0("Coeficiente (unidades de ", input$var_y, ")")
-
-      ggplot(df_f, aes(x = est, y = term,
-                       xmin = lo, xmax = hi, color = sig)) +
-        geom_vline(xintercept = 0, linetype = "dashed",
-                   color = colores$texto, linewidth = 0.7) +
-        geom_errorbar(aes(ymin = lo, ymax = hi),
-                      width = 0.2, linewidth = 1,
-                      orientation = "y") +
-        geom_point(size = 3) +
-        scale_color_manual(
-          values = c(`TRUE`  = colores$acento,
-                     `FALSE` = colores$primario),
-          labels = c(`TRUE`  = "Significativo (p < 0.05)",
-                     `FALSE` = "No significativo"),
-          name   = NULL
-        ) +
-        labs(x = x_label, y = NULL,
-             subtitle = "IC 95% — si incluye el 0, el efecto no es significativo") +
-        theme_minimal(base_size = 12) +
-        theme(
-          panel.grid.minor   = element_blank(),
-          panel.grid.major.y = element_blank(),
-          legend.position    = "bottom",
-          plot.subtitle      = element_text(color = colores$texto, size = 9),
-          legend.text        = element_text(size = 9)
-        )
-    }, res = 110)
-
-    output$plot_importancia_lm <- renderPlot({
-      fit <- modelo_lm(); req(fit)
-
-      fit_std <- modelo_lm_std()
-
-      # Usar modelo estandarizado si está disponible
-      mp <- if (!is.null(fit_std)) {
-        tryCatch(
-          parameters::model_parameters(fit_std, ci = 0.95, verbose = FALSE),
-          error = function(e) NULL
-        )
-      } else NULL
-
-      # Fallback a coeficientes crudos
-      if (is.null(mp)) {
-        mp <- tryCatch(
-          parameters::model_parameters(fit, ci = 0.95, verbose = FALSE),
-          error = function(e) NULL
-        )
-      }
-
-      if (is.null(mp)) return(
-        ggplot() + annotate("text", x=0.5, y=0.5,
-                            label="No se pudieron calcular los parámetros.",
-                            color=colores$texto, size=4) + theme_void()
-      )
-
-      df_imp <- as.data.frame(mp)
-      col_est <- "Coefficient"
-      es_std  <- !is.null(fit_std)
-
-      df_imp <- df_imp |>
-        dplyr::filter(Parameter != "(Intercept)") |>
-        dplyr::mutate(
-          abs_est   = abs(.data[[col_est]]),
-          direccion = ifelse(.data[[col_est]] >= 0, "Positivo", "Negativo"),
-          sig       = !is.na(p) & p < 0.05,
-          Parameter = factor(Parameter,
-                             levels = Parameter[order(abs_est)])
-        ) |>
-        dplyr::arrange(abs_est)
-
-      if (nrow(df_imp) == 0) return(invisible(NULL))
-
-      df_imp$sig_chr <- ifelse(df_imp$sig, "sig", "no_sig")
-
-      x_label <- if (es_std) "Importancia (β estandarizado en SD)"
-      else paste0("Importancia (coeficiente en unidades de ", input$var_y, ")")
-
-      ggplot(df_imp,
-             aes(x = abs_est, y = Parameter,
-                 fill = direccion, alpha = sig_chr)) +
-        geom_col(width = 0.65) +
-        geom_text(aes(label = sprintf("%+.3f", .data[[col_est]])),
-                  hjust = -0.15, size = 3.5,
-                  color = colores$texto) +
-        scale_fill_manual(
-          values = c("Positivo" = colores$primario,
-                     "Negativo" = colores$peligro),
-          name = "Dirección"
-        ) +
-        scale_alpha_manual(
-          values = c("sig" = 1, "no_sig" = 0.35),
-          guide  = "none"
-        ) +
-        scale_x_continuous(expand = expansion(mult = c(0, 0.2))) +
-        labs(
-          x        = x_label,
-          y        = NULL,
-          subtitle = "Barras transparentes = p ≥ 0.05 · Mayor barra = mayor peso relativo"
-        ) +
-        theme_minimal(base_size = 12) +
-        theme(
-          panel.grid.minor   = element_blank(),
-          panel.grid.major.y = element_blank(),
-          legend.position    = "bottom",
-          plot.subtitle      = element_text(color = colores$texto, size = 9),
-          legend.text        = element_text(size = 9),
-          plot.margin        = margin(10, 20, 5, 10)
-        )
-    }, res = 110)
-
-    output$interp_coef <- renderUI({
-      fit <- modelo_lm()
-      req(fit)
-      sel <- input$param_seleccionado
-      if (is.null(sel) || sel == "") return(
-        p(class = "small text-muted",
-          "Haz clic en una fila de la tabla para ver la interpretación.")
-      )
-      coefs <- coef(fit)
-      ci    <- confint(fit, level = 0.95)
-      pvals <- coef(summary(fit))[, 4]
-      req(sel %in% names(coefs))
-
-      est  <- round(coefs[sel], 3)
-      lo   <- round(ci[sel, 1], 3)
-      hi   <- round(ci[sel, 2], 3)
-      pval <- pvals[sel]
-      sig  <- pval < 0.05
-      p_txt <- if (pval < 0.001) "< 0.001" else round(pval, 3)
-      col   <- if (sig) colores$exito else colores$advertencia
-
-      interp <- if (sel == "(Intercept)") {
-        paste0(
-          "El intercepto (β₀ = ", est, ") es el valor predicho de ",
-          input$var_y, " cuando todos los predictores son cero. ",
-          "Generalmente no tiene interpretación práctica directa."
-        )
-      } else {
-        es_cat <- grepl(paste(vars_categoricas(), collapse = "|"), sel)
-        if (es_cat) {
-          paste0(
-            "El grupo '", sel, "' tiene en promedio ",
-            ifelse(est >= 0, "+", ""), est, " unidades de ", input$var_y,
-            " respecto a la categoría de referencia, ",
-            "manteniendo el resto de variables igual. ",
-            "IC 95%: [", lo, ", ", hi, "]. ",
-            if (sig) "Diferencia estadísticamente significativa (p = "
-            else "Diferencia NO estadísticamente significativa (p = ",
-            p_txt, ")."
-          )
-        } else {
-          paste0(
-            "Por cada unidad adicional de ", sel, ", ",
-            input$var_y, " cambia en promedio ",
-            ifelse(est >= 0, "+", ""), est, " unidades, ",
-            "manteniendo el resto de variables igual. ",
-            "IC 95%: [", lo, ", ", hi, "]. ",
-            if (sig) "Efecto estadísticamente significativo (p = "
-            else "Efecto NO estadísticamente significativo (p = ",
-            p_txt, ")."
-          )
-        }
-      }
-
-      div(
-        class = "alert py-2 px-3 small mb-0",
-        style = paste0(
-          "border-left: 4px solid ", col, "; background: ",
-          if (sig) "#f0f9f5" else "#fffbf0", ";"
-        ),
-        bs_icon(if (sig) "check-circle-fill" else "circle",
-                class = "me-1",
-                style = paste0("color:", col)),
-        strong(sel), " — ", interp
-      )
-    })
-
-    # ────────────────────────────────────────────────────
-    # PESTAÑA 7: Efectos marginales
-    # ────────────────────────────────────────────────────
-
-    output$sel_pred_marginal_lm <- renderUI({
-      fit <- modelo_lm(); req(fit)
-      preds <- c(input$preds_num, input$preds_cat)
-      req(length(preds) > 0)
-      selectInput(ns("pred_marginal_lm"),
-                  label    = "Predictor a explorar:",
-                  choices  = preds,
-                  selected = preds[1])
-    })
-
-    output$marginal_valores_tipicos_lm <- renderUI({
-      fit   <- modelo_lm(); req(fit, input$pred_marginal_lm)
-      df    <- datos_activos()
-      preds <- c(input$preds_num, input$preds_cat)
-      otros <- preds[preds != input$pred_marginal_lm]
-      if (length(otros) == 0) return(NULL)
-      vals <- lapply(otros, function(nm) {
-        col <- df[[nm]]
-        if (is.numeric(col)) paste0(nm, " = ", round(mean(col, na.rm=TRUE), 2))
-        else paste0(nm, " = ", names(sort(table(col), decreasing=TRUE))[1])
-      })
-      div(class = "alert alert-info small py-2 px-2 mb-0",
-          bs_icon("info-circle", class = "me-1"),
-          strong("Valores fijos: "), br(),
-          paste(unlist(vals), collapse = " · "))
-    })
-
-    output$plot_marginal_lm <- renderPlot({
-      fit  <- modelo_lm(); req(fit, input$pred_marginal_lm)
-      df   <- datos_activos()
-      pred <- input$pred_marginal_lm
-      es_cat <- pred %in% vars_categoricas()
-
-      tryCatch({
-        rel    <- suppressWarnings(
-          modelbased::estimate_relation(fit, by = pred, verbose = FALSE)
-        )
-        df_rel <- as.data.frame(rel)
-
-        p <- ggplot(df_rel, aes(x = .data[[pred]], y = Predicted)) +
-          theme_minimal(base_size = 13)
-
-        if (es_cat) {
-          if (isTRUE(input$marginal_ci_lm))
-            p <- p + geom_errorbar(
-              aes(ymin = CI_low, ymax = CI_high),
-              width = 0.2, linewidth = 0.8,
-              color = colores$primario)
-          p <- p + geom_point(color = colores$primario, size = 3.5)
-        } else {
-          if (isTRUE(input$marginal_ci_lm))
-            p <- p + geom_ribbon(aes(ymin = CI_low, ymax = CI_high),
-                                 fill = colores$primario, alpha = 0.15)
-          if (isTRUE(input$marginal_puntos_lm))
-            p <- p + geom_point(
-              data = data.frame(x_obs = df[[pred]],
-                                y_obs = as.numeric(df[[input$var_y]])),
-              aes(x = x_obs, y = y_obs),
-              color = colores$primario, alpha = 0.3, size = 1.5,
-              inherit.aes = FALSE)
-          p <- p + geom_line(color = colores$primario, linewidth = 1.2)
-        }
-
-        p + labs(x = pred, y = input$var_y,
-                 subtitle = paste0(
-                   "Efecto marginal de '", pred,
-                   "' — resto en valores típicos")) +
-          theme(panel.grid.minor = element_blank(),
-                legend.position  = "none",
-                plot.subtitle    = element_text(color = colores$texto,
-                                                size  = 9),
-                plot.margin      = margin(10, 15, 5, 10))
-      }, error = function(e) {
-        ggplot() + annotate("text", x = 0.5, y = 0.5,
-                            label = paste0("Error: ", conditionMessage(e)),
-                            color = colores$texto, size = 3.5, hjust = 0.5) +
-          theme_void()
-      })
-    }, res = 96)
-
-    output$marginal_interpretacion_lm <- renderUI({
-      fit  <- modelo_lm(); req(fit, input$pred_marginal_lm)
-      pred <- input$pred_marginal_lm
-      es_cat <- pred %in% vars_categoricas()
-      tryCatch({
-        coefs <- coef(fit)
-        pvals <- coef(summary(fit))[, 4]
-        if (es_cat) {
-          filas_cat <- names(coefs)[grepl(pred, names(coefs), fixed = TRUE)]
-          texto <- if (length(filas_cat) > 0) {
-            paste0("La variable '", pred, "' genera diferencias en ",
-                   input$var_y, ". Diferencias respecto a la referencia: ",
-                   paste(paste0(gsub(pred, "", filas_cat),
-                                " = ", round(coefs[filas_cat], 3)),
-                         collapse = ", "), " unidades.")
-          } else "Ver tabla de parámetros para la interpretación."
-        } else {
-          est <- round(coefs[pred], 3)
-          sig <- pvals[pred] < 0.05
-          texto <- paste0(
-            "Por cada unidad adicional de '", pred, "', ",
-            input$var_y, " cambia en promedio ",
-            ifelse(est >= 0, "+", ""), est, " unidades",
-            " (manteniendo el resto fijo). ",
-            if (sig) "Efecto estadísticamente significativo."
-            else "Efecto NO estadísticamente significativo."
-          )
-        }
-        div(class = "alert alert-info small py-2 px-3 mb-0",
-            bs_icon("lightbulb-fill", class = "me-1"), texto)
-      }, error = function(e) NULL)
-    })
-
-    # ── Predicción puntual ────────────────────────────────
-
-    output$inputs_prediccion_lm <- renderUI({
-      fit   <- modelo_lm(); req(fit)
-      df    <- datos_activos()
-      preds <- c(input$preds_num, input$preds_cat)
-      req(length(preds) > 0)
-      inputs <- lapply(preds, function(nm) {
-        col <- df[[nm]]
-        if (is.numeric(col)) {
-          numericInput(
-            inputId = ns(paste0("pred_val_lm_", nm)),
-            label   = paste0(nm, " (media = ",
-                             round(mean(col, na.rm=TRUE), 1), "):"),
-            value   = round(mean(col, na.rm=TRUE), 1),
-            step    = round(sd(col, na.rm=TRUE) / 10, 2)
-          )
-        } else {
-          moda <- names(sort(table(col), decreasing=TRUE))[1]
-          selectInput(
-            inputId  = ns(paste0("pred_val_lm_", nm)),
-            label    = nm,
-            choices  = levels(col),
-            selected = moda
-          )
-        }
-      })
-      do.call(tagList, inputs)
-    })
-
-    resultado_prediccion_lm_data <- eventReactive(
-      input$calcular_prediccion_lm, {
-        fit   <- modelo_lm(); req(fit)
-        df    <- datos_activos()
-        preds <- c(input$preds_num, input$preds_cat)
-        req(length(preds) > 0)
-        nueva_obs <- tryCatch({
-          vals <- lapply(preds, function(nm) {
-            col <- df[[nm]]
-            val <- input[[paste0("pred_val_lm_", nm)]]
-            req(!is.null(val))
-            if (is.numeric(col)) as.numeric(val)
-            else factor(val, levels = levels(col))
-          })
-          names(vals) <- preds
-          as.data.frame(vals)
-        }, error = function(e) NULL)
-        req(nueva_obs)
-        tryCatch(
-          modelbased::estimate_expectation(
-            fit, data = nueva_obs, verbose = FALSE
-          ),
-          error = function(e) NULL
-        )
-      }, ignoreNULL = TRUE)
-
-    output$resultado_prediccion_lm <- renderUI({
-      res <- resultado_prediccion_lm_data()
-      if (is.null(res)) return(
-        div(class = "text-muted small py-3",
-            bs_icon("calculator", class = "me-2"),
-            "Define los valores y haz clic en ",
-            strong("Calcular predicción"), ".")
-      )
-      df_res <- as.data.frame(res)
-      pred   <- round(df_res$Predicted[1], 3)
-      lo     <- round(df_res$CI_low[1], 3)
-      hi     <- round(df_res$CI_high[1], 3)
-      tagList(
-        div(class = "text-center py-3",
-            h2(style = paste0("color:", colores$primario,
-                              "; font-weight:700; font-size:2.5rem;"),
-               pred),
-            p(class = "text-muted mb-1",
-              strong(paste0(input$var_y, " predicho"))),
-            p(class = "small text-muted",
-              "IC 95%: ", strong(paste0("[", lo, ", ", hi, "]")))
-        ),
-        tags$hr(),
-        div(class = "small text-muted",
-            bs_icon("info-circle", class = "me-1"),
-            "Valores usados: ",
-            paste(sapply(c(input$preds_num, input$preds_cat), function(nm) {
-              val <- input[[paste0("pred_val_lm_", nm)]]
-              paste0(nm, " = ", val)
-            }), collapse = " · ")
-        )
-      )
-    })
-
-    # ────────────────────────────────────────────────────
-    # PESTAÑA 8: Contrastes
-    # ────────────────────────────────────────────────────
-
-    output$contrasts_no_cat_msg_lm <- renderUI({
-      if (length(input$preds_cat) == 0)
-        div(class = "alert alert-warning small py-2 px-3 mb-3",
-            bs_icon("exclamation-triangle-fill", class = "me-1"),
-            "El modelo no tiene predictores categóricos. ",
-            "Ve a ", strong("Ajustar modelo"),
-            " y agrega al menos una variable categórica.")
-    })
-
-    output$sel_var_contraste_lm <- renderUI({
-      fit  <- modelo_lm(); req(fit)
-      cats <- input$preds_cat; req(length(cats) > 0)
-      selectInput(ns("var_contraste_lm"),
-                  label    = "Variable para contrastar:",
-                  choices  = cats, selected = cats[1])
-    })
-
-    output$tabla_contrastes_lm <- renderUI({
-      fit <- modelo_lm(); req(fit, input$var_contraste_lm)
-      tryCatch({
-        ct    <- modelbased::estimate_contrasts(
-          fit, contrast = input$var_contraste_lm,
-          p_adjust = input$metodo_ajuste_lm, verbose = FALSE)
-        df_ct <- as.data.frame(ct)
-        char_cols <- names(df_ct)[sapply(df_ct, function(x)
-          is.character(x) || is.factor(x))]
-        if (length(char_cols) >= 2)
-          etiqueta <- paste0(df_ct[[char_cols[1]]], " vs. ",
-                             df_ct[[char_cols[2]]])
-        else etiqueta <- paste0("Contraste ", seq_len(nrow(df_ct)))
-
-        diff_col <- if ("Difference" %in% names(df_ct)) "Difference"
-        else names(df_ct)[sapply(df_ct, is.numeric)][1]
-        ci_lo <- if ("CI_low"  %in% names(df_ct)) "CI_low" else NA
-        ci_hi <- if ("CI_high" %in% names(df_ct)) "CI_high" else NA
-        p_col <- if ("p" %in% names(df_ct)) "p"
-        else if ("p.value" %in% names(df_ct)) "p.value" else NA
-
-        filas <- lapply(seq_len(nrow(df_ct)), function(i) {
-          sig   <- if (!is.na(p_col)) !is.na(df_ct[[p_col]][i]) &&
-            df_ct[[p_col]][i] < 0.05 else FALSE
-          p_txt <- if (!is.na(p_col) && !is.na(df_ct[[p_col]][i])) {
-            pv <- df_ct[[p_col]][i]
-            if (pv < 0.001) "< 0.001 ***"
-            else if (pv < 0.01)  paste0(round(pv,3), " **")
-            else if (pv < 0.05)  paste0(round(pv,3), " *")
-            else round(pv, 3)
-          } else "—"
-          col_p <- if (sig) colores$exito else colores$texto
-          tags$tr(
-            tags$td(strong(etiqueta[i])),
-            tags$td(style="text-align:center;",
-                    round(df_ct[[diff_col]][i], 3)),
-            tags$td(style="text-align:center;",
-                    if (!is.na(ci_lo))
-                      paste0("[", round(df_ct[[ci_lo]][i],3), ", ",
-                             round(df_ct[[ci_hi]][i],3), "]")
-                    else "—"),
-            tags$td(style=paste0("text-align:center; color:", col_p,
-                                 "; font-weight:600;"), p_txt)
-          )
-        })
-
-        tags$table(
-          class = "table table-sm table-hover small mb-0",
-          tags$thead(tags$tr(
-            tags$th(style=paste0("background:", colores$primario,
-                                 " !important; color:#fff !important;"),
-                    "Contraste"),
-            tags$th(style=paste0("background:", colores$primario,
-                                 " !important; color:#fff !important;",
-                                 "text-align:center;"),
-                    paste0("Diferencia (", input$var_y, ")")),
-            tags$th(style=paste0("background:", colores$primario,
-                                 " !important; color:#fff !important;",
-                                 "text-align:center;"), "IC 95%"),
-            tags$th(style=paste0("background:", colores$primario,
-                                 " !important; color:#fff !important;",
-                                 "text-align:center;"), "p-valor")
-          )),
-          tags$tbody(filas)
-        )
-      }, error = function(e) {
-        div(class="text-muted small py-3",
-            "Ajusta el modelo con predictores categóricos.")
-      })
-    })
-
-    output$plot_contrastes_lm <- renderPlot({
-      fit <- modelo_lm(); req(fit, input$var_contraste_lm)
-      tryCatch({
-        ct    <- modelbased::estimate_contrasts(
-          fit, contrast = input$var_contraste_lm,
-          p_adjust = input$metodo_ajuste_lm, verbose = FALSE)
-        df_ct <- as.data.frame(ct)
-        char_cols <- names(df_ct)[sapply(df_ct, function(x)
-          is.character(x) || is.factor(x))]
-        if (length(char_cols) >= 2)
-          etiqueta <- paste0(df_ct[[char_cols[1]]], " vs. ",
-                             df_ct[[char_cols[2]]])
-        else etiqueta <- paste0("Contraste ", seq_len(nrow(df_ct)))
-
-        diff_col <- if ("Difference" %in% names(df_ct)) "Difference"
-        else names(df_ct)[sapply(df_ct, is.numeric)][1]
-        ci_lo <- if ("CI_low"  %in% names(df_ct)) df_ct$CI_low
-        else df_ct[[diff_col]] - 1
-        ci_hi <- if ("CI_high" %in% names(df_ct)) df_ct$CI_high
-        else df_ct[[diff_col]] + 1
-        p_vals <- if ("p" %in% names(df_ct)) df_ct$p
-        else if ("p.value" %in% names(df_ct)) df_ct$p.value
-        else rep(0.5, nrow(df_ct))
-
-        df_plot <- data.frame(
-          contraste = factor(etiqueta, levels = rev(unique(etiqueta))),
-          diff      = df_ct[[diff_col]],
-          lo = ci_lo, hi = ci_hi,
-          sig = !is.na(p_vals) & p_vals < 0.05
-        )
-
-        ggplot(df_plot, aes(x=diff, y=contraste, xmin=lo, xmax=hi,
-                            color=sig)) +
-          geom_vline(xintercept=0, linetype="dashed",
-                     color=colores$texto, linewidth=0.7) +
-          geom_errorbar(aes(ymin=lo, ymax=hi), width=0.25,
-                        linewidth=1.1, orientation="y") +
-          geom_point(size=3.5) +
-          scale_color_manual(
-            values=c(`TRUE`=colores$acento, `FALSE`=colores$primario),
-            labels=c(`TRUE`="Significativo", `FALSE`="No significativo"),
-            name=NULL) +
-          labs(x=paste0("Diferencia en ", input$var_y, " (unidades)"),
-               y=NULL,
-               subtitle=paste0("Ajuste p-valores: ",
-                               input$metodo_ajuste_lm, " · IC 95%")) +
-          theme_minimal(base_size=12) +
-          theme(panel.grid.minor=element_blank(),
-                panel.grid.major.y=element_blank(),
-                legend.position="bottom",
-                plot.subtitle=element_text(color=colores$texto, size=9),
-                plot.margin=margin(10,15,5,10))
-      }, error = function(e) {
-        ggplot() + annotate("text", x=0.5, y=0.5,
-                            label="Sin contrastes disponibles.",
-                            color=colores$texto, size=4) + theme_void()
-      })
-    }, res = 96)
-
-    # ────────────────────────────────────────────────────
-    # PESTAÑA 9: Diagnóstico
+    # PESTAÑA 6: Diagnóstico
     # ────────────────────────────────────────────────────
 
     # ────────────────────────────────────────────────────
@@ -2713,7 +2036,7 @@ mod_lm_server <- function(id) {
     }, res = 110)
 
     # ────────────────────────────────────────────────────
-    # PESTAÑA 10: Performance
+    # PESTAÑA 7: Performance
     # ────────────────────────────────────────────────────
 
     output$tabla_performance_lm <- renderUI({
@@ -3094,7 +2417,684 @@ mod_lm_server <- function(id) {
     }, res = 96)
 
     # ────────────────────────────────────────────────────
-    # PESTAÑA 10: Código R reproducible
+    # PESTAÑA 8: Parámetros
+    # ────────────────────────────────────────────────────
+
+    output$tabla_params_ui <- renderUI({
+      fit <- modelo_lm()
+      if (is.null(fit)) return(
+        div(class = "text-muted small py-3",
+            "Ajusta el modelo primero.")
+      )
+
+      std <- isTRUE(input$estandarizar)
+
+      # Obtener parámetros — estandarizados o crudos
+      mp <- tryCatch(
+        parameters::model_parameters(
+          fit, ci = 0.95,
+          standardize = if (std) "refit" else NULL,
+          verbose = FALSE
+        ),
+        error = function(e) NULL
+      )
+
+      if (is.null(mp)) {
+        # Fallback to base R
+        s        <- summary(fit)
+        coef_mat <- coef(s)
+        ci_mat   <- confint(fit, level = 0.95)
+        mp_df <- data.frame(
+          Parameter = rownames(coef_mat),
+          Coefficient = coef_mat[,1],
+          SE = coef_mat[,2],
+          CI_low = ci_mat[,1],
+          CI_high = ci_mat[,2],
+          p = coef_mat[,4]
+        )
+      } else {
+        mp_df <- as.data.frame(mp)
+      }
+
+      col_est <- if (std) "Std_Coefficient" else "Coefficient"
+      if (!col_est %in% names(mp_df)) col_est <- "Coefficient"
+
+      encabezado <- if (std)
+        "β estandarizado (SD)" else "Estimado"
+
+      filas <- lapply(seq_len(nrow(mp_df)), function(i) {
+        nm   <- as.character(mp_df$Parameter[i])
+        est  <- round(mp_df[[col_est]][i], 3)
+        se   <- round(mp_df$SE[i], 3)
+        pval <- mp_df$p[i]
+        lo   <- round(mp_df$CI_low[i], 3)
+        hi   <- round(mp_df$CI_high[i], 3)
+
+        p_txt <- if (!is.na(pval)) {
+          if (pval < 0.001) "< 0.001 ***" else
+            if (pval < 0.01)  paste0(round(pval,3), " **") else
+              if (pval < 0.05)  paste0(round(pval,3), " *") else
+                round(pval, 3)
+        } else "—"
+        col_p <- if (!is.na(pval) && pval < 0.001) colores$exito else
+          if (!is.na(pval) && pval < 0.05) colores$acento else colores$texto
+
+        tags$tr(
+          style   = "cursor:pointer;",
+          onclick = sprintf(
+            "Shiny.setInputValue('%s', '%s', {priority:'event'})",
+            ns("param_seleccionado"), nm
+          ),
+          tags$td(strong(nm)),
+          tags$td(est),
+          tags$td(se),
+          tags$td(paste0("[", lo, ", ", hi, "]")),
+          tags$td(style = paste0("color:", col_p, "; font-weight:600;"),
+                  p_txt)
+        )
+      })
+
+      tagList(
+        if (std) div(
+          class = "alert alert-info small py-2 px-3 mb-2",
+          bs_icon("distribute-vertical", class = "me-1"),
+          strong("Coeficientes estandarizados (β)."),
+          " Cada estimado está en unidades de desviación estándar — ",
+          "mayor |β| indica mayor peso relativo del predictor. ",
+          "Efectos marginales y predicciones siguen en escala original."
+        ),
+        tags$table(
+          class = "table table-sm table-hover small mb-0",
+          tags$thead(tags$tr(
+            tags$th("Parámetro"), tags$th(encabezado),
+            tags$th("EE"), tags$th("IC 95%"), tags$th("p-valor")
+          )),
+          tags$tbody(filas)
+        )
+      )
+    })
+
+    output$plot_forest <- renderPlot({
+      fit <- modelo_lm()
+      req(fit)
+      std <- isTRUE(input$estandarizar)
+
+      mp <- tryCatch(
+        parameters::model_parameters(
+          fit, ci = 0.95,
+          standardize = if (std) "refit" else NULL,
+          verbose = FALSE
+        ),
+        error = function(e) NULL
+      )
+
+      if (is.null(mp)) {
+        ci    <- confint(fit, level = 0.95)
+        coefs <- coef(fit)
+        pvals <- coef(summary(fit))[, 4]
+        df_f  <- tibble::tibble(
+          term = names(coefs),
+          est  = coefs, lo = ci[,1], hi = ci[,2],
+          sig  = pvals < 0.05
+        )
+      } else {
+        mp_df <- as.data.frame(mp)
+        col_est <- if (std && "Std_Coefficient" %in% names(mp_df))
+          "Std_Coefficient" else "Coefficient"
+        df_f <- tibble::tibble(
+          term = as.character(mp_df$Parameter),
+          est  = mp_df[[col_est]],
+          lo   = mp_df$CI_low,
+          hi   = mp_df$CI_high,
+          sig  = !is.na(mp_df$p) & mp_df$p < 0.05
+        )
+      }
+
+      df_f <- df_f |>
+        dplyr::filter(term != "(Intercept)") |>
+        dplyr::mutate(term = factor(term, levels = rev(unique(term))))
+
+      if (nrow(df_f) == 0) return(invisible(NULL))
+
+      x_label <- if (std) "β estandarizado (SD)" else
+        paste0("Coeficiente (unidades de ", input$var_y, ")")
+
+      ggplot(df_f, aes(x = est, y = term,
+                       xmin = lo, xmax = hi, color = sig)) +
+        geom_vline(xintercept = 0, linetype = "dashed",
+                   color = colores$texto, linewidth = 0.7) +
+        geom_errorbar(aes(ymin = lo, ymax = hi),
+                      width = 0.2, linewidth = 1,
+                      orientation = "y") +
+        geom_point(size = 3) +
+        scale_color_manual(
+          values = c(`TRUE`  = colores$acento,
+                     `FALSE` = colores$primario),
+          labels = c(`TRUE`  = "Significativo (p < 0.05)",
+                     `FALSE` = "No significativo"),
+          name   = NULL
+        ) +
+        labs(x = x_label, y = NULL,
+             subtitle = "IC 95% — si incluye el 0, el efecto no es significativo") +
+        theme_minimal(base_size = 12) +
+        theme(
+          panel.grid.minor   = element_blank(),
+          panel.grid.major.y = element_blank(),
+          legend.position    = "bottom",
+          plot.subtitle      = element_text(color = colores$texto, size = 9),
+          legend.text        = element_text(size = 9)
+        )
+    }, res = 110)
+
+    output$plot_importancia_lm <- renderPlot({
+      fit <- modelo_lm(); req(fit)
+
+      fit_std <- modelo_lm_std()
+
+      # Usar modelo estandarizado si está disponible
+      mp <- if (!is.null(fit_std)) {
+        tryCatch(
+          parameters::model_parameters(fit_std, ci = 0.95, verbose = FALSE),
+          error = function(e) NULL
+        )
+      } else NULL
+
+      # Fallback a coeficientes crudos
+      if (is.null(mp)) {
+        mp <- tryCatch(
+          parameters::model_parameters(fit, ci = 0.95, verbose = FALSE),
+          error = function(e) NULL
+        )
+      }
+
+      if (is.null(mp)) return(
+        ggplot() + annotate("text", x=0.5, y=0.5,
+                            label="No se pudieron calcular los parámetros.",
+                            color=colores$texto, size=4) + theme_void()
+      )
+
+      df_imp <- as.data.frame(mp)
+      col_est <- "Coefficient"
+      es_std  <- !is.null(fit_std)
+
+      df_imp <- df_imp |>
+        dplyr::filter(Parameter != "(Intercept)") |>
+        dplyr::mutate(
+          abs_est   = abs(.data[[col_est]]),
+          direccion = ifelse(.data[[col_est]] >= 0, "Positivo", "Negativo"),
+          sig       = !is.na(p) & p < 0.05,
+          Parameter = factor(Parameter,
+                             levels = Parameter[order(abs_est)])
+        ) |>
+        dplyr::arrange(abs_est)
+
+      if (nrow(df_imp) == 0) return(invisible(NULL))
+
+      df_imp$sig_chr <- ifelse(df_imp$sig, "sig", "no_sig")
+
+      x_label <- if (es_std) "Importancia (β estandarizado en SD)"
+      else paste0("Importancia (coeficiente en unidades de ", input$var_y, ")")
+
+      ggplot(df_imp,
+             aes(x = abs_est, y = Parameter,
+                 fill = direccion, alpha = sig_chr)) +
+        geom_col(width = 0.65) +
+        geom_text(aes(label = sprintf("%+.3f", .data[[col_est]])),
+                  hjust = -0.15, size = 3.5,
+                  color = colores$texto) +
+        scale_fill_manual(
+          values = c("Positivo" = colores$primario,
+                     "Negativo" = colores$peligro),
+          name = "Dirección"
+        ) +
+        scale_alpha_manual(
+          values = c("sig" = 1, "no_sig" = 0.35),
+          guide  = "none"
+        ) +
+        scale_x_continuous(expand = expansion(mult = c(0, 0.2))) +
+        labs(
+          x        = x_label,
+          y        = NULL,
+          subtitle = "Barras transparentes = p ≥ 0.05 · Mayor barra = mayor peso relativo"
+        ) +
+        theme_minimal(base_size = 12) +
+        theme(
+          panel.grid.minor   = element_blank(),
+          panel.grid.major.y = element_blank(),
+          legend.position    = "bottom",
+          plot.subtitle      = element_text(color = colores$texto, size = 9),
+          legend.text        = element_text(size = 9),
+          plot.margin        = margin(10, 20, 5, 10)
+        )
+    }, res = 110)
+
+    output$interp_coef <- renderUI({
+      fit <- modelo_lm()
+      req(fit)
+      sel <- input$param_seleccionado
+      if (is.null(sel) || sel == "") return(
+        p(class = "small text-muted",
+          "Haz clic en una fila de la tabla para ver la interpretación.")
+      )
+      coefs <- coef(fit)
+      ci    <- confint(fit, level = 0.95)
+      pvals <- coef(summary(fit))[, 4]
+      req(sel %in% names(coefs))
+
+      est  <- round(coefs[sel], 3)
+      lo   <- round(ci[sel, 1], 3)
+      hi   <- round(ci[sel, 2], 3)
+      pval <- pvals[sel]
+      sig  <- pval < 0.05
+      p_txt <- if (pval < 0.001) "< 0.001" else round(pval, 3)
+      col   <- if (sig) colores$exito else colores$advertencia
+
+      interp <- if (sel == "(Intercept)") {
+        paste0(
+          "El intercepto (β₀ = ", est, ") es el valor predicho de ",
+          input$var_y, " cuando todos los predictores son cero. ",
+          "Generalmente no tiene interpretación práctica directa."
+        )
+      } else {
+        es_cat <- grepl(paste(vars_categoricas(), collapse = "|"), sel)
+        if (es_cat) {
+          paste0(
+            "El grupo '", sel, "' tiene en promedio ",
+            ifelse(est >= 0, "+", ""), est, " unidades de ", input$var_y,
+            " respecto a la categoría de referencia, ",
+            "manteniendo el resto de variables igual. ",
+            "IC 95%: [", lo, ", ", hi, "]. ",
+            if (sig) "Diferencia estadísticamente significativa (p = "
+            else "Diferencia NO estadísticamente significativa (p = ",
+            p_txt, ")."
+          )
+        } else {
+          paste0(
+            "Por cada unidad adicional de ", sel, ", ",
+            input$var_y, " cambia en promedio ",
+            ifelse(est >= 0, "+", ""), est, " unidades, ",
+            "manteniendo el resto de variables igual. ",
+            "IC 95%: [", lo, ", ", hi, "]. ",
+            if (sig) "Efecto estadísticamente significativo (p = "
+            else "Efecto NO estadísticamente significativo (p = ",
+            p_txt, ")."
+          )
+        }
+      }
+
+      div(
+        class = "alert py-2 px-3 small mb-0",
+        style = paste0(
+          "border-left: 4px solid ", col, "; background: ",
+          if (sig) "#f0f9f5" else "#fffbf0", ";"
+        ),
+        bs_icon(if (sig) "check-circle-fill" else "circle",
+                class = "me-1",
+                style = paste0("color:", col)),
+        strong(sel), " — ", interp
+      )
+    })
+
+    # ────────────────────────────────────────────────────
+    # PESTAÑA 9: Efectos marginales
+    # ────────────────────────────────────────────────────
+
+    output$sel_pred_marginal_lm <- renderUI({
+      fit <- modelo_lm(); req(fit)
+      preds <- c(input$preds_num, input$preds_cat)
+      req(length(preds) > 0)
+      selectInput(ns("pred_marginal_lm"),
+                  label    = "Predictor a explorar:",
+                  choices  = preds,
+                  selected = preds[1])
+    })
+
+    output$marginal_valores_tipicos_lm <- renderUI({
+      fit   <- modelo_lm(); req(fit, input$pred_marginal_lm)
+      df    <- datos_activos()
+      preds <- c(input$preds_num, input$preds_cat)
+      otros <- preds[preds != input$pred_marginal_lm]
+      if (length(otros) == 0) return(NULL)
+      vals <- lapply(otros, function(nm) {
+        col <- df[[nm]]
+        if (is.numeric(col)) paste0(nm, " = ", round(mean(col, na.rm=TRUE), 2))
+        else paste0(nm, " = ", names(sort(table(col), decreasing=TRUE))[1])
+      })
+      div(class = "alert alert-info small py-2 px-2 mb-0",
+          bs_icon("info-circle", class = "me-1"),
+          strong("Valores fijos: "), br(),
+          paste(unlist(vals), collapse = " · "))
+    })
+
+    output$plot_marginal_lm <- renderPlot({
+      fit  <- modelo_lm(); req(fit, input$pred_marginal_lm)
+      df   <- datos_activos()
+      pred <- input$pred_marginal_lm
+      es_cat <- pred %in% vars_categoricas()
+
+      tryCatch({
+        rel    <- suppressWarnings(
+          modelbased::estimate_relation(fit, by = pred, verbose = FALSE)
+        )
+        df_rel <- as.data.frame(rel)
+
+        p <- ggplot(df_rel, aes(x = .data[[pred]], y = Predicted)) +
+          theme_minimal(base_size = 13)
+
+        if (es_cat) {
+          if (isTRUE(input$marginal_ci_lm))
+            p <- p + geom_errorbar(
+              aes(ymin = CI_low, ymax = CI_high),
+              width = 0.2, linewidth = 0.8,
+              color = colores$primario)
+          p <- p + geom_point(color = colores$primario, size = 3.5)
+        } else {
+          if (isTRUE(input$marginal_ci_lm))
+            p <- p + geom_ribbon(aes(ymin = CI_low, ymax = CI_high),
+                                 fill = colores$primario, alpha = 0.15)
+          if (isTRUE(input$marginal_puntos_lm))
+            p <- p + geom_point(
+              data = data.frame(x_obs = df[[pred]],
+                                y_obs = as.numeric(df[[input$var_y]])),
+              aes(x = x_obs, y = y_obs),
+              color = colores$primario, alpha = 0.3, size = 1.5,
+              inherit.aes = FALSE)
+          p <- p + geom_line(color = colores$primario, linewidth = 1.2)
+        }
+
+        p + labs(x = pred, y = input$var_y,
+                 subtitle = paste0(
+                   "Efecto marginal de '", pred,
+                   "' — resto en valores típicos")) +
+          theme(panel.grid.minor = element_blank(),
+                legend.position  = "none",
+                plot.subtitle    = element_text(color = colores$texto,
+                                                size  = 9),
+                plot.margin      = margin(10, 15, 5, 10))
+      }, error = function(e) {
+        ggplot() + annotate("text", x = 0.5, y = 0.5,
+                            label = paste0("Error: ", conditionMessage(e)),
+                            color = colores$texto, size = 3.5, hjust = 0.5) +
+          theme_void()
+      })
+    }, res = 96)
+
+    output$marginal_interpretacion_lm <- renderUI({
+      fit  <- modelo_lm(); req(fit, input$pred_marginal_lm)
+      pred <- input$pred_marginal_lm
+      es_cat <- pred %in% vars_categoricas()
+      tryCatch({
+        coefs <- coef(fit)
+        pvals <- coef(summary(fit))[, 4]
+        if (es_cat) {
+          filas_cat <- names(coefs)[grepl(pred, names(coefs), fixed = TRUE)]
+          texto <- if (length(filas_cat) > 0) {
+            paste0("La variable '", pred, "' genera diferencias en ",
+                   input$var_y, ". Diferencias respecto a la referencia: ",
+                   paste(paste0(gsub(pred, "", filas_cat),
+                                " = ", round(coefs[filas_cat], 3)),
+                         collapse = ", "), " unidades.")
+          } else "Ver tabla de parámetros para la interpretación."
+        } else {
+          est <- round(coefs[pred], 3)
+          sig <- pvals[pred] < 0.05
+          texto <- paste0(
+            "Por cada unidad adicional de '", pred, "', ",
+            input$var_y, " cambia en promedio ",
+            ifelse(est >= 0, "+", ""), est, " unidades",
+            " (manteniendo el resto fijo). ",
+            if (sig) "Efecto estadísticamente significativo."
+            else "Efecto NO estadísticamente significativo."
+          )
+        }
+        div(class = "alert alert-info small py-2 px-3 mb-0",
+            bs_icon("lightbulb-fill", class = "me-1"), texto)
+      }, error = function(e) NULL)
+    })
+
+    # ── Predicción puntual ────────────────────────────────
+
+    output$inputs_prediccion_lm <- renderUI({
+      fit   <- modelo_lm(); req(fit)
+      df    <- datos_activos()
+      preds <- c(input$preds_num, input$preds_cat)
+      req(length(preds) > 0)
+      inputs <- lapply(preds, function(nm) {
+        col <- df[[nm]]
+        if (is.numeric(col)) {
+          numericInput(
+            inputId = ns(paste0("pred_val_lm_", nm)),
+            label   = paste0(nm, " (media = ",
+                             round(mean(col, na.rm=TRUE), 1), "):"),
+            value   = round(mean(col, na.rm=TRUE), 1),
+            step    = round(sd(col, na.rm=TRUE) / 10, 2)
+          )
+        } else {
+          moda <- names(sort(table(col), decreasing=TRUE))[1]
+          selectInput(
+            inputId  = ns(paste0("pred_val_lm_", nm)),
+            label    = nm,
+            choices  = levels(col),
+            selected = moda
+          )
+        }
+      })
+      do.call(tagList, inputs)
+    })
+
+    resultado_prediccion_lm_data <- eventReactive(
+      input$calcular_prediccion_lm, {
+        fit   <- modelo_lm(); req(fit)
+        df    <- datos_activos()
+        preds <- c(input$preds_num, input$preds_cat)
+        req(length(preds) > 0)
+        nueva_obs <- tryCatch({
+          vals <- lapply(preds, function(nm) {
+            col <- df[[nm]]
+            val <- input[[paste0("pred_val_lm_", nm)]]
+            req(!is.null(val))
+            if (is.numeric(col)) as.numeric(val)
+            else factor(val, levels = levels(col))
+          })
+          names(vals) <- preds
+          as.data.frame(vals)
+        }, error = function(e) NULL)
+        req(nueva_obs)
+        tryCatch(
+          modelbased::estimate_expectation(
+            fit, data = nueva_obs, verbose = FALSE
+          ),
+          error = function(e) NULL
+        )
+      }, ignoreNULL = TRUE)
+
+    output$resultado_prediccion_lm <- renderUI({
+      res <- resultado_prediccion_lm_data()
+      if (is.null(res)) return(
+        div(class = "text-muted small py-3",
+            bs_icon("calculator", class = "me-2"),
+            "Define los valores y haz clic en ",
+            strong("Calcular predicción"), ".")
+      )
+      df_res <- as.data.frame(res)
+      pred   <- round(df_res$Predicted[1], 3)
+      lo     <- round(df_res$CI_low[1], 3)
+      hi     <- round(df_res$CI_high[1], 3)
+      tagList(
+        div(class = "text-center py-3",
+            h2(style = paste0("color:", colores$primario,
+                              "; font-weight:700; font-size:2.5rem;"),
+               pred),
+            p(class = "text-muted mb-1",
+              strong(paste0(input$var_y, " predicho"))),
+            p(class = "small text-muted",
+              "IC 95%: ", strong(paste0("[", lo, ", ", hi, "]")))
+        ),
+        tags$hr(),
+        div(class = "small text-muted",
+            bs_icon("info-circle", class = "me-1"),
+            "Valores usados: ",
+            paste(sapply(c(input$preds_num, input$preds_cat), function(nm) {
+              val <- input[[paste0("pred_val_lm_", nm)]]
+              paste0(nm, " = ", val)
+            }), collapse = " · ")
+        )
+      )
+    })
+
+    # ────────────────────────────────────────────────────
+    # PESTAÑA 10: Contrastes
+    # ────────────────────────────────────────────────────
+
+    output$contrasts_no_cat_msg_lm <- renderUI({
+      if (length(input$preds_cat) == 0)
+        div(class = "alert alert-warning small py-2 px-3 mb-3",
+            bs_icon("exclamation-triangle-fill", class = "me-1"),
+            "El modelo no tiene predictores categóricos. ",
+            "Ve a ", strong("Ajustar modelo"),
+            " y agrega al menos una variable categórica.")
+    })
+
+    output$sel_var_contraste_lm <- renderUI({
+      fit  <- modelo_lm(); req(fit)
+      cats <- input$preds_cat; req(length(cats) > 0)
+      selectInput(ns("var_contraste_lm"),
+                  label    = "Variable para contrastar:",
+                  choices  = cats, selected = cats[1])
+    })
+
+    output$tabla_contrastes_lm <- renderUI({
+      fit <- modelo_lm(); req(fit, input$var_contraste_lm)
+      tryCatch({
+        ct    <- modelbased::estimate_contrasts(
+          fit, contrast = input$var_contraste_lm,
+          p_adjust = input$metodo_ajuste_lm, verbose = FALSE)
+        df_ct <- as.data.frame(ct)
+        char_cols <- names(df_ct)[sapply(df_ct, function(x)
+          is.character(x) || is.factor(x))]
+        if (length(char_cols) >= 2)
+          etiqueta <- paste0(df_ct[[char_cols[1]]], " vs. ",
+                             df_ct[[char_cols[2]]])
+        else etiqueta <- paste0("Contraste ", seq_len(nrow(df_ct)))
+
+        diff_col <- if ("Difference" %in% names(df_ct)) "Difference"
+        else names(df_ct)[sapply(df_ct, is.numeric)][1]
+        ci_lo <- if ("CI_low"  %in% names(df_ct)) "CI_low" else NA
+        ci_hi <- if ("CI_high" %in% names(df_ct)) "CI_high" else NA
+        p_col <- if ("p" %in% names(df_ct)) "p"
+        else if ("p.value" %in% names(df_ct)) "p.value" else NA
+
+        filas <- lapply(seq_len(nrow(df_ct)), function(i) {
+          sig   <- if (!is.na(p_col)) !is.na(df_ct[[p_col]][i]) &&
+            df_ct[[p_col]][i] < 0.05 else FALSE
+          p_txt <- if (!is.na(p_col) && !is.na(df_ct[[p_col]][i])) {
+            pv <- df_ct[[p_col]][i]
+            if (pv < 0.001) "< 0.001 ***"
+            else if (pv < 0.01)  paste0(round(pv,3), " **")
+            else if (pv < 0.05)  paste0(round(pv,3), " *")
+            else round(pv, 3)
+          } else "—"
+          col_p <- if (sig) colores$exito else colores$texto
+          tags$tr(
+            tags$td(strong(etiqueta[i])),
+            tags$td(style="text-align:center;",
+                    round(df_ct[[diff_col]][i], 3)),
+            tags$td(style="text-align:center;",
+                    if (!is.na(ci_lo))
+                      paste0("[", round(df_ct[[ci_lo]][i],3), ", ",
+                             round(df_ct[[ci_hi]][i],3), "]")
+                    else "—"),
+            tags$td(style=paste0("text-align:center; color:", col_p,
+                                 "; font-weight:600;"), p_txt)
+          )
+        })
+
+        tags$table(
+          class = "table table-sm table-hover small mb-0",
+          tags$thead(tags$tr(
+            tags$th(style=paste0("background:", colores$primario,
+                                 " !important; color:#fff !important;"),
+                    "Contraste"),
+            tags$th(style=paste0("background:", colores$primario,
+                                 " !important; color:#fff !important;",
+                                 "text-align:center;"),
+                    paste0("Diferencia (", input$var_y, ")")),
+            tags$th(style=paste0("background:", colores$primario,
+                                 " !important; color:#fff !important;",
+                                 "text-align:center;"), "IC 95%"),
+            tags$th(style=paste0("background:", colores$primario,
+                                 " !important; color:#fff !important;",
+                                 "text-align:center;"), "p-valor")
+          )),
+          tags$tbody(filas)
+        )
+      }, error = function(e) {
+        div(class="text-muted small py-3",
+            "Ajusta el modelo con predictores categóricos.")
+      })
+    })
+
+    output$plot_contrastes_lm <- renderPlot({
+      fit <- modelo_lm(); req(fit, input$var_contraste_lm)
+      tryCatch({
+        ct    <- modelbased::estimate_contrasts(
+          fit, contrast = input$var_contraste_lm,
+          p_adjust = input$metodo_ajuste_lm, verbose = FALSE)
+        df_ct <- as.data.frame(ct)
+        char_cols <- names(df_ct)[sapply(df_ct, function(x)
+          is.character(x) || is.factor(x))]
+        if (length(char_cols) >= 2)
+          etiqueta <- paste0(df_ct[[char_cols[1]]], " vs. ",
+                             df_ct[[char_cols[2]]])
+        else etiqueta <- paste0("Contraste ", seq_len(nrow(df_ct)))
+
+        diff_col <- if ("Difference" %in% names(df_ct)) "Difference"
+        else names(df_ct)[sapply(df_ct, is.numeric)][1]
+        ci_lo <- if ("CI_low"  %in% names(df_ct)) df_ct$CI_low
+        else df_ct[[diff_col]] - 1
+        ci_hi <- if ("CI_high" %in% names(df_ct)) df_ct$CI_high
+        else df_ct[[diff_col]] + 1
+        p_vals <- if ("p" %in% names(df_ct)) df_ct$p
+        else if ("p.value" %in% names(df_ct)) df_ct$p.value
+        else rep(0.5, nrow(df_ct))
+
+        df_plot <- data.frame(
+          contraste = factor(etiqueta, levels = rev(unique(etiqueta))),
+          diff      = df_ct[[diff_col]],
+          lo = ci_lo, hi = ci_hi,
+          sig = !is.na(p_vals) & p_vals < 0.05
+        )
+
+        ggplot(df_plot, aes(x=diff, y=contraste, xmin=lo, xmax=hi,
+                            color=sig)) +
+          geom_vline(xintercept=0, linetype="dashed",
+                     color=colores$texto, linewidth=0.7) +
+          geom_errorbar(aes(ymin=lo, ymax=hi), width=0.25,
+                        linewidth=1.1, orientation="y") +
+          geom_point(size=3.5) +
+          scale_color_manual(
+            values=c(`TRUE`=colores$acento, `FALSE`=colores$primario),
+            labels=c(`TRUE`="Significativo", `FALSE`="No significativo"),
+            name=NULL) +
+          labs(x=paste0("Diferencia en ", input$var_y, " (unidades)"),
+               y=NULL,
+               subtitle=paste0("Ajuste p-valores: ",
+                               input$metodo_ajuste_lm, " · IC 95%")) +
+          theme_minimal(base_size=12) +
+          theme(panel.grid.minor=element_blank(),
+                panel.grid.major.y=element_blank(),
+                legend.position="bottom",
+                plot.subtitle=element_text(color=colores$texto, size=9),
+                plot.margin=margin(10,15,5,10))
+      }, error = function(e) {
+        ggplot() + annotate("text", x=0.5, y=0.5,
+                            label="Sin contrastes disponibles.",
+                            color=colores$texto, size=4) + theme_void()
+      })
+    }, res = 96)
+
+    # ────────────────────────────────────────────────────
+    # PESTAÑA 12: Código R reproducible
     # ────────────────────────────────────────────────────
 
     codigo_generado <- reactive({
