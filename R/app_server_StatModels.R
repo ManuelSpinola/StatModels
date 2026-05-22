@@ -7,6 +7,7 @@ app_server <- function(input, output, session) {
   mod_glm_server("glm")
   mod_gam_server("gam")
   mod_lmm_server("lmm")
+  mod_glmm_server("glmm")
   mod_acerca_de_server("acerca_de")
 
   session$onSessionEnded(function() {})

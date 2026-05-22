@@ -17,7 +17,7 @@ mod_acerca_de_ui <- function(id) {
       ),
       p(class = "text-muted mb-4",
         "StatModels es el módulo de modelado estadístico de StatSuite, ",
-        "desarrollado en el ICOMVIS de la Universidad Nacional de Costa Rica. ",
+        "desarrollado en el ICOMVIS de la Universidad Nacional, Costa Rica. ",
         "Inspirado en la filosofía de JASP y jamovi: accesible, didáctico, ",
         "y con código R reproducible para quienes quieran profundizar."
       ),

@@ -355,7 +355,6 @@ mod_glmm_ui <- function(id) {
               br(),
               layout_columns(
                 col_widths = c(4, 8),
-                fill = FALSE,
 
                 card(
                   card_header(bs_icon("database", class = "me-1"),
@@ -364,62 +363,123 @@ mod_glmm_ui <- function(id) {
                     p(class = "small fw-bold text-muted mb-2",
                       bs_icon("toggles", class = "me-1"),
                       "\u00bfQu\u00e9 tipo de variable respuesta tienes?"),
-
-                    # Tarjetas de familia
                     tags$div(
-                      style = "display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:12px;",
-
-                      # Poisson
-                      tags$div(
-                        id = ns("card_poisson"),
-                        style = "background:#E1F5EE; border:2px solid #0F6E56; border-radius:10px; padding:10px 12px; cursor:pointer;",
-                        onclick = paste0("Shiny.setInputValue('", ns("familia_datos"), "', 'poisson', {priority:'event'})"),
-                        tags$div(style = "font-size:18px; color:#0F6E56;", bs_icon("bar-chart-steps")),
-                        tags$p(style = "font-size:13px; font-weight:500;", "Poisson"),
-                        tags$p(style = "font-size:11px; color:#555; margin:0;", "Conteos sin sobredispersi\u00f3n"),
-                        tags$span(style = "font-size:10px; background:#0F6E56; color:#fff; padding:1px 6px; border-radius:4px;", "log")
+                      style = paste0(
+                        "display:grid; grid-template-columns:1fr 1fr;",
+                        "gap:8px; margin-bottom:12px;"
                       ),
-
-                      # Binomial negativa
-                      tags$div(
-                        id = ns("card_nbinom2"),
-                        style = "background:var(--color-background-secondary); border:1.5px solid var(--color-border-tertiary); border-radius:10px; padding:10px 12px; cursor:pointer;",
-                        onclick = paste0("Shiny.setInputValue('", ns("familia_datos"), "', 'nbinom2', {priority:'event'})"),
-                        tags$div(style = "font-size:18px; color:#853F0B;", bs_icon("graph-up")),
-                        tags$p(style = "font-size:13px; font-weight:500;", "Binomial negativa"),
-                        tags$p(style = "font-size:11px; color:#555; margin:0;", "Conteos sobredispersos"),
-                        tags$span(style = "font-size:10px; background:#853F0B; color:#fff; padding:1px 6px; border-radius:4px;", "log")
-                      ),
-
                       # Binomial
                       tags$div(
                         id = ns("card_binomial"),
-                        style = "background:var(--color-background-secondary); border:1.5px solid var(--color-border-tertiary); border-radius:10px; padding:10px 12px; cursor:pointer;",
-                        onclick = paste0("Shiny.setInputValue('", ns("familia_datos"), "', 'binomial', {priority:'event'})"),
-                        tags$div(style = "font-size:18px; color:#185FA5;", bs_icon("toggles")),
-                        tags$p(style = "font-size:13px; font-weight:500;", "Binomial"),
-                        tags$p(style = "font-size:11px; color:#555; margin:0;", "Presencia/ausencia (0/1)"),
-                        tags$span(style = "font-size:10px; background:#185FA5; color:#fff; padding:1px 6px; border-radius:4px;", "logit")
+                        style = paste0(
+                          "background:#E6F1FB; border:2px solid #185FA5;",
+                          "border-radius:10px; padding:10px 12px; cursor:pointer;"
+                        ),
+                        onclick = paste0(
+                          "Shiny.setInputValue(\'", ns("familia_datos"),
+                          "\', \'binomial\', {priority:\'event\'})"
+                        ),
+                        tags$div(style="font-size:18px; color:#185FA5;",
+                                 bs_icon("toggles")),
+                        tags$p(style="font-size:13px; font-weight:500;", "Binomial"),
+                        tags$p(style="font-size:11px; color:#555; margin:0;",
+                               "Y binaria (0/1, s\u00ed/no)"),
+                        tags$span(
+                          style=paste0("font-size:10px; background:#185FA5;",
+                                       "color:#fff; padding:1px 6px; border-radius:4px;"),
+                          "logit")
+                      ),
+                      # Poisson
+                      tags$div(
+                        id = ns("card_poisson"),
+                        style = paste0(
+                          "background:var(--color-background-secondary);",
+                          "border:1.5px solid var(--color-border-tertiary);",
+                          "border-radius:10px; padding:10px 12px; cursor:pointer;"
+                        ),
+                        onclick = paste0(
+                          "Shiny.setInputValue(\'", ns("familia_datos"),
+                          "\', \'poisson\', {priority:\'event\'})"
+                        ),
+                        tags$div(style="font-size:18px; color:#0F6E56;",
+                                 bs_icon("bar-chart-steps")),
+                        tags$p(style="font-size:13px; font-weight:500;", "Poisson"),
+                        tags$p(style="font-size:11px; color:#555; margin:0;",
+                               "Y conteos (0, 1, 2, \u2026)"),
+                        tags$span(
+                          style=paste0("font-size:10px; background:#0F6E56;",
+                                       "color:#fff; padding:1px 6px; border-radius:4px;"),
+                          "log")
+                      ),
+                      # Quasipoisson
+                      tags$div(
+                        id = ns("card_quasipoisson"),
+                        style = paste0(
+                          "background:var(--color-background-secondary);",
+                          "border:1.5px solid var(--color-border-tertiary);",
+                          "border-radius:10px; padding:10px 12px; cursor:pointer;"
+                        ),
+                        onclick = paste0(
+                          "Shiny.setInputValue(\'", ns("familia_datos"),
+                          "\', \'quasipoisson\', {priority:\'event\'})"
+                        ),
+                        tags$div(style="font-size:18px; color:#6B3FA0;",
+                                 bs_icon("bar-chart-steps")),
+                        tags$p(style="font-size:13px; font-weight:500;", "Quasipoisson"),
+                        tags$p(style="font-size:11px; color:#555; margin:0;",
+                               "Conteos sobredispersos \u03c6"),
+                        tags$span(
+                          style=paste0("font-size:10px; background:#6B3FA0;",
+                                       "color:#fff; padding:1px 6px; border-radius:4px;"),
+                          "log \u00b7 QAIC")
+                      ),
+                      # Binomial negativa
+                      tags$div(
+                        id = ns("card_nbinom2"),
+                        style = paste0(
+                          "background:var(--color-background-secondary);",
+                          "border:1.5px solid var(--color-border-tertiary);",
+                          "border-radius:10px; padding:10px 12px; cursor:pointer;"
+                        ),
+                        onclick = paste0(
+                          "Shiny.setInputValue(\'", ns("familia_datos"),
+                          "\', \'nbinom2\', {priority:\'event\'})"
+                        ),
+                        tags$div(style="font-size:18px; color:#853F0B;",
+                                 bs_icon("graph-up")),
+                        tags$p(style="font-size:13px; font-weight:500;",
+                               "Binomial negativa"),
+                        tags$p(style="font-size:11px; color:#555; margin:0;",
+                               "Conteos sobredispersados"),
+                        tags$span(
+                          style=paste0("font-size:10px; background:#853F0B;",
+                                       "color:#fff; padding:1px 6px; border-radius:4px;"),
+                          "log")
                       )
                     ),
-
+                    # Input oculto para familia — valor inicial "binomial" igual que GLM
                     shinyjs::hidden(
-                      textInput(ns("familia_datos"), label = NULL, value = "poisson")
+                      textInput(ns("familia_datos"), label = NULL, value = "binomial")
                     ),
-
                     tags$hr(),
                     uiOutput(ns("sel_fuente_datos")),
                     conditionalPanel(
-                      condition = paste0("input['", ns("fuente_datos"), "'] === 'propio'"),
+                      condition = paste0("input[\'", ns("fuente_datos"), "\'] === \'propio\'"),
                       tags$hr(),
-                      fileInput(ns("archivo"), label = "Seleccionar archivo:",
-                                accept = c(".csv", ".xlsx", ".xls"),
-                                buttonLabel = "Buscar\u2026",
-                                placeholder = "CSV o Excel"),
-                      selectInput(ns("separador"), label = "Separador (CSV):",
-                                  choices = c("Coma (,)" = ",", "Punto y coma (;)" = ";",
-                                              "Tabulador" = "\t"),
-                                  selected = ","),
+                      fileInput(
+                        ns("archivo"),
+                        label       = "Seleccionar archivo:",
+                        accept      = c(".csv", ".xlsx", ".xls"),
+                        buttonLabel = "Buscar\u2026",
+                        placeholder = "CSV o Excel"
+                      ),
+                      selectInput(
+                        ns("separador"),
+                        label   = "Separador (CSV):",
+                        choices = c("Coma (,)" = ",", "Punto y coma (;)" = ";",
+                                    "Tabulador" = "\t"),
+                        selected = ","
+                      ),
                       p(class = "small text-muted mb-0",
                         bs_icon("info-circle", class = "me-1"),
                         "La primera fila debe contener los nombres de las columnas.")
@@ -449,7 +509,10 @@ mod_glmm_ui <- function(id) {
               p(class = "small text-muted mb-3",
                 "Verifica que cada variable tenga el tipo correcto. ",
                 "Las variables ", strong("categ\u00f3ricas"),
-                " deben ser ", strong("Factor"), "."),
+                " deben ser ", strong("Factor"), ". ",
+                "Las variables codificadas como n\u00fameros pero que ",
+                "representan grupos deben cambiarse a Factor antes de modelar."
+              ),
               layout_columns(
                 col_widths = c(10, 2),
                 uiOutput(ns("tabla_tipos")),
@@ -465,6 +528,7 @@ mod_glmm_ui <- function(id) {
               ),
               uiOutput(ns("tipos_aplicados_msg"))
             )
+
           )
         )
       ),
@@ -996,54 +1060,111 @@ mod_glmm_server <- function(id) {
 
     # Datasets disponibles por familia
     datasets_por_familia <- list(
-      poisson  = c("Aves en fragmentos \u2014 Poisson (ecolog\u00eda)"  = "aves_glmm",
-                   "Cargar mis propios datos"                    = "propio"),
-      nbinom2  = c("Aves en fragmentos \u2014 NB (ecolog\u00eda)"       = "aves_glmm",
-                   "Cargar mis propios datos"                    = "propio"),
-      binomial = c("Ranas en charcas \u2014 Binomial (ecolog\u00eda)"   = "ranas_glmm",
-                   "Cargar mis propios datos"                    = "propio"),
+      binomial     = c("Ranas en charcas \u2014 Binomial (ecolog\u00eda)"        = "ranas_glmm",
+                       "Cargar mis propios datos"                         = "propio"),
+      poisson      = c("Aves en fragmentos \u2014 Poisson (ecolog\u00eda)"        = "aves_glmm",
+                       "Cargar mis propios datos"                         = "propio"),
+      quasipoisson = c("Aves en fragmentos \u2014 QuasiPoisson (ecolog\u00eda)"  = "aves_glmm",
+                       "Cargar mis propios datos"                         = "propio"),
+      nbinom2      = c("Aves en fragmentos \u2014 NB (ecolog\u00eda)"             = "aves_glmm",
+                       "Cargar mis propios datos"                         = "propio"),
+      zip          = c("Cargar mis propios datos"                         = "propio"),
+      zinb         = c("Cargar mis propios datos"                         = "propio")
     )
 
-    # familia_activa: reactiveVal que garantiza valor desde el inicio
-    familia_activa <- reactiveVal("poisson")
+    output$sel_fuente_datos <- renderUI({
+      fam_sel <- input$familia_datos
+      if (is.null(fam_sel) || nchar(fam_sel) == 0)
+        fam_sel <- "binomial"
+      opciones <- datasets_por_familia[[fam_sel]]
+      if (is.null(opciones)) opciones <- datasets_por_familia[["binomial"]]
+      radioButtons(
+        ns("fuente_datos"),
+        label    = tagList(bs_icon("database", class = "me-1"),
+                           "Dataset de ejemplo:"),
+        choices  = opciones,
+        selected = opciones[1]
+      )
+    })
+
     observeEvent(input$familia_datos, {
-      req(!is.null(input$familia_datos) && nchar(input$familia_datos) > 0)
-      familia_activa(input$familia_datos)
-    }, ignoreNULL = TRUE)
-
-    # Tipos de usuario
-    tipos_usuario <- reactiveVal(NULL)
-    observeEvent(input$fuente_datos, { tipos_usuario(NULL) })
-    observeEvent(input$resetear_tipos, {
-      tipos_usuario(NULL)
-      showNotification("Tipos restaurados.", type = "message", duration = 2)
+      req(nchar(input$familia_datos) > 0)
+      updateSelectInput(session, "familia",
+                        selected = input$familia_datos)
+      tryCatch({
+        fam <- input$familia_datos
+        colores_sel <- list(
+          binomial     = "background:#E6F1FB; border:2px solid #185FA5;",
+          poisson      = "background:#E1F5EE; border:2px solid #0F6E56;",
+          quasipoisson = "background:#F3E9FD; border:2px solid #6B3FA0;",
+          nbinom2      = "background:#FAEEDA; border:2px solid #853F0B;"
+        )
+        estilo_base  <- paste0("background:var(--color-background-secondary);",
+                               "border:1.5px solid var(--color-border-tertiary);")
+        estilo_comun <- "border-radius:10px; padding:10px 12px; cursor:pointer;"
+        for (f in c("binomial", "poisson", "quasipoisson", "nbinom2")) {
+          card_id <- paste0("#", ns(paste0("card_", f)))
+          estilo  <- if (f == fam)
+            paste0(colores_sel[[f]], estilo_comun)
+          else
+            paste0(estilo_base, estilo_comun)
+          shinyjs::runjs(paste0(
+            'document.querySelector("', card_id,
+            '").setAttribute("style", "', estilo, '");'
+          ))
+        }
+      }, error = function(e) NULL)
     })
-    observeEvent(input$aplicar_tipos, {
-      df <- datos_base(); req(df)
-      nuevos <- lapply(names(df), function(nm) input[[paste0("tipo_", nm)]])
-      names(nuevos) <- names(df)
-      tipos_usuario(nuevos)
-      showNotification("Tipos aplicados.", type = "message", duration = 2)
+
+    output$contexto_dataset <- renderUI({
+      fuente <- input$fuente_datos
+      if (is.null(fuente) || fuente == "propio") return(NULL)
+      info <- list(
+        ranas_glmm = list(
+          titulo = "Ranas en charcas temporales (simulado)",
+          texto  = tagList(
+            "Presencia (1) / ausencia (0) de rana arb\u00f3rea en ",
+            strong("120 visitas"), " (8 por charca) a 15 charcas temporales. ",
+            "Predictores: hidroperiodo (d\u00edas/a\u00f1o), cobertura vegetal ac\u00fatica (%), ",
+            "distancia al bosque (m), pH del agua. ",
+            "Agrupamiento: charca. Dataset simulado."
+          )
+        ),
+        aves_glmm = list(
+          titulo = "Aves en fragmentos de bosque tropical seco (simulado)",
+          texto  = tagList(
+            "Conteo de aves en ", strong("72 puntos de conteo"),
+            " (6 por fragmento) en 12 fragmentos. ",
+            "Predictores: cobertura de dosel (%), distancia al borde (m), NDVI. ",
+            strong("Offset: log(area_ha)"), ". ",
+            "Agrupamiento: fragmento. Dataset simulado."
+          )
+        )
+      )
+      datos_info <- info[[fuente]]
+      if (is.null(datos_info)) return(NULL)
+      div(class = "alert alert-info small py-2 px-3 mb-2",
+          bs_icon("info-circle-fill", class = "me-1"),
+          strong(datos_info$titulo), br(),
+          datos_info$texto)
     })
 
-    # Cargar datos base (sin tipos aplicados)
     datos_base <- reactive({
       fuente <- input$fuente_datos
       req(fuente)
-
-      if (fuente == "aves_glmm") {
-        e <- new.env()
-        load(system.file("app/data/aves_glmm.rda",
-                         package = "StatModels"), envir = e)
-        df <- e$aves_glmm
-        df$fragmento <- factor(df$fragmento)
-        df
-      } else if (fuente == "ranas_glmm") {
+      if (fuente == "ranas_glmm") {
         e <- new.env()
         load(system.file("app/data/ranas_glmm.rda",
                          package = "StatModels"), envir = e)
         df <- e$ranas_glmm
         df$charca <- factor(df$charca)
+        df
+      } else if (fuente == "aves_glmm") {
+        e <- new.env()
+        load(system.file("app/data/aves_glmm.rda",
+                         package = "StatModels"), envir = e)
+        df <- e$aves_glmm
+        df$fragmento <- factor(df$fragmento)
         df
       } else {
         req(input$archivo)
@@ -1052,37 +1173,52 @@ mod_glmm_server <- function(id) {
           df <- if (ext %in% c("xlsx", "xls")) {
             readxl::read_excel(input$archivo$datapath)
           } else {
-            read.csv(input$archivo$datapath,
-                     sep    = input$separador,
-                     stringsAsFactors = FALSE)
+            readr::read_delim(input$archivo$datapath,
+                              delim = input$separador,
+                              show_col_types = FALSE)
           }
-          for (nm in names(df))
-            if (is.character(df[[nm]]) && length(unique(df[[nm]])) < 15)
-              df[[nm]] <- factor(df[[nm]])
-          as.data.frame(df)
-        }, error = function(err) {
-          showNotification("Error al leer el archivo.", type = "error")
+          df |> dplyr::mutate(dplyr::across(where(is.character), factor))
+        }, error = function(e) {
+          showNotification(paste("Error:", conditionMessage(e)),
+                           type = "error", duration = 6)
           NULL
         })
       }
     })
 
-    # datos_activos: aplica tipos de usuario sobre datos_base
+    tipos_usuario <- reactiveVal(NULL)
+    observeEvent(datos_base(), { tipos_usuario(NULL) })
+    observeEvent(input$resetear_tipos, {
+      tipos_usuario(NULL)
+      showNotification("Tipos restaurados.", type = "message", duration = 2)
+    })
+    observeEvent(input$aplicar_tipos, {
+      df  <- datos_base(); req(df)
+      nms <- names(df)
+      nuevos <- lapply(nms, function(nm) input[[paste0("tipo_", nm)]])
+      names(nuevos) <- nms
+      tipos_usuario(nuevos)
+      showNotification("Tipos aplicados.", type = "message", duration = 2)
+    })
+
     datos_activos <- reactive({
       df <- datos_base(); req(df)
       tu <- tipos_usuario()
       if (is.null(tu)) return(df)
       for (nm in names(tu)) {
-        if (!nm %in% names(df) || is.null(tu[[nm]])) next
-        if (tu[[nm]] == "factor"  && !is.factor(df[[nm]]))
+        if (!nm %in% names(df)) next
+        tipo <- tu[[nm]]
+        if (is.null(tipo)) next
+        if (tipo == "factor" && !is.factor(df[[nm]]))
           df[[nm]] <- factor(df[[nm]])
-        else if (tu[[nm]] == "numeric" && !is.numeric(df[[nm]]))
+        else if (tipo == "numeric" && !is.numeric(df[[nm]]))
           df[[nm]] <- suppressWarnings(as.numeric(as.character(df[[nm]])))
+        else if (tipo == "excluir")
+          df[[nm]] <- NULL
       }
-      as.data.frame(df)
+      df
     })
 
-    # Reactivos de tipos de variables
     vars_numericas <- reactive({
       df <- datos_activos(); req(df)
       names(df)[sapply(df, is.numeric)]
@@ -1090,17 +1226,6 @@ mod_glmm_server <- function(id) {
     vars_categoricas <- reactive({
       df <- datos_activos(); req(df)
       names(df)[sapply(df, function(x) is.factor(x) || is.character(x))]
-    })
-
-    # Selector dinámico de dataset según familia
-    output$sel_fuente_datos <- renderUI({
-      fam      <- familia_activa()
-      opciones <- datasets_por_familia[[fam]]
-      if (is.null(opciones)) opciones <- datasets_por_familia[["poisson"]]
-      radioButtons(ns("fuente_datos"),
-                   label   = tagList(bs_icon("database", class = "me-1"),
-                                     "Dataset de ejemplo:"),
-                   choices = opciones, selected = opciones[1])
     })
 
     # Sincronizar familia en Ajustar modelo con la elegida en Los datos
