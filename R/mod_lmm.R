@@ -3,7 +3,7 @@
 # StatModels · StatSuite
 #
 # Paquetes: lme4, lmerTest, performance (easystats)
-# Datos:    rikz_lmm.rda / sleepstudy_lmm.rda (o propios)
+# Datos:    plantulas_lmm.rda / sleepstudy_lmm.rda (o propios)
 # ============================================================
 
 # ── UI ──────────────────────────────────────────────────────
@@ -22,7 +22,7 @@ mod_lmm_ui <- function(id) {
              "Modelos Lineales y Generalizados Mixtos (LMM / GLMM)"),
           p(class = "text-muted small mb-0",
             "Extienden el LM y el GLM para datos con ",
-            strong("estructura jer\u00e1rquica"), ": sitios dentro de playas, ",
+            strong("estructura jer\u00e1rquica"), ": parcelas dentro de fragmentos, ",
             "individuos dentro de poblaciones, medidas repetidas. ",
             "Combinan ", strong("efectos fijos"), " (poblacionales) con ",
             strong("efectos aleatorios"), " (variabilidad entre grupos). ",
@@ -66,7 +66,7 @@ mod_lmm_ui <- function(id) {
               card_body(
                 tags$ul(class = "small mb-0",
                   tags$li("Datos con ", strong("estructura jer\u00e1rquica"),
-                          ": sitios dentro de playas, individuos ",
+                          ": parcelas dentro de fragmentos, individuos ",
                           "dentro de poblaciones"),
                   tags$li(strong("Medidas repetidas"), " en el tiempo o espacio"),
                   tags$li("Observaciones dentro del mismo grupo ",
@@ -151,7 +151,7 @@ mod_lmm_ui <- function(id) {
                             tags$td("ICC, R\u00b2 Nakagawa")),
                     tags$tr(tags$td("Ejemplo"),
                             tags$td("NAP, Exposici\u00f3n"),
-                            tags$td("Playa (intercept)"))
+                            tags$td("Fragmento (intercept)"))
                   )
                 )
               )
@@ -162,17 +162,36 @@ mod_lmm_ui <- function(id) {
                           "R\u00b2 Nakagawa \u2014 m\u00e9trica clave"),
               card_body(
                 p(class = "small mb-2",
-                  "Los modelos mixtos tienen dos R\u00b2:"),
+                  "La varianza total de la respuesta se puede descomponer en tres partes:"),
                 tags$ul(class = "small mb-2",
-                  tags$li(strong("R\u00b2 marginal"), " \u2014 varianza explicada ",
-                          "solo por los efectos ", strong("fijos")),
-                  tags$li(strong("R\u00b2 condicional"), " \u2014 varianza explicada ",
-                          "por efectos fijos ", strong("+ aleatorios"))
+                  tags$li(strong("Efectos fijos"), " \u2014 lo que explican los predictores (NAP, Exposure\u2026)"),
+                  tags$li(strong("Efectos aleatorios"), " \u2014 diferencias sistemáticas entre grupos (fragmentos)"),
+                  tags$li(strong("Residual"), " \u2014 variaci\u00f3n que el modelo no logra explicar")
                 ),
-                div(class = "alert alert-info small py-2 px-3 mb-0",
+                p(class = "small mb-2",
+                  "De ah\u00ed salen los dos R\u00b2:"),
+                tags$ul(class = "small mb-2",
+                  tags$li(strong("R\u00b2 marginal"), " = varianza de efectos fijos / varianza total"),
+                  tags$li(strong("R\u00b2 condicional"), " = (varianza fijos + varianza grupos) / varianza total")
+                ),
+                p(class = "small mb-2",
+                  "Y el ICC es simplemente la diferencia:"),
+                div(class = "alert alert-info small py-2 px-3 mb-2",
                     bs_icon("info-circle", class = "me-1"),
-                    "ICC = R\u00b2 condicional \u2212 R\u00b2 marginal = proporci\u00f3n ",
-                    "de varianza debida a los grupos.")
+                    strong("ICC"), " = \u03c3\u00b2(grupos) / [\u03c3\u00b2(grupos) + \u03c3\u00b2(residual)]",
+                    tags$br(),
+                    "= varianza entre grupos / varianza total",
+                    tags$br(),
+                    "= proporci\u00f3n de la varianza debida a diferencias entre grupos"),
+                p(class = "small mb-1 text-muted",
+                  "Nota: R\u00b2 condicional \u2212 R\u00b2 marginal es una aproximaci\u00f3n al ICC, ",
+                  "pero el valor exacto se calcula con los componentes de varianza de ",
+                  code("VarCorr()"), ". Ambos se muestran en el tab ", strong("Performance"), "."),
+                p(class = "small mb-0 text-muted",
+                  "Ejemplo gen\u00e9rico: si \u03c3\u00b2(grupos) = A y \u03c3\u00b2(residual) = B, ",
+                  "entonces ICC = A / (A + B). ",
+                  "Con los valores de efectos aleatorios de la tabla en el tab ",
+                  strong("Par\u00e1metros"), " puedes calcularlo directamente.")
               )
             )
           )
@@ -193,33 +212,33 @@ mod_lmm_ui <- function(id) {
               h5(style = paste0("color:", colores$primario, "; font-weight:700;"),
                  "1. El problema de la pseudorreplicaci\u00f3n"),
               p(class = "small",
-                "En el dataset RIKZ hay 5 sitios por playa. Si ignoramos la ",
-                "playa y hacemos un LM simple, asumimos que los 45 sitios son ",
-                "independientes \u2014 pero los sitios de la misma playa est\u00e1n ",
-                "m\u00e1s correlacionados entre s\u00ed que con sitios de otras playas. ",
+                "En el dataset de plántulas hay 6 parcelas por fragmento. Si ignoramos la ",
+                "fragmento y hacemos un LM simple, asumimos que las 60 parcelas son ",
+                "independientes \u2014 pero las parcelas del mismo fragmento est\u00e1n ",
+                "m\u00e1s correlacionadas entre s\u00ed que con parcelas de otros fragmentos. ",
                 "Esto infla los grados de libertad y produce p-valores incorrectos."),
               div(class = "alert alert-warning small py-2 px-3 mb-3",
                   bs_icon("exclamation-triangle-fill", class = "me-1"),
                   "LM simple ignora la estructura: trata 45 obs como ",
-                  "independientes cuando hay solo 9 playas."),
+                  "independientes cuando hay solo 10 fragmentos."),
 
               h5(style = paste0("color:", colores$primario, "; font-weight:700;"),
                  "2. Intercepto aleatorio"),
               p(class = "small",
-                "La soluci\u00f3n m\u00e1s simple: cada playa tiene su propio intercepto. ",
-                "Algunas playas tienen m\u00e1s especies en promedio (intercepto alto), ",
+                "La soluci\u00f3n m\u00e1s simple: cada fragmento tiene su propio intercepto. ",
+                "Algunos fragmentos tienen m\u00e1s pl\u00e1ntulas en promedio (intercepto alto), ",
                 "otras menos (intercepto bajo). El modelo estima la ",
                 strong("distribuci\u00f3n"), " de esos interceptos, no cada uno por separado."),
               div(class = "alert alert-secondary small py-2 px-3 mb-3",
-                  code("Richness ~ NAP + (1 | Beach)")),
+                  code("densidad_plantulas ~ cobertura_dosel + pendiente + dist_agua + (1 | fragmento)")),
 
               h5(style = paste0("color:", colores$primario, "; font-weight:700;"),
                  "3. Pendiente aleatoria"),
               p(class = "small",
-                "Adem\u00e1s del intercepto, el efecto de NAP puede variar entre playas. ",
-                "En algunas playas la riqueza baja mucho con NAP, en otras poco."),
+                "Adem\u00e1s del intercepto, el efecto de cobertura_dosel puede variar entre fragmentos. ",
+                "En algunos fragmentos la densidad responde más al dosel que en otros."),
               div(class = "alert alert-secondary small py-2 px-3 mb-0",
-                  code("Richness ~ NAP + (1 + NAP | Beach)"))
+                  code("densidad_plantulas ~ cobertura_dosel + pendiente + dist_agua + (1 + cobertura_dosel | fragmento)"))
             ),
 
             div(
@@ -260,11 +279,26 @@ mod_lmm_ui <- function(id) {
 
               h5(style = paste0("color:", colores$primario, "; font-weight:700;"),
                  "7. Singular fit"),
-              p(class = "small mb-0",
-                "Cuando la varianza de un efecto aleatorio se estima en 0 o ",
-                "la correlaci\u00f3n entre efectos aleatorios es \u00b11, el modelo ",
-                "tiene un ", strong("singular fit"), ". Indica sobreparametrizaci\u00f3n. ",
-                "La soluci\u00f3n es simplificar la estructura de efectos aleatorios.")
+              p(class = "small mb-1",
+                "Ocurre cuando el modelo intenta estimar m\u00e1s par\u00e1metros de los que ",
+                "los datos pueden soportar. Las se\u00f1ales concretas son:"),
+              tags$ul(class = "small mb-1",
+                tags$li("La varianza de un efecto aleatorio se estima en exactamente 0 ",
+                        "\u2014 el modelo dice que no hay diferencias entre grupos"),
+                tags$li("La correlaci\u00f3n entre dos efectos aleatorios es exactamente \u00b11 ",
+                        "\u2014 dos par\u00e1metros se volvieron indistinguibles")
+              ),
+              p(class = "small mb-1",
+                "Una analog\u00eda: es como intentar ajustar una l\u00ednea con un solo punto \u2014 ",
+                "hay infinitas soluciones posibles y el modelo no puede elegir. ",
+                "Generalmente ocurre cuando hay ", strong("pocos grupos"),
+                " (< 5\u20136) o cuando la estructura aleatoria es demasiado compleja ",
+                "para el tama\u00f1o de muestra."),
+              div(class = "alert alert-warning small py-2 px-3 mb-0",
+                  bs_icon("exclamation-triangle", class = "me-1"),
+                  strong("Soluci\u00f3n: "), "simplificar la estructura. Por ejemplo, ",
+                  "cambiar ", code("(1 + cobertura_dosel | fragmento)"), " a ", code("(1 | fragmento)"),
+                  " \u2014 eliminar la pendiente aleatoria si los datos no la soportan.")
             )
           )
         )
@@ -432,10 +466,10 @@ mod_lmm_ui <- function(id) {
                   ns("estructura_aleatoria"),
                   label = "Estructura:",
                   choices = c(
-                    "Intercepto aleatorio: (1 | grupo)"           = "intercepto",
-                    "Intercepto + pendiente: (1 + X | grupo)"     = "pendiente",
-                    "Solo pendiente: (0 + X | grupo)"             = "solo_pendiente",
-                    "Anidado: (1 | A/B)"                          = "anidado"
+                    "Intercepto aleatorio: (1 | grupo)"              = "intercepto",
+                    "Intercepto + pendiente: (1 + X | grupo)"        = "pendiente",
+                    "Solo pendiente: (0 + X | grupo)"                = "solo_pendiente",
+                    "Anidado: (1 | nivel_superior/nivel_inferior)"   = "anidado"
                   ),
                   selected = "intercepto"
                 ),
@@ -450,6 +484,14 @@ mod_lmm_ui <- function(id) {
                 conditionalPanel(
                   condition = paste0(
                     "input['", ns("estructura_aleatoria"), "'] == 'anidado'"
+                  ),
+                  div(
+                    class = "alert alert-info small py-2 px-3 mb-2",
+                    bs_icon("info-circle", class = "me-1"),
+                    "La f\u00f3rmula ser\u00e1 ",
+                    code("(1 | A/B)"), " donde ",
+                    strong("A = nivel superior"), " (menos grupos, p.ej. Exposure) y ",
+                    strong("B = nivel inferior"), " (m\u00e1s grupos, anidados dentro de A, p.ej. fragmento)."
                   ),
                   uiOutput(ns("sel_grupo_b"))
                 ),
@@ -513,35 +555,116 @@ mod_lmm_ui <- function(id) {
           p(class = "small text-muted mb-3",
             "Verificaci\u00f3n de supuestos del modelo mixto. ",
             "Generado con ", strong("performance::check_model()"), "."),
+
+          # Fila 1: gráficos (izq) | guía (der)
+          layout_columns(
+            col_widths = c(8, 4),
+            fill = FALSE,
+            card(
+              class = "mb-3",
+              card_header(bs_icon("graph-up", class = "me-1"),
+                          "Gr\u00e1ficos de diagn\u00f3stico",
+                          span(class = "text-muted small ms-2",
+                               "— performance::check_model()")),
+              card_body(
+                style = "overflow: visible; height: auto; min-height: 720px;",
+                plotOutput(ns("plot_diagnostico"), height = "700px")
+              )
+            ),
+            card(
+              class = "mb-3",
+              card_header(bs_icon("info-circle-fill", class = "me-1"),
+                          "\u00bfQu\u00e9 muestra cada gr\u00e1fico?"),
+              card_body(
+                style = "overflow: visible; height: auto;",
+                div(class = "d-flex gap-2 mb-3",
+                  div(class = "badge text-bg-secondary flex-shrink-0",
+                      style = "min-width:22px; height:22px; line-height:22px; font-size:0.7rem;", "1"),
+                  div(
+                    p(class = "small fw-bold mb-0", "Posterior Predictive Check"),
+                    p(class = "small text-muted mb-0",
+                      "Compara la distribuci\u00f3n de los datos reales (l\u00ednea verde) con la que predice el modelo (l\u00ednea azul). ",
+                      "Si se superponen bien, el modelo captura el patr\u00f3n general de los datos.")
+                  )
+                ),
+                div(class = "d-flex gap-2 mb-3",
+                  div(class = "badge text-bg-secondary flex-shrink-0",
+                      style = "min-width:22px; height:22px; line-height:22px; font-size:0.7rem;", "2"),
+                  div(
+                    p(class = "small fw-bold mb-0", "Linealidad"),
+                    p(class = "small text-muted mb-0",
+                      "Muestra si los errores del modelo son sistem\u00e1ticos. ",
+                      "La l\u00ednea de referencia debe ser horizontal y plana. ",
+                      "Si forma una curva, el modelo necesita un t\u00e9rmino no lineal.")
+                  )
+                ),
+                div(class = "d-flex gap-2 mb-3",
+                  div(class = "badge text-bg-secondary flex-shrink-0",
+                      style = "min-width:22px; height:22px; line-height:22px; font-size:0.7rem;", "3"),
+                  div(
+                    p(class = "small fw-bold mb-0", "Homogeneidad de varianza"),
+                    p(class = "small text-muted mb-0",
+                      "Verifica que los errores tengan tama\u00f1o similar en todo el rango de valores predichos. ",
+                      "Los puntos deben dispersarse uniformemente. ",
+                      "Si forman un embudo (m\u00e1s dispersos a la derecha), la varianza no es constante.")
+                  )
+                ),
+                div(class = "d-flex gap-2 mb-3",
+                  div(class = "badge text-bg-secondary flex-shrink-0",
+                      style = "min-width:22px; height:22px; line-height:22px; font-size:0.7rem;", "4"),
+                  div(
+                    p(class = "small fw-bold mb-0", "Observaciones influyentes"),
+                    p(class = "small text-muted mb-0",
+                      "Detecta observaciones que tienen un peso desproporcionado sobre los resultados. ",
+                      "Los puntos marcados en rojo fuera de las l\u00edneas punteadas son casos que conviene revisar: ",
+                      "si se eliminan, los coeficientes cambian notablemente.")
+                  )
+                ),
+                div(class = "d-flex gap-2 mb-3",
+                  div(class = "badge text-bg-secondary flex-shrink-0",
+                      style = "min-width:22px; height:22px; line-height:22px; font-size:0.7rem;", "5"),
+                  div(
+                    p(class = "small fw-bold mb-0", "Normalidad de residuos"),
+                    p(class = "small text-muted mb-0",
+                      "Comprueba si los errores del modelo siguen una distribuci\u00f3n normal. ",
+                      "Los puntos deben seguir la l\u00ednea diagonal. ",
+                      "Si los extremos se alejan mucho de la l\u00ednea, hay observaciones con errores inusualmente grandes.")
+                  )
+                ),
+                div(class = "d-flex gap-2 mb-0",
+                  div(class = "badge text-bg-secondary flex-shrink-0",
+                      style = "min-width:22px; height:22px; line-height:22px; font-size:0.7rem;", "6"),
+                  div(
+                    p(class = "small fw-bold mb-0", "Normalidad de efectos aleatorios"),
+                    p(class = "small text-muted mb-0",
+                      "Verifica el supuesto de que los grupos (p.ej. fragmentos) var\u00edan de forma normal alrededor del promedio general. ",
+                      "Los puntos deben seguir la diagonal. En muestras peque\u00f1as (pocos grupos) desviaciones leves son normales.")
+                  )
+                )
+              )
+            )
+          ),
+
+          # Fila 2: caterpillar | resumen supuestos
           layout_columns(
             col_widths = c(6, 6),
             fill = FALSE,
             card(
-              card_header(bs_icon("graph-up", class = "me-1"),
-                          "Gr\u00e1ficos de diagn\u00f3stico"),
+              class = "mb-0",
+              card_header(bs_icon("diagram-3", class = "me-1"),
+                          "Efectos aleatorios (caterpillar plot)"),
               card_body(
-                style = "height: auto;",
-                plotOutput(ns("plot_diagnostico"), height = "420px")
+                style = "overflow: visible; height: auto;",
+                plotOutput(ns("plot_ranef"), height = "280px")
               )
             ),
-            div(
-              card(
-                class = "mb-3",
-                card_header(bs_icon("diagram-3", class = "me-1"),
-                            "Efectos aleatorios (caterpillar plot)"),
-                card_body(
-                  style = "height: auto;",
-                  plotOutput(ns("plot_ranef"), height = "240px")
-                )
-              ),
-              card(
-                class = "mb-0",
-                card_header(bs_icon("info-circle", class = "me-1"),
-                            "Resumen de supuestos"),
-                card_body(
-                  style = "overflow: visible; height: auto;",
-                  uiOutput(ns("tabla_supuestos"))
-                )
+            card(
+              class = "mb-0",
+              card_header(bs_icon("info-circle", class = "me-1"),
+                          "Resumen de supuestos"),
+              card_body(
+                style = "overflow: visible; height: auto;",
+                uiOutput(ns("tabla_supuestos"))
               )
             )
           )
@@ -582,7 +705,8 @@ mod_lmm_ui <- function(id) {
                 style = "overflow: visible; height: auto;",
                 uiOutput(ns("tabla_icc")),
                 br(),
-                plotOutput(ns("plot_icc"), height = "200px")
+                plotOutput(ns("plot_icc"), height = "200px"),
+                uiOutput(ns("interp_nakagawa"))
               )
             )
           )
@@ -835,27 +959,28 @@ mod_lmm_server <- function(id) {
         label   = tagList(bs_icon("database", class = "me-1"),
                           "Dataset de ejemplo:"),
         choices = c(
-          "Riqueza en playas \u2014 RIKZ (ecolog\u00eda)"  = "rikz",
+          "Pl\u00e1ntulas en fragmentos \u2014 BTS (ecolog\u00eda)"  = "plantulas",
           "Privaci\u00f3n de sue\u00f1o \u2014 sleepstudy (psicolog\u00eda)" = "sleepstudy",
           "Cargar mis propios datos"                  = "propio"
         ),
-        selected = "rikz"
+        selected = "plantulas"
       )
     })
 
     datos_activos <- reactive({
-      fuente <- input$fuente_datos
-      req(!is.null(fuente) && nchar(fuente) > 0)
+      # Fallback a "plantulas" mientras renderUI no haya disparado todavía
+      fuente <- if (!is.null(input$fuente_datos) && nchar(input$fuente_datos) > 0)
+        input$fuente_datos else "plantulas"
       tu <- tipos_usuario()
 
-      df <- if (fuente == "rikz") {
+      df <- if (fuente == "plantulas") {
         tryCatch({
           e <- new.env()
-          load(system.file("app/data/rikz_lmm.rda",
+          load(system.file("app/data/plantulas_lmm.rda",
                            package = "StatModels"), envir = e)
-          e$rikz_lmm
+          e$plantulas_lmm
         }, error = function(err) {
-          showNotification("Archivo rikz_lmm.rda no encontrado.",
+          showNotification("Archivo plantulas_lmm.rda no encontrado.",
                            type = "error", duration = 6)
           NULL
         })
@@ -995,13 +1120,13 @@ mod_lmm_server <- function(id) {
 
     output$info_dataset <- renderUI({
       fuente <- input$fuente_datos
-      if (is.null(fuente) || fuente == "rikz") {
+      if (is.null(fuente) || fuente == "plantulas") {
         div(class = "alert alert-info small py-2 px-3 mb-2",
             bs_icon("info-circle-fill", class = "me-1"),
-            strong("Dataset: RIKZ \u2014 Riqueza en playas (Janssen & Mulder, 2005)."),
-            " 45 sitios en 9 playas de los Pa\u00edses Bajos. ",
-            "Variables: Richness (riqueza), NAP (altura sobre nivel del mar), ",
-            "Exposure (exposici\u00f3n), Beach (playa), Site (sitio).")
+            strong("Dataset: Pl\u00e1ntulas BTS \u2014 Regeneraci\u00f3n en bosque tropical seco."),
+            " 60 parcelas en 10 fragmentos de bosque tropical seco, Costa Rica. ",
+            "Variables: densidad_plantulas (ind/m²), cobertura_dosel (%), ",
+            "pendiente (\u00b0), dist_agua (m), fragmento.")
       } else if (fuente == "sleepstudy") {
         div(class = "alert alert-info small py-2 px-3 mb-2",
             bs_icon("info-circle-fill", class = "me-1"),
@@ -1179,7 +1304,7 @@ mod_lmm_server <- function(id) {
             "No hay variables categ\u00f3ricas. Convierte la variable de grupo ",
             "en la pesta\u00f1a Tipos de variables.")
       )
-      selectInput(ns("var_grupo"), "Variable de agrupamiento:",
+      selectInput(ns("var_grupo"), "Variable de agrupamiento (A):",
                   choices = cats, selected = cats[length(cats)])
     })
 
@@ -1195,8 +1320,13 @@ mod_lmm_server <- function(id) {
     output$sel_grupo_b <- renderUI({
       cats <- vars_categoricas(); req(cats, input$var_grupo)
       opts <- cats[cats != input$var_grupo]
-      req(length(opts) > 0)
-      selectInput(ns("var_grupo_b"), "Sub-grupo (B anidado en A):",
+      if (length(opts) == 0) return(
+        div(class = "alert alert-warning small py-2 px-3",
+            "Solo hay una variable categ\u00f3rica. Se necesitan \u22652 para estructura anidada.")
+      )
+      selectInput(ns("var_grupo_b"),
+                  label = HTML("Nivel inferior (B, anidado dentro de A):
+                               <small class='text-muted d-block'>Debe tener m&aacute;s grupos que A</small>"),
                   choices = opts, selected = opts[1])
     })
 
@@ -1285,7 +1415,7 @@ mod_lmm_server <- function(id) {
       )
       tryCatch({
         pm   <- performance::model_performance(fm, verbose = FALSE)
-        r2   <- tryCatch(performance::r2_nakagawa(fm, verbose = FALSE),
+        r2   <- tryCatch(suppressWarnings(performance::r2_nakagawa(fm, verbose = FALSE)),
                          error = function(e) NULL)
         r2m  <- if (!is.null(r2)) round(r2$R2_marginal, 3) else NA
         r2c  <- if (!is.null(r2)) round(r2$R2_conditional, 3) else NA
@@ -1296,6 +1426,7 @@ mod_lmm_server <- function(id) {
           col_widths = c(6, 6),
           card(class = "text-center border-0",
                style = paste0("background:", colores$fondo),
+               title = "Varianza explicada solo por los efectos fijos (predictores). Ver tab Performance para más detalle.",
                card_body(class = "p-2",
                  h3(style = paste0("color:", colores$primario,
                                    "; font-weight:700;"),
@@ -1303,6 +1434,7 @@ mod_lmm_server <- function(id) {
                  p(class = "small text-muted mb-0", "R\u00b2 marginal"))),
           card(class = "text-center border-0",
                style = paste0("background:", colores$fondo),
+               title = "Varianza explicada por efectos fijos + aleatorios combinados. Ver tab Performance para más detalle.",
                card_body(class = "p-2",
                  h3(style = paste0("color:", colores$acento,
                                    "; font-weight:700;"),
@@ -1321,8 +1453,13 @@ mod_lmm_server <- function(id) {
     output$plot_diagnostico <- renderPlot({
       fm <- modelo_lmm(); req(fm)
       tryCatch({
-        p <- performance::check_model(fm, verbose = FALSE)
-        plot(p)
+        # Limitar a 6 paneles fijos para evitar colapso con modelos complejos
+        p <- performance::check_model(
+          fm, verbose = FALSE,
+          check = c("pp_check", "linearity", "homogeneity",
+                    "outliers", "qq", "reqq")
+        )
+        print(p)
       }, error = function(e) {
         ggplot2::ggplot() +
           ggplot2::annotate("text", x=0.5, y=0.5,
@@ -1330,7 +1467,7 @@ mod_lmm_server <- function(id) {
                             color = colores$texto, size=4) +
           ggplot2::theme_void()
       })
-    }, res = 96)
+    }, res = 96, height = 700, width = 950)
 
     output$plot_ranef <- renderPlot({
       fm <- modelo_lmm(); req(fm)
@@ -1349,26 +1486,46 @@ mod_lmm_server <- function(id) {
     output$tabla_supuestos <- renderUI({
       fm <- modelo_lmm(); req(fm)
       tryCatch({
-        sing <- lme4::isSingular(fm)
-        filas <- list(
-          list(s = "Singular fit",
-               v = if (sing) "\u26a0 S\u00ed" else "\u2713 No",
-               c = if (sing) colores$peligro else colores$exito,
-               i = "Varianza de efecto aleatorio \u2248 0."),
-          list(s = "N\u00famero de grupos",
-               v = length(unique(lme4::getME(fm, "flist")[[1]])),
-               c = colores$texto,
-               i = "Se recomiendan \u226510 grupos.")
-        )
+        sing   <- lme4::isSingular(fm)
+        n_grps <- length(unique(lme4::getME(fm, "flist")[[1]]))
+        pocos  <- n_grps < 10
+
         tags$table(
           class = "table table-sm small mb-0",
-          tags$tbody(lapply(filas, function(f) {
+          tags$tbody(
+            # Singular fit
             tags$tr(
-              tags$td(strong(f$s)),
-              tags$td(style = paste0("color:", f$c, "; font-weight:600;"), f$v),
-              tags$td(class = "text-muted small", f$i)
+              tags$td(strong("Singular fit")),
+              tags$td(style = paste0("color:", if (sing) colores$peligro else colores$exito,
+                                     "; font-weight:600;"),
+                      if (sing) "\u26a0 S\u00ed" else "\u2713 No"),
+              tags$td(class = "text-muted small",
+                      if (sing)
+                        tagList(
+                          "El modelo tiene m\u00e1s par\u00e1metros de los que los datos soportan. ",
+                          "Simplifica los efectos aleatorios (p.ej. elimina la pendiente aleatoria)."
+                        )
+                      else
+                        "El modelo no est\u00e1 sobreparametrizado \u2014 los efectos aleatorios son estimables.")
+            ),
+            # Número de grupos
+            tags$tr(
+              tags$td(strong("N\u00famero de grupos")),
+              tags$td(style = paste0("color:", if (pocos) colores$acento else colores$exito,
+                                     "; font-weight:600;"),
+                      n_grps),
+              tags$td(class = "text-muted small",
+                      if (pocos)
+                        tagList(
+                          "Hay ", strong(n_grps), " grupos \u2014 menos de los 10 recomendados. ",
+                          "Con pocos grupos la estimaci\u00f3n de la varianza entre grupos es menos precisa."
+                        )
+                      else
+                        tagList(
+                          strong(n_grps), " grupos \u2014 suficiente para estimar bien la varianza entre grupos."
+                        ))
             )
-          }))
+          )
         )
       }, error = function(e) NULL)
     })
@@ -1381,7 +1538,7 @@ mod_lmm_server <- function(id) {
       fm <- modelo_lmm(); req(fm)
       tryCatch({
         pm  <- performance::model_performance(fm, verbose = FALSE)
-        r2  <- tryCatch(performance::r2_nakagawa(fm, verbose = FALSE),
+        r2  <- tryCatch(suppressWarnings(performance::r2_nakagawa(fm, verbose = FALSE)),
                         error = function(e) NULL)
         r2m <- if (!is.null(r2)) round(r2$R2_marginal, 4) else NA
         r2c <- if (!is.null(r2)) round(r2$R2_conditional, 4) else NA
@@ -1428,59 +1585,218 @@ mod_lmm_server <- function(id) {
     output$tabla_icc <- renderUI({
       fm <- modelo_lmm(); req(fm)
       tryCatch({
-        icc_ <- performance::icc(fm, verbose = FALSE)
-        layout_columns(
-          col_widths = c(6, 6),
-          card(class = "text-center border-0",
-               style = paste0("background:", colores$fondo),
-               card_body(class = "p-2",
-                 h3(style = paste0("color:", colores$primario,
-                                   "; font-weight:700;"),
-                    round(icc_$ICC_adjusted, 3)),
-                 p(class = "small text-muted mb-0", "ICC ajustado"))),
-          card(class = "text-center border-0",
-               style = paste0("background:", colores$fondo),
-               card_body(class = "p-2",
-                 h3(style = paste0("color:", colores$acento,
-                                   "; font-weight:700;"),
-                    round(icc_$ICC_unadjusted, 3)),
-                 p(class = "small text-muted mb-0", "ICC no ajustado")))
+        icc_  <- performance::icc(fm, verbose = FALSE)
+        icc_v <- round(icc_$ICC_adjusted, 3)
+        icc_p <- round(icc_v * 100, 1)
+        res_p <- round((1 - icc_v) * 100, 1)
+
+        label_mag <- if (icc_v < 0.1)  list("Muy bajo",  colores$exito)  else
+                     if (icc_v < 0.3)  list("Bajo",      colores$acento) else
+                     if (icc_v < 0.5)  list("Moderado",  colores$primario) else
+                                       list("Alto",       colores$peligro)
+
+        tagList(
+          # Valor grande + etiqueta
+          div(class = "text-center mb-3",
+            h2(style = paste0("color:", label_mag[[2]],
+                              "; font-weight:700; margin:0;"),
+               paste0(icc_p, "%")),
+            p(class = "small mb-0",
+              tags$span(class = "badge",
+                        style = paste0("background:", label_mag[[2]]),
+                        label_mag[[1]]),
+              tags$span(class = "text-muted ms-1",
+                        "— ICC ajustado = ", icc_v))
+          ),
+
+          # Barra de partición — usa ICC real de icc()
+          p(class = "small fw-bold mb-1",
+            "Partici\u00f3n de la varianza (basada en ICC):"),
+          div(
+            style = "height:32px; border-radius:6px; overflow:hidden;
+                     display:flex; width:100%; margin-bottom:4px;",
+            div(style = paste0("width:", icc_p, "%; background:", colores$primario,
+                               "; display:flex; align-items:center;",
+                               " justify-content:center;"),
+                if (icc_p >= 10)
+                  tags$span(style = "color:#fff; font-size:0.75rem; font-weight:600;",
+                             paste0(icc_p, "%"))
+            ),
+            div(style = paste0("width:", res_p, "%; background:#CBD5E1;",
+                               " display:flex; align-items:center;",
+                               " justify-content:center;"),
+                if (res_p >= 10)
+                  tags$span(style = "color:#334155; font-size:0.75rem; font-weight:600;",
+                             paste0(res_p, "%"))
+            )
+          ),
+          div(class = "d-flex gap-3 mb-3",
+            div(class = "d-flex align-items-center gap-1",
+              div(style = paste0("width:12px; height:12px; border-radius:3px;",
+                                 " background:", colores$primario, ";")),
+              tags$span(class = "small text-muted",
+                        paste0("Entre grupos (", icc_p, "%)"))
+            ),
+            div(class = "d-flex align-items-center gap-1",
+              div(style = "width:12px; height:12px; border-radius:3px; background:#CBD5E1;"),
+              tags$span(class = "small text-muted",
+                        paste0("Dentro de grupos (", res_p, "%)"))
+            )
+          ),
+
+          # Interpretación pedagógica
+          div(
+            class = "card border-0 mb-3",
+            style = paste0("background:", colores$fondo, ";"),
+            div(class = "card-body p-2",
+              p(class = "small fw-bold mb-2",
+                bs_icon("info-circle-fill", class = "me-1"),
+                "\u00bfQu\u00e9 significa este valor?"),
+              p(class = "small mb-2",
+                "El ICC indica qu\u00e9 proporci\u00f3n de la variaci\u00f3n total en la respuesta ",
+                "se debe a diferencias ", strong("entre grupos"), ". ",
+                "Se calcula directamente con los componentes de varianza:"),
+              div(class = "alert alert-secondary small py-1 px-2 mb-2",
+                  style = "font-family: monospace;",
+                  paste0("ICC = \u03c3\u00b2(grupos) / [\u03c3\u00b2(grupos) + \u03c3\u00b2(residual)]",
+                         " = ", round(icc_$ICC_adjusted * 100, 1), "%")),
+              div(class = "alert alert-info small py-2 px-3 mb-0",
+                  bs_icon("lightbulb", class = "me-1"),
+                  strong("Regla pr\u00e1ctica: "),
+                  "ICC > 0.10 justifica usar un modelo mixto. ",
+                  "ICC > 0.30 indica que la estructura de grupos es muy importante.")
+            )
+          ),
+
+          # Separador antes del gráfico R² Nakagawa
+          tags$hr(),
+          p(class = "small fw-bold mb-1",
+            bs_icon("bar-chart-steps", class = "me-1"),
+            "Descomposici\u00f3n completa \u2014 R\u00b2 Nakagawa"),
+          p(class = "small text-muted mb-2",
+            "Este gr\u00e1fico usa un m\u00e9todo diferente (R\u00b2 Nakagawa) que divide la varianza en ",
+            strong("tres"), " partes: efectos fijos, efectos aleatorios y residual. ",
+            "Por eso el porcentaje de efectos aleatorios (", code("ICC \u2248 R\u00b2c \u2212 R\u00b2m"), ") ",
+            "puede diferir ligeramente del ICC calculado arriba.")
         )
       }, error = function(e) {
         p(class = "small text-muted", "ICC no disponible.")
       })
     })
 
+    output$interp_nakagawa <- renderUI({
+      fm <- modelo_lmm(); req(fm)
+      tryCatch({
+        r2   <- suppressWarnings(performance::r2_nakagawa(fm, verbose = FALSE))
+        r2m  <- round(r2$R2_marginal,    3)
+        r2c  <- round(r2$R2_conditional, 3)
+        ale  <- round(r2c - r2m, 3)
+        res  <- round(1 - r2c,  3)
+        r2m_p  <- round(r2m * 100, 1)
+        ale_p  <- round(ale * 100, 1)
+        res_p  <- round(res * 100, 1)
+
+        # ¿Justifica el modelo mixto?
+        justifica <- ale_p >= 10
+        # ¿Varianza residual alta?
+        res_alto  <- res_p > 50
+
+        div(
+          class = "card border-0 mt-2",
+          style = paste0("background:", colores$fondo, ";"),
+          div(class = "card-body p-2",
+            p(class = "small fw-bold mb-2",
+              bs_icon("info-circle-fill", class = "me-1"),
+              "Interpretaci\u00f3n de la descomposici\u00f3n"),
+            tags$ul(class = "small mb-2",
+              tags$li(
+                strong(paste0(r2m_p, "% — efectos fijos: ")),
+                "lo que explican los predictores del modelo (cobertura_dosel, pendiente, dist_agua)"
+              ),
+              tags$li(
+                strong(paste0(ale_p, "% — efectos aleatorios: ")),
+                "varianza adicional debida a diferencias entre grupos"
+              ),
+              tags$li(
+                strong(paste0(res_p, "% — residual: ")),
+                "varianza que el modelo no logra explicar"
+              )
+            ),
+            # ¿Justifica modelo mixto?
+            div(
+              class = paste0("alert small py-2 px-3 mb-2 ",
+                             if (justifica) "alert-success" else "alert-warning"),
+              bs_icon(if (justifica) "check-circle-fill" else "exclamation-triangle-fill",
+                      class = "me-1"),
+              if (justifica)
+                tagList(strong("\u00bfJustifica el modelo mixto? S\u00ed \u2014 "),
+                        "los efectos aleatorios aportan un ", strong(paste0(ale_p, "%")),
+                        " de varianza explicada adicional sobre los efectos fijos solos.")
+              else
+                tagList(strong("\u00bfJustifica el modelo mixto? Marginal \u2014 "),
+                        "los efectos aleatorios solo aportan un ", strong(paste0(ale_p, "%")),
+                        " adicional. Compara con un LM simple usando AIC.")
+            ),
+            # Varianza residual
+            if (res_alto)
+              div(class = "alert alert-info small py-2 px-3 mb-0",
+                  bs_icon("lightbulb", class = "me-1"),
+                  "El ", strong(paste0(res_p, "%")), " residual sugiere que hay varianza ",
+                  "sin explicar \u2014 podr\u00edan faltar predictores relevantes en el modelo.")
+            else
+              div(class = "alert alert-success small py-2 px-3 mb-0",
+                  bs_icon("check-circle-fill", class = "me-1"),
+                  "Varianza residual moderada (", strong(paste0(res_p, "%")),
+                  ") \u2014 el modelo captura bien la mayor parte de la variaci\u00f3n.")
+          )
+        )
+      }, error = function(e) NULL)
+    })
+
     output$plot_icc <- renderPlot({
       fm <- modelo_lmm(); req(fm)
       tryCatch({
-        r2  <- performance::r2_nakagawa(fm, verbose = FALSE)
+        r2  <- suppressWarnings(performance::r2_nakagawa(fm, verbose = FALSE))
         r2m <- r2$R2_marginal
         r2c <- r2$R2_conditional
         icc_ <- r2c - r2m
         res  <- 1 - r2c
 
-        df_pie <- data.frame(
-          componente = c("Efectos fijos", "Efectos aleatorios", "Residual"),
-          valor      = c(r2m, icc_, res)
+        df_bar <- data.frame(
+          componente = factor(
+            c("Efectos fijos\n(R\u00b2 marginal)",
+              "Efectos aleatorios\n(ICC)",
+              "Residual\n(no explicado)"),
+            levels = c("Efectos fijos\n(R\u00b2 marginal)",
+                       "Efectos aleatorios\n(ICC)",
+                       "Residual\n(no explicado)")
+          ),
+          valor = c(r2m, icc_, res),
+          pct   = round(c(r2m, icc_, res) * 100, 1)
         )
-        df_pie$componente <- factor(df_pie$componente,
-                                     levels = df_pie$componente)
 
-        ggplot2::ggplot(df_pie,
-                        ggplot2::aes(x = 2, y = valor,
-                                     fill = componente)) +
-          ggplot2::geom_col(width = 1) +
-          ggplot2::coord_polar(theta = "y") +
-          ggplot2::xlim(0.5, 2.5) +
+        ggplot2::ggplot(df_bar,
+                        ggplot2::aes(x = 1, y = valor, fill = componente)) +
+          ggplot2::geom_col(width = 0.5) +
+          ggplot2::geom_text(
+            ggplot2::aes(label = paste0(pct, "%")),
+            position = ggplot2::position_stack(vjust = 0.5),
+            color = "white", size = 3.5, fontface = "bold") +
+          ggplot2::coord_flip() +
           ggplot2::scale_fill_manual(
-            values = c(colores$primario, colores$acento, "#CCCCCC")) +
-          ggplot2::labs(fill = "Componente",
-                        subtitle = "Descomposici\u00f3n de la varianza") +
-          ggplot2::theme_void(base_size = 11) +
-          ggplot2::theme(legend.position = "right",
-                         plot.subtitle = ggplot2::element_text(
-                           color = colores$texto, size = 9))
+            values = c(colores$primario, colores$acento, "#CBD5E1"),
+            name = NULL) +
+          ggplot2::scale_y_continuous(labels = scales::percent_format()) +
+          ggplot2::labs(x = NULL, y = NULL,
+                        subtitle = "Descomposici\u00f3n de la varianza total (R\u00b2 Nakagawa)") +
+          ggplot2::theme_minimal(base_size = 11) +
+          ggplot2::theme(
+            axis.text.y    = ggplot2::element_blank(),
+            axis.ticks.y   = ggplot2::element_blank(),
+            panel.grid     = ggplot2::element_blank(),
+            legend.position = "bottom",
+            legend.text    = ggplot2::element_text(size = 8),
+            plot.subtitle  = ggplot2::element_text(color = colores$texto, size = 9))
       }, error = function(e) {
         ggplot2::ggplot() + ggplot2::theme_void()
       })
@@ -1495,58 +1811,122 @@ mod_lmm_server <- function(id) {
       tryCatch({
         mp  <- parameters::model_parameters(fm, verbose = FALSE)
         df  <- as.data.frame(mp)
+        # Conservar solo efectos fijos: filas con p-valor o con Coefficient no NA
+        # model_parameters mezcla fijos y componentes de varianza — filtrar por
+        # presencia de SE (los componentes de varianza tienen SE = NA)
+        df <- df[!is.na(df$SE) | !is.na(df$p), , drop = FALSE]
+        if (nrow(df) == 0) stop("sin_fijos")
+
         filas <- lapply(seq_len(nrow(df)), function(i) {
-          pval <- df$p[i]
+          pval  <- if ("p" %in% names(df)) df$p[i] else NA
           p_txt <- if (!is.na(pval)) {
             if (pval < 0.001) "< 0.001 ***"
             else if (pval < 0.01)  paste0(round(pval,3), " **")
             else if (pval < 0.05)  paste0(round(pval,3), " *")
-            else round(pval, 3)
+            else if (pval < 0.1)   paste0(round(pval,3), " .")
+            else as.character(round(pval, 3))
           } else "\u2014"
           col_p <- if (!is.na(pval) && pval < 0.05) colores$exito else colores$texto
+
+          ee_txt  <- if (!is.na(df$SE[i]))      round(df$SE[i], 3)      else "\u2014"
+          ci_low  <- if ("CI_low"  %in% names(df) && !is.na(df$CI_low[i]))
+                       round(df$CI_low[i], 3)  else NA
+          ci_high <- if ("CI_high" %in% names(df) && !is.na(df$CI_high[i]))
+                       round(df$CI_high[i], 3) else NA
+          ci_txt  <- if (!is.na(ci_low) && !is.na(ci_high))
+                       paste0("[", ci_low, ", ", ci_high, "]") else "\u2014"
+
           tags$tr(
             tags$td(strong(df$Parameter[i])),
-            tags$td(style="text-align:center;", round(df$Coefficient[i],3)),
-            tags$td(style="text-align:center;", round(df$SE[i],3)),
-            tags$td(style="text-align:center;",
-                    paste0("[",round(df$CI_low[i],3),", ",
-                           round(df$CI_high[i],3),"]")),
-            tags$td(style=paste0("color:",col_p,";font-weight:600;",
-                                 "text-align:center;"), p_txt)
+            tags$td(style = "text-align:right; font-family:monospace;",
+                    round(df$Coefficient[i], 3)),
+            tags$td(style = "text-align:right; font-family:monospace;", ee_txt),
+            tags$td(style = "text-align:right; font-family:monospace;", ci_txt),
+            tags$td(style = paste0("color:", col_p, "; font-weight:600;",
+                                   " text-align:center;"), p_txt)
           )
         })
-        tags$table(
-          class = "table table-sm table-hover small mb-0",
-          tags$thead(tags$tr(
-            tags$th("Par\u00e1metro"), tags$th("Estimado"),
-            tags$th("EE"), tags$th("IC 95%"), tags$th("p-valor")
-          )),
-          tags$tbody(filas)
+        tagList(
+          tags$table(
+            class = "table table-sm table-hover small mb-2",
+            tags$thead(
+              style = paste0("background:", colores$primario, "; color:#fff;"),
+              tags$tr(
+                tags$th("Par\u00e1metro"),
+                tags$th(style = "text-align:right;", "Estimado"),
+                tags$th(style = "text-align:right;", "EE"),
+                tags$th(style = "text-align:right;", "IC 95%"),
+                tags$th(style = "text-align:center;", "p-valor")
+              )
+            ),
+            tags$tbody(filas)
+          ),
+          div(class = "small text-muted",
+              style = "font-family:monospace; font-size:0.75rem;",
+              "Signif. codes: 0 \u2018***\u2019 0.001 \u2018**\u2019 0.01 \u2018*\u2019 0.05 \u2018.\u2019 0.1 \u2018 \u2019 1"),
+          div(class = "alert alert-info small py-2 px-3 mt-2 mb-0",
+              bs_icon("info-circle", class = "me-1"),
+              "EE y p-valores v\u00eda ", strong("lmerTest"),
+              " (aproximaci\u00f3n de Satterthwaite). ",
+              "Los componentes de varianza (\u03c3\u00b2) se muestran en la tabla de efectos aleatorios.")
         )
       }, error = function(e) {
-        p(class = "small text-muted", "Ajusta el modelo primero.")
+        msg <- conditionMessage(e)
+        if (msg == "sin_fijos")
+          p(class = "small text-muted", "No se encontraron efectos fijos.")
+        else
+          p(class = "small text-muted", "Ajusta el modelo primero.")
       })
     })
 
     output$tabla_efectos_aleatorios <- renderUI({
       fm <- modelo_lmm(); req(fm)
       tryCatch({
-        vc  <- as.data.frame(lme4::VarCorr(fm))
+        vc <- as.data.frame(lme4::VarCorr(fm))
+        # Columnas que devuelve VarCorr: grp, var1, var2, vcov, sdcor
         filas <- lapply(seq_len(nrow(vc)), function(i) {
+          grp   <- vc$grp[i]
+          var1  <- if (!is.na(vc$var1[i])) vc$var1[i] else "\u2014"
+          vcov  <- round(vc$vcov[i],  3)
+          sdcor <- round(vc$sdcor[i], 3)
+          # Etiqueta descriptiva
+          label <- if (grp == "Residual")
+            "Variaci\u00f3n dentro de grupos (no explicada)"
+          else if (!is.na(vc$var2[i]))
+            paste0("Correlaci\u00f3n en ", grp)
+          else
+            paste0("Variabilidad entre grupos (", grp, ")")
+
           tags$tr(
-            tags$td(code(vc$grp[i])),
-            tags$td(if (!is.na(vc$var1[i])) vc$var1[i] else "\u2014"),
-            tags$td(style="text-align:center;", round(vc$vcov[i],3)),
-            tags$td(style="text-align:center;", round(vc$sdcor[i],3))
+            tags$td(code(grp)),
+            tags$td(style = "text-align:center;", var1),
+            tags$td(style = "text-align:right; font-family:monospace;", vcov),
+            tags$td(style = paste0("text-align:right; font-family:monospace;",
+                                   " font-weight:600; color:", colores$primario, ";"),
+                    sdcor),
+            tags$td(class = "small text-muted", label)
           )
         })
-        tags$table(
-          class = "table table-sm small mb-0",
-          tags$thead(tags$tr(
-            tags$th("Grupo"), tags$th("Variable"),
-            tags$th("Varianza (\u03c3\u00b2)"), tags$th("SD / Cor")
-          )),
-          tags$tbody(filas)
+        tagList(
+          tags$table(
+            class = "table table-sm small mb-2",
+            tags$thead(
+              style = paste0("background:", colores$primario, "; color:#fff;"),
+              tags$tr(
+                tags$th("Grupo"),
+                tags$th(style = "text-align:center;", "Variable"),
+                tags$th(style = "text-align:right;", "Varianza (\u03c3\u00b2)"),
+                tags$th(style = "text-align:right;", "SD"),
+                tags$th("Significado")
+              )
+            ),
+            tags$tbody(filas)
+          ),
+          div(class = "alert alert-info small py-2 px-3 mb-0",
+              bs_icon("info-circle", class = "me-1"),
+              "ICC = \u03c3\u00b2(grupo) / [\u03c3\u00b2(grupo) + \u03c3\u00b2(residual)] \u2014 ",
+              "proporci\u00f3n de varianza debida a diferencias entre grupos. ",
+              "Ver valor exacto en la pesta\u00f1a ", strong("Performance"), ".")
         )
       }, error = function(e) {
         p(class = "small text-muted", "Ajusta el modelo primero.")
@@ -1556,14 +1936,31 @@ mod_lmm_server <- function(id) {
     output$plot_importancia <- renderPlot({
       fm <- modelo_lmm(); req(fm)
       tryCatch({
-        mp <- parameters::model_parameters(fm, standardize = "refit",
-                                           verbose = FALSE)
-        df <- as.data.frame(mp)
-        df <- df[!grepl("Intercept", df$Parameter), ]
-        df$abs_est <- abs(df$Coefficient)
-        df$dir     <- ifelse(df$Coefficient >= 0, "Positivo", "Negativo")
+        # Usar fixef() — siempre devuelve solo efectos fijos, sin componentes de varianza
+        coefs <- lme4::fixef(fm)
+        coefs <- coefs[!grepl("Intercept", names(coefs))]
+        if (length(coefs) == 0) stop("sin_predictores")
+
+        # Estandarizar post-hoc: β × SD(X) — escala en unidades de SD de X
+        df_orig <- fm@frame
+        yvar    <- all.vars(formula(fm))[1]
+        coefs_std <- sapply(names(coefs), function(nm) {
+          if (nm %in% names(df_orig) && is.numeric(df_orig[[nm]])) {
+            sd_x <- sd(df_orig[[nm]], na.rm = TRUE)
+            if (sd_x > 0) coefs[[nm]] * sd_x else coefs[[nm]]
+          } else coefs[[nm]]
+        })
+
+        df <- data.frame(
+          Parameter = names(coefs_std),
+          Coef_std  = as.numeric(coefs_std),
+          stringsAsFactors = FALSE
+        )
+        df$abs_est <- abs(df$Coef_std)
+        df$dir     <- ifelse(df$Coef_std >= 0, "Positivo", "Negativo")
         df$Parameter <- factor(df$Parameter,
                                 levels = df$Parameter[order(df$abs_est)])
+
         ggplot2::ggplot(df,
                         ggplot2::aes(x = abs_est, y = Parameter, fill = dir)) +
           ggplot2::geom_col(width = 0.65) +
@@ -1572,16 +1969,20 @@ mod_lmm_server <- function(id) {
                        "Negativo" = colores$peligro),
             name = "Direcci\u00f3n") +
           ggplot2::labs(x = "|\u03b2 estandarizado|", y = NULL,
-                        subtitle = "Efectos fijos estandarizados") +
+                        subtitle = "Efectos fijos estandarizados (post-hoc)") +
           ggplot2::theme_minimal(base_size = 12) +
           ggplot2::theme(panel.grid.minor   = ggplot2::element_blank(),
                          panel.grid.major.y = ggplot2::element_blank(),
                          legend.position    = "bottom")
       }, error = function(e) {
+        msg <- conditionMessage(e)
+        label <- if (msg == "sin_predictores")
+          "El modelo solo tiene intercepto \u2014 agrega predictores en Efectos fijos."
+        else
+          paste0("Error: ", msg)
         ggplot2::ggplot() +
-          ggplot2::annotate("text", x=0.5, y=0.5,
-                            label="Ajusta el modelo primero.",
-                            color=colores$texto, size=4) +
+          ggplot2::annotate("text", x = 0.5, y = 0.5, label = label,
+                            color = colores$texto, size = 3.5, hjust = 0.5) +
           ggplot2::theme_void()
       })
     }, res = 96)
@@ -1909,7 +2310,7 @@ mod_lmm_server <- function(id) {
           performance::model_performance(fm, verbose = FALSE),
           error = function(e) NULL)
         if (is.null(pm)) return(NULL)
-        r2 <- tryCatch(performance::r2_nakagawa(fm, verbose = FALSE),
+        r2 <- tryCatch(suppressWarnings(performance::r2_nakagawa(fm, verbose = FALSE)),
                        error = function(e) NULL)
         list(nm   = nm,
              aic  = round(pm$AIC, 1),
@@ -1975,16 +2376,19 @@ mod_lmm_server <- function(id) {
     # ────────────────────────────────────────────────────
 
     codigo_generado <- reactive({
-      req(modelo_lmm())
-      fm      <- modelo_lmm()
+      fm <- modelo_lmm()
+      if (is.null(fm)) return(
+        paste0("# Ajusta el modelo en la pestaña 'Ajustar modelo' ",
+               "antes de descargar el código.\n")
+      )
       fuente  <- input$fuente_datos
       familia <- input$familia
       metodo  <- input$metodo_lmm
 
-      carga <- if (fuente == "rikz")
-        paste0('load(system.file("app/data/rikz_lmm.rda",\n',
+      carga <- if (fuente == "plantulas")
+        paste0('load(system.file("app/data/plantulas_lmm.rda",\n',
                '               package = "StatModels"))\n',
-               'datos <- rikz_lmm\n')
+               'datos <- plantulas_lmm\n')
       else if (fuente == "sleepstudy")
         'datos <- as.data.frame(lme4::sleepstudy)\n'
       else
@@ -2029,7 +2433,13 @@ mod_lmm_server <- function(id) {
 
     output$descargar_codigo <- downloadHandler(
       filename = function() paste0("lmm_", Sys.Date(), ".R"),
-      content  = function(file) writeLines(codigo_generado(), file)
+      content  = function(file) {
+        texto <- tryCatch(codigo_generado(), error = function(e) {
+          paste0("# Error al generar el código: ", conditionMessage(e), "\n",
+                 "# Asegúrate de ajustar el modelo antes de descargar.\n")
+        })
+        writeLines(texto, con = file, useBytes = FALSE)
+      }
     )
 
   }) # /moduleServer

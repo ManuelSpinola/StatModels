@@ -593,10 +593,79 @@ mod_gam_ui <- function(id) {
                              "— gam.check() \u00b7 mgcv")),
             card_body(
               style = "height: auto;",
-              plotOutput(ns("plot_diagnostico"), height = "420px")
+              plotOutput(ns("plot_diagnostico"), height = "420px"),
+              tags$hr(),
+              p(class = "small fw-bold mb-2",
+                bs_icon("info-circle-fill", class = "me-1"),
+                "\u00bfQu\u00e9 muestra cada gr\u00e1fico?"),
+              layout_columns(
+                col_widths = c(6, 6),
+                fill = FALSE,
+                div(
+                  div(class = "d-flex gap-2 mb-2",
+                    div(class = "badge text-bg-secondary",
+                        style = "min-width:24px; height:24px; line-height:24px;",
+                        "1"),
+                    div(
+                      p(class = "small fw-bold mb-0", "QQ-plot de residuos"),
+                      p(class = "small text-muted mb-0",
+                        "Compara los residuos contra la distribuci\u00f3n normal te\u00f3rica. ",
+                        "Los puntos deben seguir la l\u00ednea diagonal. ",
+                        "Desviaciones en las colas \u21d2 residuos no normales o valores at\u00edpicos.")
+                    )
+                  ),
+                  div(class = "d-flex gap-2 mb-0",
+                    div(class = "badge text-bg-secondary",
+                        style = "min-width:24px; height:24px; line-height:24px;",
+                        "3"),
+                    div(
+                      p(class = "small fw-bold mb-0", "Histograma de residuos"),
+                      p(class = "small text-muted mb-0",
+                        "Distribuci\u00f3n de los residuos. Debe ser sim\u00e9trica y en forma de campana. ",
+                        "Asimetr\u00eda o bimodalidad \u21d2 problema con la distribuci\u00f3n o valores at\u00edpicos.")
+                    )
+                  )
+                ),
+                div(
+                  div(class = "d-flex gap-2 mb-2",
+                    div(class = "badge text-bg-secondary",
+                        style = "min-width:24px; height:24px; line-height:24px;",
+                        "2"),
+                    div(
+                      p(class = "small fw-bold mb-0", "Residuos vs. valores ajustados"),
+                      p(class = "small text-muted mb-0",
+                        "Residuos en funci\u00f3n de los valores predichos. ",
+                        "Debe verse como nube aleatoria sin patr\u00f3n. ",
+                        "Embudo o curva \u21d2 heterocedasticidad o estructura no capturada.")
+                    )
+                  ),
+                  div(class = "d-flex gap-2 mb-0",
+                    div(class = "badge text-bg-secondary",
+                        style = "min-width:24px; height:24px; line-height:24px;",
+                        "4"),
+                    div(
+                      p(class = "small fw-bold mb-0", "Respuesta vs. valores ajustados"),
+                      p(class = "small text-muted mb-0",
+                        "Valores observados vs. predichos. Los puntos deben alinearse en la diagonal 1:1. ",
+                        "Desviaci\u00f3n sistem\u00e1tica \u21d2 falta un predictor o k insuficiente.")
+                    )
+                  )
+                )
+              )
             )
           ),
           div(
+            card(
+              class = "mb-3",
+              card_header(bs_icon("terminal", class = "me-1"),
+                          "Salida de gam.check()",
+                          span(class = "text-muted small ms-2",
+                               "— convergencia \u00b7 rango \u00b7 mgcv")),
+              card_body(
+                style = "overflow: visible; height: auto;",
+                uiOutput(ns("resumen_gamcheck"))
+              )
+            ),
             card(
               class = "mb-3",
               card_header(bs_icon("table", class = "me-1"),
@@ -606,7 +675,8 @@ mod_gam_ui <- function(id) {
               card_body(
                 style = "overflow: visible; height: auto;",
                 p(class = "small text-muted mb-2",
-                  "Si p < 0.05 o k'/k < 0.85, aumenta k en Ajustar modelo."),
+                  "Si ", code("edf \u2248 k'"), " o p < 0.05, aumenta k en Ajustar modelo. ",
+                  "Ver guía de interpretación al pie de la tabla."),
                 uiOutput(ns("tabla_k_check"))
               )
             ),
@@ -1483,57 +1553,356 @@ mod_gam_server <- function(id) {
       mgcv::gam.check(fm, rep = 500)
     }, res = 96)
 
-    output$tabla_k_check <- renderUI({
+    output$resumen_gamcheck <- renderUI({
       fm <- modelo_gam(); req(fm)
       tryCatch({
-        kc <- capture.output(mgcv::k.check(fm))
-        df_k <- tryCatch({
-          kch   <- mgcv::k.check(fm)
-          data.frame(
-            Termino = rownames(kch),
-            k_prima = round(kch[, "k'"], 0),
-            k       = round(kch[, "k"], 0),
-            ratio   = round(kch[, "k'"]/kch[, "k"], 3),
-            p_valor = round(kch[, "p-value"], 4)
+        s <- fm$outer.info
+        # ── Convergencia ────────────────────────────────
+        conv_ok  <- isTRUE(fm$converged) ||
+                    (!is.null(s) && isTRUE(s$conv == "full convergence"))
+        iter_n   <- if (!is.null(s$iter)) s$iter else
+                    tryCatch(fm$iter, error = function(e) NA)
+        score_v  <- round(fm$gcv.ubre, 4)
+        scale_v  <- round(fm$sig2,     4)
+        rank_v   <- fm$rank
+        max_rank <- ncol(fm$Vp)   # dimensi\u00f3n total de la base
+
+        conv_col  <- if (conv_ok) colores$exito else colores$peligro
+        conv_txt  <- if (conv_ok) "\u2713 Convergencia completa" else
+                     "\u26a0 No convergencia \u2014 interpreta con cautela"
+
+        tagList(
+          # Tarjetas de estado r\u00e1pido
+          layout_columns(
+            col_widths = c(6, 6),
+            div(class = "alert mb-2 py-2 px-3 small",
+                style = paste0("background:", if (conv_ok) "#d4edda" else "#f8d7da",
+                               "; border-left: 4px solid ", conv_col, ";"),
+                bs_icon(if (conv_ok) "check-circle-fill" else "exclamation-triangle-fill",
+                        class = "me-1", style = paste0("color:", conv_col)),
+                strong(conv_txt),
+                if (!is.na(iter_n))
+                  tags$span(class = "text-muted ms-2",
+                             paste0("(", iter_n, " iteraciones)"))
+            ),
+            div(class = "alert mb-2 py-2 px-3 small",
+                style = "background:#e8f4f8; border-left: 4px solid #17a2b8;",
+                bs_icon("layers", class = "me-1",
+                        style = "color:#17a2b8"),
+                strong("Rango del modelo: "),
+                tags$span(style = "font-family:monospace;",
+                          paste0(rank_v, " / ", max_rank)),
+                if (rank_v < max_rank)
+                  tags$span(class = "text-muted ms-1 small",
+                             "\u2014 rango deficiente, revisa predictores")
+            )
+          ),
+          # Tabla de m\u00e9tricas num\u00e9ricas
+          tags$table(
+            class = "table table-sm small mb-3",
+            tags$thead(
+              style = paste0("background:", colores$primario, "; color:#fff;"),
+              tags$tr(tags$th("M\u00e9trica"), tags$th("Valor"),
+                      tags$th("Qu\u00e9 indica"))
+            ),
+            tags$tbody(
+              tags$tr(
+                tags$td(code("score")),
+                tags$td(style = "font-family:monospace; text-align:right;",
+                        score_v),
+                tags$td("Valor de GCV/REML minimizado durante el ajuste. No se interpreta en valor absoluto; \u00fatil para comparar modelos.")
+              ),
+              tags$tr(
+                tags$td(code("scale")),
+                tags$td(style = "font-family:monospace; text-align:right;",
+                        scale_v),
+                tags$td("Varianza residual estimada (\u03c3\u00b2). Cuanto menor, mejor el ajuste.")
+              ),
+              tags$tr(
+                tags$td(code("rango")),
+                tags$td(style = "font-family:monospace; text-align:right;",
+                        paste0(rank_v, " / ", max_rank)),
+                tags$td("El modelo usa ", strong(rank_v), " dimensiones de las ",
+                        strong(max_rank), " disponibles. Si rango < m\u00e1ximo hay redundancia en la base.")
+              )
+            )
+          ),
+          # Gu\u00eda de interpretaci\u00f3n
+          div(
+            class = "card border-0 mb-0",
+            style = paste0("background:", colores$fondo, ";"),
+            div(class = "card-body p-2",
+              p(class = "small fw-bold mb-2",
+                bs_icon("info-circle-fill", class = "me-1"),
+                "\u00bfC\u00f3mo leer esta salida?"),
+              tags$table(
+                class = "table table-sm small mb-2",
+                style = "font-size:0.78rem;",
+                tags$thead(
+                  style = "background:#e9ecef;",
+                  tags$tr(tags$th("Concepto"), tags$th("Qu\u00e9 significa"),
+                          tags$th("Se\u00f1al de problema"))
+                ),
+                tags$tbody(
+                  tags$tr(
+                    tags$td(strong("Convergencia")),
+                    tags$td("El algoritmo de optimizaci\u00f3n encontr\u00f3 un m\u00ednimo estable para los par\u00e1metros de suavizado \u03bb"),
+                    tags$td(tags$span(style = paste0("color:", colores$peligro),
+                                      "No convergencia \u21d2 resultados no fiables"))
+                  ),
+                  tags$tr(
+                    tags$td(strong("Iteraciones")),
+                    tags$td("N\u00famero de pasos del optimizador externo (outer Newton). Valores altos no son problem\u00e1ticos si hay convergencia"),
+                    tags$td(tags$span(style = paste0("color:", colores$acento),
+                                      "> 50 iteraciones sin convergencia"))
+                  ),
+                  tags$tr(
+                    tags$td(strong("Score & scale")),
+                    tags$td(tagList(code("score"), " = criterio minimizado (GCV o REML). ",
+                                    code("scale"), " = varianza residual \u03c3\u00b2 estimada")),
+                    tags$td("\u2014 comparar entre modelos, no en absoluto")
+                  ),
+                  tags$tr(
+                    tags$td(strong("Rango del modelo")),
+                    tags$td("Dimensi\u00f3n efectiva del espacio de par\u00e1metros. Rango < m\u00e1ximo indica que algunas bases son redundantes"),
+                    tags$td(tags$span(style = paste0("color:", colores$acento),
+                                      "Rango < m\u00e1ximo \u21d2 revisar predictores"))
+                  )
+                )
+              ),
+              div(class = "alert alert-info small py-2 px-3 mb-0",
+                  bs_icon("lightbulb", class = "me-1"),
+                  strong("Lo m\u00e1s importante: "),
+                  "verifica primero la convergencia. Si el modelo no convergi\u00f3, ",
+                  "el resto de los resultados (coeficientes, p-valores, EDF) ",
+                  "no son fiables. Luego revisa la tabla de k m\u00e1s abajo.")
+            )
           )
-        }, error = function(e) NULL)
-        req(df_k)
-        filas <- lapply(seq_len(nrow(df_k)), function(i) {
-          ok    <- df_k$ratio[i] >= 0.85 && df_k$p_valor[i] >= 0.05
-          col_p <- if (!ok) colores$peligro else colores$exito
-          tags$tr(
-            tags$td(code(df_k$Termino[i])),
-            tags$td(style = "text-align:center;", df_k$k_prima[i]),
-            tags$td(style = "text-align:center;", df_k$k[i]),
-            tags$td(style = "text-align:center;", df_k$ratio[i]),
-            tags$td(style = paste0("color:", col_p, "; font-weight:600;",
-                                   "text-align:center;"),
-                    if (!ok) paste0(df_k$p_valor[i], " \u26a0") else df_k$p_valor[i])
-          )
-        })
-        tags$table(
-          class = "table table-sm small mb-0",
-          tags$thead(tags$tr(
-            tags$th("T\u00e9rmino"), tags$th("k'"), tags$th("k"),
-            tags$th("k'/k"), tags$th("p-valor")
-          )),
-          tags$tbody(filas)
         )
       }, error = function(e) {
         p(class = "small text-muted", "Ajusta el modelo primero.")
       })
     })
 
+    output$tabla_k_check <- renderUI({
+      fm <- modelo_gam(); req(fm)
+      tryCatch({
+        kch <- mgcv::k.check(fm)
+
+        # k.check() puede devolver columnas con nombres ligeramente distintos
+        # seg\u00fan la versi\u00f3n de mgcv — buscar por posici\u00f3n si el nombre falla
+        get_col <- function(mat, ...) {
+          nms <- c(...)
+          found <- nms[nms %in% colnames(mat)]
+          if (length(found) > 0) mat[, found[1]]
+          else mat[, 1]   # fallback posicional
+        }
+
+        k_prima <- get_col(kch, "k'",     "k.prime")
+        edf_v   <- get_col(kch, "edf",    "EDF")
+        k_v     <- get_col(kch, "k",      "k")
+        k_idx   <- get_col(kch, "k-index","k.index")
+        p_v     <- get_col(kch, "p-value","p.value","pvalue")
+
+        # Funci\u00f3n de c\u00f3digos de significancia (igual que R)
+        sig_code <- function(p) {
+          if (is.na(p)) return(" ")
+          if (p < 0.001) "***" else if (p < 0.01) "**" else
+          if (p < 0.05)  "*"   else if (p < 0.1)  "."  else " "
+        }
+        fmt_p <- function(p) {
+          if (is.na(p)) return("NA")
+          if (p < 2e-16) "<2e-16" else
+          if (p < 0.001) formatC(p, format = "e", digits = 2) else
+          as.character(round(p, 3))
+        }
+
+        df_k <- data.frame(
+          Termino = rownames(kch),
+          k_prima = round(k_prima, 1),
+          edf     = round(edf_v,   2),
+          k       = round(k_v,     0),
+          k_index = round(k_idx,   3),
+          p_raw   = p_v,
+          stringsAsFactors = FALSE
+        )
+
+        filas <- lapply(seq_len(nrow(df_k)), function(i) {
+          p     <- df_k$p_raw[i]
+          prob_p <- p < 0.05
+          prob_k <- df_k$k_index[i] < 0.85
+          problema <- prob_p || prob_k
+          col_p  <- if (p < 0.001) colores$peligro else
+                    if (p < 0.05)  colores$acento   else colores$texto
+          sig    <- sig_code(p)
+          sig_col <- if (p < 0.05) colores$peligro else colores$texto
+
+          tags$tr(
+            style = if (problema) "background:#fff8f0;" else "",
+            tags$td(code(df_k$Termino[i])),
+            tags$td(style = "text-align:right; font-family:monospace;",
+                    df_k$k_prima[i]),
+            tags$td(style = "text-align:right; font-family:monospace;",
+                    df_k$edf[i]),
+            tags$td(style = "text-align:right; font-family:monospace;",
+                    df_k$k[i]),
+            tags$td(style = "text-align:right; font-family:monospace;",
+                    df_k$k_index[i]),
+            tags$td(style = paste0("color:", col_p,
+                                   "; font-family:monospace; text-align:right;"),
+                    fmt_p(p)),
+            tags$td(style = paste0("color:", sig_col,
+                                   "; font-weight:700; text-align:left;",
+                                   " font-family:monospace; padding-left:4px;"),
+                    sig)
+          )
+        })
+
+        tagList(
+          # Leyenda de c\u00f3digos (igual que R)
+          div(class = "small text-muted mb-2",
+              style = "font-family:monospace; font-size:0.75rem;",
+              "Signif. codes: 0 \u2018***\u2019 0.001 \u2018**\u2019 0.01 \u2018*\u2019 0.05 \u2018.\u2019 0.1 \u2018 \u2019 1"),
+          tags$table(
+            class = "table table-sm small mb-3",
+            style = "font-size:0.82rem;",
+            tags$thead(
+              style = paste0("background:", colores$primario, "; color:#fff;"),
+              tags$tr(
+                tags$th("T\u00e9rmino"),
+                tags$th(style = "text-align:right;",
+                        title = "Techo de flexibilidad del spline (k\u22121)",
+                        "k'"),
+                tags$th(style = "text-align:right;",
+                        title = "Grados de libertad efectivos realmente usados",
+                        "edf"),
+                tags$th(style = "text-align:right;",
+                        title = "N\u00famero m\u00e1ximo de knots configurado",
+                        "k"),
+                tags$th(style = "text-align:right;",
+                        title = "Indicador de si k fue suficiente (\u22481 = bien)",
+                        "k-index"),
+                tags$th(style = "text-align:right;",
+                        title = "Evidencia de que k podr\u00eda ser demasiado bajo",
+                        "p-valor"),
+                tags$th(" ")   # columna c\u00f3digos
+              )
+            ),
+            tags$tbody(filas)
+          ),
+          # Gu\u00eda de interpretaci\u00f3n
+          div(
+            class = "card border-0 mb-0",
+            style = paste0("background:", colores$fondo, ";"),
+            div(class = "card-body p-2",
+              p(class = "small fw-bold mb-2",
+                bs_icon("info-circle-fill", class = "me-1"),
+                "\u00bfQu\u00e9 significa cada columna?"),
+
+              # Tabla 1: significado
+              tags$table(
+                class = "table table-sm small mb-3",
+                style = "font-size:0.78rem;",
+                tags$thead(
+                  style = "background:#e9ecef;",
+                  tags$tr(
+                    tags$th("M\u00e9trica"),
+                    tags$th("Qu\u00e9 significa")
+                  )
+                ),
+                tags$tbody(
+                  tags$tr(
+                    tags$td(code("k'")),
+                    tags$td("El \u201ctecho\u201d de flexibilidad: cu\u00e1ntos grados de libertad puede usar el smooth como m\u00e1ximo")
+                  ),
+                  tags$tr(
+                    tags$td(code("edf")),
+                    tags$td("Cu\u00e1nta flexibilidad realmente necesit\u00f3 el smooth (edf = 1 \u21d2 lineal; edf > 1 \u21d2 no lineal)")
+                  ),
+                  tags$tr(
+                    tags$td(code("k-index")),
+                    tags$td("Qu\u00e9 tan c\u00f3modo estuvo el smooth dentro de ese techo (cerca de 1.0 = bien; < 0.85 = ajustado)")
+                  ),
+                  tags$tr(
+                    tags$td(code("p-valor")),
+                    tags$td("Evidencia de que el techo fue demasiado peque\u00f1o (p < 0.05 \u21d2 considerar aumentar k)")
+                  )
+                )
+              ),
+
+              # Tabla 2: señales de alerta
+              p(class = "small fw-bold mb-1",
+                bs_icon("exclamation-triangle-fill",
+                        class = "me-1",
+                        style = paste0("color:", colores$acento)),
+                "Se\u00f1ales de que k es insuficiente:"),
+              tags$table(
+                class = "table table-sm small mb-2",
+                style = "font-size:0.78rem;",
+                tags$thead(
+                  style = "background:#e9ecef;",
+                  tags$tr(
+                    tags$th("Se\u00f1al"),
+                    tags$th("Condici\u00f3n"),
+                    tags$th("Acci\u00f3n")
+                  )
+                ),
+                tags$tbody(
+                  tags$tr(
+                    tags$td(tagList(code("edf"), " \u2248 ", code("k'"))),
+                    tags$td("El smooth us\u00f3 todo el techo disponible"),
+                    tags$td("Aumentar k (ej. 10 \u2192 15\u201320)")
+                  ),
+                  tags$tr(
+                    tags$td(tagList(code("k-index"), " < 0.85")),
+                    tags$td("El smooth estuvo muy ajustado al l\u00edmite"),
+                    tags$td("Aumentar k o revisar datos")
+                  ),
+                  tags$tr(
+                    tags$td(tagList(code("p-valor"), " < 0.05")),
+                    tags$td("Evidencia estad\u00edstica de k insuficiente"),
+                    tags$td("Aumentar k y reajustar")
+                  )
+                )
+              ),
+
+              div(class = "alert alert-info small py-2 px-3 mb-0",
+                  bs_icon("lightbulb", class = "me-1"),
+                  strong("Regla pr\u00e1ctica: "),
+                  "basta con que ", em("una"), " se\u00f1al aparezca para considerar aumentar k. ",
+                  "Ve a ", strong("Ajustar modelo"), ", sube k (p.ej. a 15\u201320) y reajusta.")
+            )
+          )
+        )
+      }, error = function(e) {
+        div(class = "alert alert-warning small py-2 px-3",
+            bs_icon("exclamation-triangle-fill", class = "me-1"),
+            strong("No se pudo calcular k.check(): "),
+            conditionMessage(e))
+      })
+    })
+
     output$tabla_concurvidad <- renderUI({
       fm <- modelo_gam(); req(fm)
       tryCatch({
-        cv  <- mgcv::concurvity(fm, full = FALSE)
-        df_cv <- as.data.frame(cv$worst)
+        cv    <- mgcv::concurvity(fm, full = FALSE)
+        mat   <- cv$worst
+        # Filtrar fila "para" (parte param\u00e9trica / intercepto)
+        nms   <- rownames(mat)
+        keep  <- grepl("^s\\(|^te\\(|^ti\\(", nms)
+        mat   <- mat[keep, , drop = FALSE]
+        if (nrow(mat) == 0) stop("solo_un_termino")
+
+        df_cv <- as.data.frame(mat)
         df_cv$termino <- rownames(df_cv)
+
         filas <- lapply(seq_len(nrow(df_cv)), function(i) {
-          val   <- round(max(unlist(df_cv[i, -ncol(df_cv)]),
-                             na.rm = TRUE), 3)
-          col_v <- if (val > 0.8) colores$peligro else
+          # Valor m\u00e1ximo de concurvidad con los otros t\u00e9rminos (excluir diagonal)
+          vals <- unlist(df_cv[i, names(df_cv) != "termino"])
+          vals <- vals[names(vals) != df_cv$termino[i]]   # excluir self = 1
+          val  <- round(max(vals, na.rm = TRUE), 3)
+
+          col_v  <- if (val > 0.8) colores$peligro else
             if (val > 0.5) colores$acento else colores$exito
           estado <- if (val > 0.8) "\u26a0 Severo" else
             if (val > 0.5) "\u26a0 Moderado" else "\u2713 OK"
@@ -1545,17 +1914,75 @@ mod_gam_server <- function(id) {
                     estado)
           )
         })
-        tags$table(
-          class = "table table-sm small mb-0",
-          tags$thead(tags$tr(
-            tags$th("T\u00e9rmino"), tags$th("Concurvidad m\u00e1x."),
-            tags$th("Estado")
-          )),
-          tags$tbody(filas)
+
+        tagList(
+          tags$table(
+            class = "table table-sm small mb-2",
+            tags$thead(
+              style = paste0("background:", colores$primario, "; color:#fff;"),
+              tags$tr(
+                tags$th("T\u00e9rmino"),
+                tags$th(title = "Concurvidad m\u00e1xima con cualquier otro t\u00e9rmino suave",
+                        "Concurvidad m\u00e1x."),
+                tags$th("Estado")
+              )
+            ),
+            tags$tbody(filas)
+          ),
+
+          # Gu\u00eda de interpretaci\u00f3n
+          div(
+            class = "card border-0 mb-0",
+            style = paste0("background:", colores$fondo, ";"),
+            div(class = "card-body p-2",
+              p(class = "small fw-bold mb-2",
+                bs_icon("info-circle-fill", class = "me-1"),
+                "\u00bfQu\u00e9 es la concurvidad?"),
+              tags$table(
+                class = "table table-sm small mb-2",
+                style = "font-size:0.78rem;",
+                tags$thead(
+                  style = "background:#e9ecef;",
+                  tags$tr(tags$th("Valor"), tags$th("Significado"), tags$th("Acci\u00f3n"))
+                ),
+                tags$tbody(
+                  tags$tr(
+                    tags$td(tags$span(style = paste0("color:", colores$exito,
+                                                     "; font-weight:600;"), "< 0.5")),
+                    tags$td("\u2713 Baja \u2014 los t\u00e9rminos suaves aportan informaci\u00f3n independiente"),
+                    tags$td("Sin acci\u00f3n")
+                  ),
+                  tags$tr(
+                    tags$td(tags$span(style = paste0("color:", colores$acento,
+                                                     "; font-weight:600;"), "0.5 \u2013 0.8")),
+                    tags$td("\u26a0 Moderada \u2014 cierta superposici\u00f3n entre predictores"),
+                    tags$td("Monitorear; los IC pueden estar inflados")
+                  ),
+                  tags$tr(
+                    tags$td(tags$span(style = paste0("color:", colores$peligro,
+                                                     "; font-weight:600;"), "> 0.8")),
+                    tags$td("\u26a0 Severa \u2014 un t\u00e9rmino es aproximable por los otros"),
+                    tags$td("Eliminar uno de los predictores problem\u00e1ticos")
+                  )
+                )
+              ),
+              div(class = "alert alert-info small py-2 px-3 mb-0",
+                  bs_icon("lightbulb", class = "me-1"),
+                  strong("Analog\u00eda: "),
+                  "es el equivalente del VIF para modelos con splines. ",
+                  "Concurvidad alta no invalida el modelo, pero los errores est\u00e1ndar ",
+                  "e intervalos de confianza de los t\u00e9rminos afectados son poco fiables.")
+            )
+          )
         )
       }, error = function(e) {
-        p(class = "small text-muted",
-          "Concurvidad disponible con \u22652 t\u00e9rminos suaves.")
+        msg <- conditionMessage(e)
+        if (msg == "solo_un_termino")
+          p(class = "small text-muted",
+            "Concurvidad requiere \u22652 t\u00e9rminos suaves en el modelo.")
+        else
+          p(class = "small text-muted",
+            "Ajusta el modelo primero.")
       })
     })
 
