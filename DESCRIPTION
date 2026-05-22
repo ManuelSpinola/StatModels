@@ -48,7 +48,9 @@ Imports:
     tune,
     yardstick,
     golem,
-    pkgload
+    pkgload,
+    glmmTMB,
+    DHARMa
 Suggests:
     testthat (>= 3.0.0)
 Config/testthat/edition: 3

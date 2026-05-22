@@ -1,5 +1,5 @@
 # ============================================================
-# mod_lmm.R — Modelos Lineales Mixtos (LMM / GLMM)
+# mod_lmm.R — Modelos Lineales Mixtos (LMM)
 # StatModels · StatSuite
 #
 # Paquetes: lme4, lmerTest, performance (easystats)
@@ -19,7 +19,7 @@ mod_lmm_ui <- function(id) {
           h4(style = paste0("color:", colores$primario,
                             "; font-weight:700; margin-bottom:4px;"),
              bs_icon("diagram-3", class = "me-2"),
-             "Modelos Lineales y Generalizados Mixtos (LMM / GLMM)"),
+             "Modelos Lineales Mixtos (LMM)"),
           p(class = "text-muted small mb-0",
             "Extienden el LM y el GLM para datos con ",
             strong("estructura jer\u00e1rquica"), ": parcelas dentro de fragmentos, ",
@@ -52,7 +52,7 @@ mod_lmm_ui <- function(id) {
         title = tagList(bs_icon("book", class = "me-1"), "\u00bfQu\u00e9 es?"),
         card_body(
           h4(style = paste0("color:", colores$primario, "; font-weight:700;"),
-             "Modelos mixtos \u2014 LMM / GLMM"),
+             "Modelos Lineales Mixtos \u2014 LMM"),
           p(class = "text-muted small mb-3",
             "lme4 \u00b7 Bates et al. (2015) \u00b7 easystats"),
 
@@ -105,20 +105,21 @@ mod_lmm_ui <- function(id) {
 
             card(
               card_header(bs_icon("layers", class = "me-1"),
-                          "LMM vs GLMM"),
+                          "LMM \u2014 \u00bfcu\u00e1ndo usarlo?"),
               card_body(
-                p(class = "small text-muted mb-2",
-                  strong("lme4"), " ofrece dos funciones principales:"),
+                p(class = "small mb-2",
+                  "Este m\u00f3dulo cubre modelos con respuesta ", strong("continua gaussiana"),
+                  " usando ", code("lmer()"), " de ", strong("lme4"), ". Usa LMM cuando:"),
                 tags$ul(class = "small mb-2",
-                  tags$li(code("lmer()"), " \u2014 ",
-                          strong("LMM"), ": respuesta continua gaussiana"),
-                  tags$li(code("glmer()"), " \u2014 ",
-                          strong("GLMM"), ": respuesta binomial o Poisson")
+                  tags$li("La respuesta es continua (biomasa, tiempo, temperatura, \u00edndices)"),
+                  tags$li("Los datos tienen estructura jer\u00e1rquica o medidas repetidas"),
+                  tags$li("Los residuos son aproximadamente normales")
                 ),
                 div(class = "alert alert-info small py-2 px-3 mb-0",
-                    bs_icon("info-circle", class = "me-1"),
-                    "Para distribuciones m\u00e1s complejas (NB, ZIP, Beta) ",
-                    "considera ", strong("glmmTMB"), ".")
+                    bs_icon("arrow-right-circle", class = "me-1"),
+                    "Si tu respuesta es un ", strong("conteo"), " (Poisson), ",
+                    strong("proporci\u00f3n"), " (Binomial) u otra distribuci\u00f3n no gaussiana, ",
+                    "usa el m\u00f3dulo ", strong("GLMM"), ".")
               )
             )
           ),
@@ -1232,13 +1233,20 @@ mod_lmm_server <- function(id) {
             color = "black", linewidth = 1.3, linetype = "dashed",
             inherit.aes = FALSE)
 
+        n_grupos <- length(unique(df[[input$grupo_exp]]))
+        escala_color <- if (n_grupos <= length(colores$tableau))
+          ggplot2::scale_color_manual(values = colores$tableau)
+        else
+          ggplot2::scale_color_manual(
+            values = colorRampPalette(colores$tableau)(n_grupos))
+
         p + ggplot2::labs(
               x        = input$var_x_exp,
               y        = input$var_y_exp,
               color    = input$grupo_exp,
               subtitle = "L\u00edneas por grupo (color) \u00b7 L\u00ednea global (negro punteado)"
             ) +
-          ggplot2::scale_color_manual(values = colores$tableau) +
+          escala_color +
           ggplot2::theme_minimal(base_size = 13) +
           ggplot2::theme(panel.grid.minor  = ggplot2::element_blank(),
                          legend.position   = "bottom",
@@ -2023,8 +2031,10 @@ mod_lmm_server <- function(id) {
                            y    = .data[[input$var_y]],
                            color = .data[[input$var_grupo]]),
               alpha = 0.5, size = 2, inherit.aes = FALSE) +
-              ggplot2::scale_color_manual(values = colores$tableau,
-                                          name = input$var_grupo)
+              ggplot2::scale_color_manual(
+                values = colorRampPalette(colores$tableau)(
+                  length(unique(df[[input$var_grupo]]))),
+                name = input$var_grupo)
           } else {
             p <- p + ggplot2::geom_point(
               data = df,

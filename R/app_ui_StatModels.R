@@ -48,9 +48,15 @@ app_ui <- function() {
     ),
 
     bslib::nav_panel(
-      title = "Modelos mixtos (LMM / GLMM)",
+      title = "Modelo lineal mixto (LMM)",
       icon  = bsicons::bs_icon("diagram-3"),
       mod_lmm_ui("lmm")
+    ),
+
+    bslib::nav_panel(
+      title = "Modelo lineal generalizado mixto (GLMM)",
+      icon  = bsicons::bs_icon("diagram-3-fill"),
+      mod_glmm_ui("glmm")
     ),
 
     bslib::nav_spacer(),
