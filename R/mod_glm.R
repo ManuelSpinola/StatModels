@@ -437,185 +437,86 @@ mod_glm_ui <- function(id) {
 
           navset_pill(
 
-            # Sub-tab 1: Cargar datos
+            # Sub-tab 1: Datos de ejemplo
             nav_panel(
-              title = tagList(bs_icon("database", class = "me-1"),
-                              "Cargar datos"),
+              title = tagList(bs_icon("collection", class = "me-1"),
+                              "Datos de ejemplo"),
               br(),
               layout_columns(
                 col_widths = c(4, 8),
 
-                card(
-                  card_header(bs_icon("database", class = "me-1"),
-                              "Fuente de datos"),
-                  card_body(
-                    # Paso 1: Tarjetas de familia
-                    p(class = "small fw-bold text-muted mb-2",
-                      bs_icon("toggles", class = "me-1"),
-                      "¿Qué tipo de variable respuesta tienes?"),
-                    tags$div(
-                      style = paste0(
-                        "display:grid; grid-template-columns:1fr 1fr;",
-                        "gap:8px; margin-bottom:12px;"
-                      ),
-
-                      # Binomial
-                      tags$div(
-                        id = ns("card_binomial"),
-                        style = paste0(
-                          "background:#E6F1FB; border:2px solid #185FA5;",
-                          "border-radius:10px; padding:10px 12px;",
-                          "cursor:pointer;"
-                        ),
-                        onclick = paste0(
-                          "Shiny.setInputValue('", ns("familia_datos"),
-                          "', 'binomial', {priority:'event'})"
-                        ),
-                        tags$div(style="font-size:18px; color:#185FA5;",
-                                 bs_icon("toggles")),
-                        tags$p(style="font-size:13px; font-weight:500;",
-                               "Binomial"),
-                        tags$p(style="font-size:11px; color:#555; margin:0;",
-                               "Y binaria (0/1, sí/no)"),
-                        tags$span(
-                          style=paste0(
-                            "font-size:10px; background:#185FA5;",
-                            "color:#fff; padding:1px 6px;",
-                            "border-radius:4px;"
-                          ), "logit")
-                      ),
-
-                      # Poisson
-                      tags$div(
-                        id = ns("card_poisson"),
-                        style = paste0(
-                          "background:var(--color-background-secondary);",
-                          "border:1.5px solid var(--color-border-tertiary);",
-                          "border-radius:10px; padding:10px 12px;",
-                          "cursor:pointer;"
-                        ),
-                        onclick = paste0(
-                          "Shiny.setInputValue('", ns("familia_datos"),
-                          "', 'poisson', {priority:'event'})"
-                        ),
-                        tags$div(style="font-size:18px; color:#0F6E56;",
-                                 bs_icon("bar-chart-steps")),
-                        tags$p(style="font-size:13px; font-weight:500;",
-                               "Poisson"),
-                        tags$p(style="font-size:11px; color:#555; margin:0;",
-                               "Y conteos (0, 1, 2, …)"),
-                        tags$span(
-                          style=paste0(
-                            "font-size:10px; background:#0F6E56;",
-                            "color:#fff; padding:1px 6px;",
-                            "border-radius:4px;"
-                          ), "log")
-                      ),
-
-                      # Quasipoisson
-                      tags$div(
-                        id = ns("card_quasipoisson"),
-                        style = paste0(
-                          "background:var(--color-background-secondary);",
-                          "border:1.5px solid var(--color-border-tertiary);",
-                          "border-radius:10px; padding:10px 12px;",
-                          "cursor:pointer;"
-                        ),
-                        onclick = paste0(
-                          "Shiny.setInputValue('", ns("familia_datos"),
-                          "', 'quasipoisson', {priority:'event'})"
-                        ),
-                        tags$div(style="font-size:18px; color:#6B3FA0;",
-                                 bs_icon("bar-chart-steps")),
-                        tags$p(style="font-size:13px; font-weight:500;",
-                               "Quasipoisson"),
-                        tags$p(style="font-size:11px; color:#555; margin:0;",
-                               "Conteos sobredispersos \u03c6"),
-                        tags$span(
-                          style=paste0(
-                            "font-size:10px; background:#6B3FA0;",
-                            "color:#fff; padding:1px 6px;",
-                            "border-radius:4px;"
-                          ), "log · QAIC")
-                      ),
-
-                      # Binomial negativa
-                      tags$div(
-                        id = ns("card_nbinom2"),
-                        style = paste0(
-                          "background:var(--color-background-secondary);",
-                          "border:1.5px solid var(--color-border-tertiary);",
-                          "border-radius:10px; padding:10px 12px;",
-                          "cursor:pointer;"
-                        ),
-                        onclick = paste0(
-                          "Shiny.setInputValue('", ns("familia_datos"),
-                          "', 'nbinom2', {priority:'event'})"
-                        ),
-                        tags$div(style="font-size:18px; color:#853F0B;",
-                                 bs_icon("graph-up")),
-                        tags$p(style="font-size:13px; font-weight:500;",
-                               "Binomial negativa"),
-                        tags$p(style="font-size:11px; color:#555; margin:0;",
-                               "Conteos sobredispersados"),
-                        tags$span(
-                          style=paste0(
-                            "font-size:10px; background:#853F0B;",
-                            "color:#fff; padding:1px 6px;",
-                            "border-radius:4px;"
-                          ), "log")
-                      ),
-
+                div(
+                  # Selector de familia como dropdown
+                  selectInput(
+                    ns("familia_datos"),
+                    label = tagList(bs_icon("toggles", class = "me-1"),
+                                    "Familia de distribuci\u00f3n:"),
+                    choices = c(
+                      "Binomial (log\u00edstica)" = "binomial",
+                      "Poisson"                  = "poisson",
+                      "Quasipoisson"             = "quasipoisson",
+                      "Binomial negativa"        = "nbinom2"
                     ),
-
-                    # Input oculto para familia seleccionada
-                    shinyjs::hidden(
-                      textInput(ns("familia_datos"), label=NULL,
-                                value="binomial")
-                    ),
-
-                    tags$hr(),
-                    # Paso 2: Dataset según familia
-                    uiOutput(ns("sel_fuente_datos")),
-                    conditionalPanel(
-                      condition = paste0("input['", ns("fuente_datos"),
-                                         "'] === 'propio'"),
-                      tags$hr(),
-                      fileInput(
-                        ns("archivo"),
-                        label       = "Seleccionar archivo:",
-                        accept      = c(".csv", ".xlsx", ".xls"),
-                        buttonLabel = "Buscar\u2026",
-                        placeholder = "CSV o Excel"
-                      ),
-                      selectInput(
-                        ns("separador"),
-                        label    = "Separador (CSV):",
-                        choices  = c(
-                          "Coma (,)"         = ",",
-                          "Punto y coma (;)" = ";",
-                          "Tabulador"        = "\\t"
-                        ),
-                        selected = ","
-                      ),
-                      p(class = "small text-muted mb-0",
-                        bs_icon("info-circle", class = "me-1"),
-                        "La primera fila debe contener los nombres ",
-                        "de las columnas.")
-                    ),
-                    tags$hr(),
-                    uiOutput(ns("contexto_dataset")),
-                    uiOutput(ns("resumen_datos"))
-                  )
+                    selected = "binomial"
+                  ),
+                  uiOutput(ns("info_familia_datos")),
+                  tags$hr(),
+                  uiOutput(ns("sel_fuente_datos")),
+                  tags$hr(),
+                  uiOutput(ns("contexto_dataset"))
                 ),
 
+                card(
+                  card_header(bs_icon("eye", class = "me-1"), "Vista previa"),
+                  card_body(
+                    style = "overflow: auto;",
+                    uiOutput(ns("cards_datos")),
+                    br(),
+                    DTOutput(ns("tabla_preview"))
+                  )
+                )
+              )
+            ),
+
+            # Sub-tab 2: Mis datos
+            nav_panel(
+              title = tagList(bs_icon("folder2-open", class = "me-1"),
+                              "Mis datos"),
+              br(),
+              layout_columns(
+                col_widths = c(4, 8),
                 div(
-                  uiOutput(ns("cards_datos")),
-                  br(),
-                  card(
-                    card_header(bs_icon("eye", class = "me-1"),
-                                "Vista previa"),
-                    card_body(DTOutput(ns("tabla_preview")))
+                  p(class = "small text-muted mb-3",
+                    bs_icon("info-circle", class = "me-1"),
+                    "Sube un archivo CSV o Excel. ",
+                    "La primera fila debe contener los nombres de las columnas."),
+                  fileInput(
+                    ns("archivo"),
+                    label       = "Seleccionar archivo:",
+                    accept      = c(".csv", ".xlsx", ".xls"),
+                    buttonLabel = "Buscar\u2026",
+                    placeholder = "CSV o Excel"
+                  ),
+                  selectInput(
+                    ns("separador"),
+                    label    = "Separador (CSV):",
+                    choices  = c(
+                      "Coma (,)"         = ",",
+                      "Punto y coma (;)" = ";",
+                      "Tabulador"        = "\\t"
+                    ),
+                    selected = ","
+                  ),
+                  tags$hr(),
+                  uiOutput(ns("resumen_datos_propio"))
+                ),
+                card(
+                  card_header(bs_icon("eye", class = "me-1"), "Vista previa"),
+                  card_body(
+                    style = "overflow: auto;",
+                    uiOutput(ns("cards_datos_propio")),
+                    br(),
+                    DTOutput(ns("tabla_preview_propio"))
                   )
                 )
               )
@@ -1325,11 +1226,12 @@ mod_glm_server <- function(id) {
     # Selector dinámico de dataset según familia elegida
     output$sel_fuente_datos <- renderUI({
       fam_sel <- input$familia_datos
-      # Default a binomial si no hay selección
       if (is.null(fam_sel) || nchar(fam_sel) == 0)
         fam_sel <- "binomial"
       opciones <- datasets_por_familia[[fam_sel]]
       if (is.null(opciones)) opciones <- datasets_por_familia[["binomial"]]
+      # eliminar opción "propio" si existe
+      opciones <- opciones[opciones != "propio"]
       radioButtons(
         ns("fuente_datos"),
         label    = tagList(bs_icon("database", class = "me-1"),
@@ -1339,38 +1241,33 @@ mod_glm_server <- function(id) {
       )
     })
 
-    # Sincronizar familia en Ajustar modelo con la elegida en Los datos
+    # Info de familia seleccionada
+    output$info_familia_datos <- renderUI({
+      req(input$familia_datos)
+      switch(input$familia_datos,
+        binomial = div(class = "alert alert-info small py-2 px-3 mt-2 mb-0",
+          bs_icon("info-circle", class = "me-1"),
+          "Y binaria (0/1, s\u00ed/no). Enlace ", tags$code("logit"), ". ",
+          "exp(\u03b2) = odds ratio (OR)."),
+        poisson = div(class = "alert alert-info small py-2 px-3 mt-2 mb-0",
+          bs_icon("info-circle", class = "me-1"),
+          "Y = conteos (0, 1, 2\u2026). Enlace ", tags$code("log"), ". ",
+          "exp(\u03b2) = raz\u00f3n de tasas (IRR). Asume varianza = media."),
+        quasipoisson = div(class = "alert alert-info small py-2 px-3 mt-2 mb-0",
+          bs_icon("info-circle", class = "me-1"),
+          "Conteos con sobredispersi\u00f3n (\u03c6). Enlace ", tags$code("log"), ". ",
+          "Igual que Poisson pero estima \u03c6. Usa QAIC para comparar modelos."),
+        nbinom2 = div(class = "alert alert-info small py-2 px-3 mt-2 mb-0",
+          bs_icon("info-circle", class = "me-1"),
+          "Conteos sobredispersados. Enlace ", tags$code("log"), ". ",
+          "exp(\u03b2) = IRR. Par\u00e1metro de forma \u03b8 estimado autom\u00e1ticamente.")
+      )
+    })
+
+    # Sincronizar familia en Ajustar modelo
     observeEvent(input$familia_datos, {
       req(nchar(input$familia_datos) > 0)
-      updateSelectInput(session, "familia",
-                        selected = input$familia_datos)
-
-      # Actualizar estilo visual de las tarjetas con shinyjs
-      tryCatch({
-        fam <- input$familia_datos
-        colores_sel <- list(
-          binomial = "background:#E6F1FB; border:2px solid #185FA5;",
-          poisson  = "background:#E1F5EE; border:2px solid #0F6E56;",
-          nbinom2  = "background:#FAEEDA; border:2px solid #853F0B;"
-        )
-        estilo_base <- paste0(
-          "background:var(--color-background-secondary);",
-          "border:1.5px solid var(--color-border-tertiary);"
-        )
-        estilo_comun <- "border-radius:10px; padding:10px 12px; cursor:pointer;"
-
-        for (f in c("binomial", "poisson", "nbinom2")) {
-          card_id <- paste0("#", ns(paste0("card_", f)))
-          estilo <- if (f == fam)
-            paste0(colores_sel[[f]], estilo_comun)
-          else
-            paste0(estilo_base, estilo_comun)
-          shinyjs::runjs(paste0(
-            'document.querySelector("', card_id,
-            '").setAttribute("style", "', estilo, '");'
-          ))
-        }
-      }, error = function(e) NULL)
+      updateSelectInput(session, "familia", selected = input$familia_datos)
     })
 
     # Contexto dinámico del dataset
@@ -1470,57 +1367,114 @@ mod_glm_server <- function(id) {
       )
     })
 
-    # Dataset base
+    # Dataset base (solo ejemplos)
     datos_base <- reactive({
       fuente <- input$fuente_datos
       req(fuente)
-
-      if (fuente == "mite_log") {
-        { e <- new.env(); load(system.file("app/data/mite_logistic.rda", package = "StatModels"), envir = e); e$mite_logistic }
-      } else if (fuente == "mite_poi") {
-        { e <- new.env(); load(system.file("app/data/mite_counts.rda", package = "StatModels"), envir = e); e$mite_counts }
-      } else if (fuente == "pima") {
-        { e <- new.env(); load(system.file("app/data/pima_glm.rda", package = "StatModels"), envir = e); e$pima_glm }
-      } else if (fuente == "cowles") {
-        { e <- new.env(); load(system.file("app/data/cowles_glm.rda", package = "StatModels"), envir = e); e$cowles_glm }
-      } else if (fuente == "ants") {
-        { e <- new.env(); load(system.file("app/data/ants_glm.rda", package = "StatModels"), envir = e); e$ants_glm }
-      } else if (fuente == "insurance") {
-        { e <- new.env(); load(system.file("app/data/insurance_glm.rda", package = "StatModels"), envir = e); e$insurance_glm }
-      } else if (fuente == "danish") {
-        { e <- new.env(); load(system.file("app/data/danish_glm.rda", package = "StatModels"), envir = e); e$danish_glm }
-      } else if (fuente == "hcrabs") {
-        { e <- new.env(); load(system.file("app/data/hcrabs_glm.rda", package = "StatModels"), envir = e); e$hcrabs_glm }
-      } else {
-        req(input$archivo)
-        ext <- tools::file_ext(input$archivo$name)
-        tryCatch({
-          df <- if (ext %in% c("xlsx", "xls")) {
-            readxl::read_excel(input$archivo$datapath)
-          } else {
-            readr::read_delim(input$archivo$datapath,
-                              delim = input$separador,
-                              show_col_types = FALSE)
-          }
-          df |> dplyr::mutate(dplyr::across(where(is.character), factor))
-        }, error = function(e) {
-          showNotification(paste("Error:", conditionMessage(e)),
-                           type = "error", duration = 6)
+      tryCatch({
+        nm_archivo <- switch(fuente,
+          mite_log  = "mite_logistic",
+          mite_poi  = "mite_counts",
+          pima      = "pima_glm",
+          cowles    = "cowles_glm",
+          ants      = "ants_glm",
+          insurance = "insurance_glm",
+          danish    = "danish_glm",
+          hcrabs    = "hcrabs_glm",
           NULL
-        })
+        )
+        req(!is.null(nm_archivo))
+        e <- new.env()
+        load(system.file(paste0("app/data/", nm_archivo, ".rda"),
+                         package = "StatModels"), envir = e)
+        get(ls(e)[1], envir = e)
+      }, error = function(err) {
+        showNotification(paste("Error:", conditionMessage(err)),
+                         type = "error", duration = 6)
+        NULL
+      })
+    })
+
+    # Datos propios
+    datos_propio_glm <- reactive({
+      req(input$archivo)
+      ext <- tools::file_ext(input$archivo$name)
+      tryCatch({
+        df <- if (ext %in% c("xlsx", "xls")) {
+          readxl::read_excel(input$archivo$datapath)
+        } else {
+          readr::read_delim(input$archivo$datapath,
+                            delim = input$separador,
+                            show_col_types = FALSE)
+        }
+        df |> dplyr::mutate(dplyr::across(where(is.character), factor))
+      }, error = function(e) {
+        showNotification(paste("Error:", conditionMessage(e)),
+                         type = "error", duration = 6)
+        NULL
+      })
+    })
+
+    # Vista previa datos propios
+    output$resumen_datos_propio <- renderUI({
+      req(datos_propio_glm())
+      d <- datos_propio_glm()
+      div(class = "small text-muted",
+          bs_icon("check-circle-fill",
+                  style = paste0("color:", colores$exito), class = "me-1"),
+          paste0(nrow(d), " filas \u00b7 ", ncol(d), " columnas"))
+    })
+
+    output$cards_datos_propio <- renderUI({
+      req(datos_propio_glm())
+      d    <- datos_propio_glm()
+      nnum <- sum(sapply(d, is.numeric))
+      ncat <- sum(sapply(d, function(x) is.factor(x) || is.character(x)))
+      layout_columns(col_widths = c(4, 4, 4),
+        card(class = "text-center",
+          card_body(class = "p-2",
+            h3(style = paste0("color:", colores$primario, "; font-weight:700;"),
+               nrow(d)),
+            p(class = "small text-muted mb-0", "Observaciones"))),
+        card(class = "text-center",
+          card_body(class = "p-2",
+            h3(style = paste0("color:", colores$acento, "; font-weight:700;"),
+               nnum),
+            p(class = "small text-muted mb-0", "Num\u00e9ricas"))),
+        card(class = "text-center",
+          card_body(class = "p-2",
+            h3(style = paste0("color:", colores$secundario, "; font-weight:700;"),
+               ncat),
+            p(class = "small text-muted mb-0", "Categ\u00f3ricas")))
+      )
+    })
+
+    output$tabla_preview_propio <- renderDT({
+      req(datos_propio_glm())
+      datatable(datos_propio_glm(), rownames = FALSE,
+                options = list(dom = "t", scrollY = "300px", scrollX = TRUE, paging = FALSE),
+                class = "table-sm table-striped")
+    })
+
+    # datos_activos_unif: prioriza datos propios si hay archivo
+    datos_activos_unif_glm <- reactive({
+      if (!is.null(input$archivo)) {
+        dp <- try(datos_propio_glm(), silent = TRUE)
+        if (!inherits(dp, "try-error") && !is.null(dp)) return(dp)
       }
+      datos_base()
     })
 
     # Tipos de variables
     tipos_usuario <- reactiveVal(NULL)
-    observeEvent(datos_base(), { tipos_usuario(NULL) })
+    observeEvent(datos_activos_unif_glm(), { tipos_usuario(NULL) })
     observeEvent(input$resetear_tipos, {
       tipos_usuario(NULL)
       showNotification("Tipos restaurados.", type = "message",
                        duration = 2)
     })
     observeEvent(input$aplicar_tipos, {
-      df  <- datos_base(); req(df)
+      df  <- datos_activos_unif_glm(); req(df)
       nms <- names(df)
       nuevos <- lapply(nms, function(nm) input[[paste0("tipo_", nm)]])
       names(nuevos) <- nms
@@ -1530,7 +1484,7 @@ mod_glm_server <- function(id) {
     })
 
     datos_activos <- reactive({
-      df <- datos_base(); req(df)
+      df <- datos_activos_unif_glm(); req(df)
       tu <- tipos_usuario()
       if (is.null(tu)) return(df)
       for (nm in names(tu)) {
@@ -1594,14 +1548,14 @@ mod_glm_server <- function(id) {
 
     output$tabla_preview <- renderDT({
       df <- datos_activos(); req(df)
-      datatable(head(df, 8), rownames = FALSE,
-                options = list(dom = "t", scrollX = TRUE),
+      datatable(df, rownames = FALSE,
+                options = list(dom = "t", scrollY = "300px", scrollX = TRUE, paging = FALSE),
                 class = "table-sm table-striped")
     })
 
     # Tabla de tipos
     output$tabla_tipos <- renderUI({
-      df <- datos_base(); req(df)
+      df <- datos_activos_unif_glm(); req(df)
       tu <- tipos_usuario()
       filas <- lapply(names(df), function(nm) {
         col    <- df[[nm]]
@@ -1662,7 +1616,7 @@ mod_glm_server <- function(id) {
 
     output$tipos_aplicados_msg <- renderUI({
       tu <- tipos_usuario(); if (is.null(tu)) return(NULL)
-      df <- datos_base(); req(df)
+      df <- datos_activos_unif_glm(); req(df)
       n_cambios <- sum(sapply(names(tu), function(nm) {
         if (!nm %in% names(df)) return(FALSE)
         actual <- if (is.factor(df[[nm]]) || is.character(df[[nm]]))

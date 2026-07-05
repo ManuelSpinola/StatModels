@@ -463,41 +463,24 @@ mod_lm_ui <- function(id) {
           navset_pill(
 
             nav_panel(
-              title = tagList(bs_icon("database", class = "me-1"), "Cargar datos"),
+              title = tagList(bs_icon("collection", class = "me-1"),
+                              "Datos de ejemplo"),
               br(),
               layout_columns(
                 col_widths = c(4, 8),
-                card(
-                  card_header(bs_icon("folder2-open", class = "me-1"),
-                              "Fuente de datos"),
-                  card_body(
-                    style = "overflow: visible; height: auto;",
-                    uiOutput(ns("sel_fuente_datos")),
-                    tags$hr(),
-                    fileInput(
-                      ns("archivo"),
-                      label       = "Seleccionar archivo:",
-                      accept      = c(".csv", ".xlsx", ".xls"),
-                      buttonLabel = "Buscar\u2026",
-                      placeholder = "CSV o Excel"
+                div(
+                  radioButtons(
+                    ns("fuente_datos"),
+                    label   = tagList(bs_icon("database", class = "me-1"),
+                                      "Seleccionar dataset:"),
+                    choices = c(
+                      "Densidad de especie de ave (Loyn, 1987)"    = "ejemplo_ave",
+                      "Peso al nacer \u2014 salud perinatal (Hosmer)" = "ejemplo_salud"
                     ),
-                    selectInput(
-                      ns("separador"),
-                      label    = "Separador (CSV):",
-                      choices  = c(
-                        "Coma (,)"         = ",",
-                        "Punto y coma (;)" = ";",
-                        "Tabulador"        = "\t"
-                      ),
-                      selected = ","
-                    ),
-                    p(class = "small text-muted mb-0",
-                      bs_icon("info-circle", class = "me-1"),
-                      "La primera fila debe contener los nombres de las columnas."),
-                    tags$hr(),
-                    uiOutput(ns("info_dataset")),
-                    uiOutput(ns("resumen_datos"))
-                  )
+                    selected = "ejemplo_ave"
+                  ),
+                  tags$hr(),
+                  uiOutput(ns("info_dataset"))
                 ),
                 card(
                   card_header(bs_icon("eye", class = "me-1"), "Vista previa"),
@@ -506,6 +489,49 @@ mod_lm_ui <- function(id) {
                     uiOutput(ns("cards_datos")),
                     br(),
                     DTOutput(ns("tabla_preview"))
+                  )
+                )
+              )
+            ),
+
+            nav_panel(
+              title = tagList(bs_icon("folder2-open", class = "me-1"),
+                              "Mis datos"),
+              br(),
+              layout_columns(
+                col_widths = c(4, 8),
+                div(
+                  p(class = "small text-muted mb-3",
+                    bs_icon("info-circle", class = "me-1"),
+                    "Sube un archivo CSV o Excel. ",
+                    "La primera fila debe contener los nombres de las columnas."),
+                  fileInput(
+                    ns("archivo"),
+                    label       = "Seleccionar archivo:",
+                    accept      = c(".csv", ".xlsx", ".xls"),
+                    buttonLabel = "Buscar\u2026",
+                    placeholder = "CSV o Excel"
+                  ),
+                  selectInput(
+                    ns("separador"),
+                    label    = "Separador (CSV):",
+                    choices  = c(
+                      "Coma (,)"         = ",",
+                      "Punto y coma (;)" = ";",
+                      "Tabulador"        = "\t"
+                    ),
+                    selected = ","
+                  ),
+                  tags$hr(),
+                  uiOutput(ns("resumen_datos_propio"))
+                ),
+                card(
+                  card_header(bs_icon("eye", class = "me-1"), "Vista previa"),
+                  card_body(
+                    style = "overflow: auto;",
+                    uiOutput(ns("cards_datos_propio")),
+                    br(),
+                    DTOutput(ns("tabla_preview_propio"))
                   )
                 )
               )
@@ -1215,29 +1241,24 @@ mod_lm_server <- function(id) {
       showNotification("Tipos restaurados.", type = "message", duration = 2)
     })
     observeEvent(input$aplicar_tipos, {
-      df  <- datos_activos(); req(df)
+      df  <- datos_activos_unif(); req(df)
       nms <- names(df)
       nuevos <- lapply(nms, function(nm) input[[paste0("tipo_", nm)]])
       names(nuevos) <- nms
       tipos_usuario(nuevos)
       showNotification("Tipos aplicados.", type = "message", duration = 2)
     })
-    output$sel_fuente_datos <- renderUI({
-      radioButtons(
-        ns("fuente_datos"),
-        label   = tagList(bs_icon("database", class = "me-1"),
-                          "Dataset de ejemplo:"),
-        choices = c(
-          "Densidad de especie de ave (Loyn, 1987)"  = "ejemplo_ave",
-          "Peso al nacer \u2014 salud perinatal (Hosmer)" = "ejemplo_salud",
-          "Cargar mis propios datos"                  = "propio"
-        ),
-        selected = "ejemplo_ave"
-      )
+    # datos_activos_unif: prioriza datos propios si hay archivo
+    datos_activos_unif <- reactive({
+      if (!is.null(input$archivo)) {
+        dp <- try(datos_propio(), silent = TRUE)
+        if (!inherits(dp, "try-error") && !is.null(dp)) return(dp)
+      }
+      datos_activos()
     })
 
         output$tabla_tipos <- renderUI({
-      df <- datos_activos(); req(df)
+      df <- datos_activos_unif(); req(df)
       tu <- tipos_usuario()
       filas <- lapply(names(df), function(nm) {
         col    <- df[[nm]]
@@ -1291,7 +1312,7 @@ mod_lm_server <- function(id) {
 
     output$tipos_aplicados_msg <- renderUI({
       tu <- tipos_usuario(); if (is.null(tu)) return(NULL)
-      df <- datos_activos(); req(df)
+      df <- datos_activos_unif(); req(df)
       n_cambios <- sum(sapply(names(tu), function(nm) {
         if (!nm %in% names(df)) return(FALSE)
         actual <- if (is.factor(df[[nm]]) || is.character(df[[nm]]))
@@ -1340,17 +1361,11 @@ mod_lm_server <- function(id) {
           strong("tabaco"), " y ", strong("hta"), " (factores de riesgo). ",
           "Fuente: MASS::birthwt."
         )
-      } else {
-        div(
-          class = "alert alert-info small py-2 px-3 mb-3",
-          bs_icon("info-circle-fill", class = "me-1"),
-          "Se mostrarán los datos cargados por el usuario."
-        )
       }
     })
 
     # ────────────────────────────────────────────────────
-    # DATOS: ejemplo o propios
+    # DATOS: ejemplo o propios (separados)
     # ────────────────────────────────────────────────────
 
     datos_activos <- reactive({
@@ -1367,7 +1382,7 @@ mod_lm_server <- function(id) {
                            type = "error", duration = 6)
           NULL
         })
-      } else if (fuente == "ejemplo_salud") {
+      } else {
         tryCatch({
           e <- new.env()
           load(system.file("app/data/birthwt_lm.rda",
@@ -1378,33 +1393,83 @@ mod_lm_server <- function(id) {
                            type = "error", duration = 6)
           NULL
         })
-      } else {
-        req(input$archivo)
-        ext <- tools::file_ext(input$archivo$name)
-        tryCatch({
-          df <- if (ext %in% c("xlsx", "xls"))
-            readxl::read_excel(input$archivo$datapath)
-          else
-            readr::read_delim(input$archivo$datapath,
-                              delim = input$separador,
-                              show_col_types = FALSE)
-          df |> dplyr::mutate(dplyr::across(where(is.character), factor))
-        }, error = function(e) {
-          showNotification(paste("Error al leer el archivo:", conditionMessage(e)),
-                           type = "error", duration = 6)
-          NULL
-        })
       }
     })
 
+    # datos propios
+    datos_propio <- reactive({
+      req(input$archivo)
+      ext <- tools::file_ext(input$archivo$name)
+      tryCatch({
+        df <- if (ext %in% c("xlsx", "xls"))
+          readxl::read_excel(input$archivo$datapath)
+        else
+          readr::read_delim(input$archivo$datapath,
+                            delim = input$separador,
+                            show_col_types = FALSE)
+        df |> dplyr::mutate(dplyr::across(where(is.character), factor))
+      }, error = function(e) {
+        showNotification(paste("Error al leer el archivo:", conditionMessage(e)),
+                         type = "error", duration = 6)
+        NULL
+      })
+    })
+
+    observeEvent(datos_propio(), {
+      df <- datos_propio()
+      req(df)
+      tipos_usuario(NULL)
+    })
+
+    # vista previa datos propios
+    output$resumen_datos_propio <- renderUI({
+      req(datos_propio())
+      d <- datos_propio()
+      div(class = "small text-muted",
+          bs_icon("check-circle-fill",
+                  style = paste0("color:", colores$exito), class = "me-1"),
+          paste0(nrow(d), " filas \u00b7 ", ncol(d), " columnas"))
+    })
+
+    output$cards_datos_propio <- renderUI({
+      req(datos_propio())
+      d    <- datos_propio()
+      nnum <- sum(sapply(d, is.numeric))
+      ncat <- sum(sapply(d, function(x) is.factor(x) || is.character(x)))
+      layout_columns(col_widths = c(4, 4, 4),
+        card(class = "text-center",
+          card_body(class = "p-2",
+            h3(style = paste0("color:", colores$primario, "; font-weight:700;"),
+               nrow(d)),
+            p(class = "small text-muted mb-0", "Observaciones"))),
+        card(class = "text-center",
+          card_body(class = "p-2",
+            h3(style = paste0("color:", colores$acento, "; font-weight:700;"),
+               nnum),
+            p(class = "small text-muted mb-0", "Num\u00e9ricas"))),
+        card(class = "text-center",
+          card_body(class = "p-2",
+            h3(style = paste0("color:", colores$secundario, "; font-weight:700;"),
+               ncat),
+            p(class = "small text-muted mb-0", "Categ\u00f3ricas")))
+      )
+    })
+
+    output$tabla_preview_propio <- renderDT({
+      req(datos_propio())
+      datatable(head(datos_propio(), 8), rownames = FALSE,
+                options = list(dom = "t", scrollY = "300px", scrollX = TRUE, paging = FALSE),
+                class = "table-sm table-striped")
+    })
+
     vars_numericas <- reactive({
-      df <- datos_activos()
+      df <- datos_activos_unif()
       req(df)
       names(df)[sapply(df, is.numeric)]
     })
 
     vars_categoricas <- reactive({
-      df <- datos_activos()
+      df <- datos_activos_unif()
       req(df)
       names(df)[sapply(df, function(x) is.factor(x) || is.character(x))]
     })
@@ -1412,7 +1477,7 @@ mod_lm_server <- function(id) {
     # ── Resumen y preview ────────────────────────────────
 
     output$resumen_datos <- renderUI({
-      df <- datos_activos()
+      df <- datos_activos_unif()
       if (is.null(df)) return(NULL)
       div(
         class = "small text-muted mt-2",
@@ -1424,7 +1489,7 @@ mod_lm_server <- function(id) {
     })
 
     output$cards_datos <- renderUI({
-      df <- datos_activos()
+      df <- datos_activos_unif()
       req(df)
       nnum <- length(vars_numericas())
       ncat <- length(vars_categoricas())
@@ -1460,12 +1525,12 @@ mod_lm_server <- function(id) {
     })
 
     output$tabla_preview <- renderDT({
-      df <- datos_activos()
+      df <- datos_activos_unif()
       req(df)
       datatable(
-        head(df, 8),
+        df,
         rownames = FALSE,
-        options  = list(dom = "t", scrollX = TRUE),
+        options  = list(dom = "t", scrollY = "300px", scrollX = TRUE, paging = FALSE),
         class    = "table-sm table-striped"
       )
     })
@@ -1494,7 +1559,7 @@ mod_lm_server <- function(id) {
     })
 
     output$cards_correlacion <- renderUI({
-      df  <- datos_activos()
+      df  <- datos_activos_unif()
       req(df, input$var_x)
       yv  <- vars_numericas()
       req(length(yv) >= 2)
@@ -1530,7 +1595,7 @@ mod_lm_server <- function(id) {
     })
 
     output$plot_scatter <- renderPlot(suppressWarnings({
-      df   <- datos_activos()
+      df   <- datos_activos_unif()
       req(df, input$var_x)
       yv   <- vars_numericas()
       req(length(yv) >= 2)
@@ -1582,7 +1647,7 @@ mod_lm_server <- function(id) {
     }), res = 110)
 
     output$insight_scatter <- renderUI({
-      df   <- datos_activos()
+      df   <- datos_activos_unif()
       req(df, input$var_x)
       yv   <- vars_numericas()
       req(length(yv) >= 2)
@@ -1665,7 +1730,7 @@ mod_lm_server <- function(id) {
     })
 
     modelo_lm <- eventReactive(input$ajustar, {
-      df  <- datos_activos()
+      df  <- datos_activos_unif()
       req(df, input$var_y)
 
       preds <- c(input$preds_num, input$preds_cat)
@@ -1702,7 +1767,7 @@ mod_lm_server <- function(id) {
     # ── Modelo estandarizado (para importancia de variables) ──
 
     modelo_lm_std <- eventReactive(input$ajustar, {
-      df    <- datos_activos(); req(df, input$var_y)
+      df    <- datos_activos_unif(); req(df, input$var_y)
       preds <- c(input$preds_num, input$preds_cat)
       req(length(preds) > 0)
       preds_num <- input$preds_num
@@ -2166,7 +2231,7 @@ mod_lm_server <- function(id) {
       withProgress(message = "Corriendo validación cruzada...",
                    value = 0.2, {
                      tryCatch({
-                       df_cv <- datos_activos()
+                       df_cv <- datos_activos_unif()
                        preds <- c(input$preds_num, input$preds_cat)
                        req(length(preds) > 0, input$var_y)
 
@@ -2295,7 +2360,7 @@ mod_lm_server <- function(id) {
         formula = deparse(formula(fit)),
         preds   = c(input$preds_num, input$preds_cat),
         var_y   = input$var_y,
-        datos   = datos_activos()
+        datos   = datos_activos_unif()
       )
       modelos_guardados_lm(actual)
       showNotification(paste0("Modelo '", nombre, "' guardado."),
@@ -2751,7 +2816,7 @@ mod_lm_server <- function(id) {
 
     output$marginal_valores_tipicos_lm <- renderUI({
       fit   <- modelo_lm(); req(fit, input$pred_marginal_lm)
-      df    <- datos_activos()
+      df    <- datos_activos_unif()
       preds <- c(input$preds_num, input$preds_cat)
       otros <- preds[preds != input$pred_marginal_lm]
       if (length(otros) == 0) return(NULL)
@@ -2768,7 +2833,7 @@ mod_lm_server <- function(id) {
 
     output$plot_marginal_lm <- renderPlot({
       fit  <- modelo_lm(); req(fit, input$pred_marginal_lm)
-      df   <- datos_activos()
+      df   <- datos_activos_unif()
       pred <- input$pred_marginal_lm
       es_cat <- pred %in% vars_categoricas()
 
@@ -2856,7 +2921,7 @@ mod_lm_server <- function(id) {
 
     output$inputs_prediccion_lm <- renderUI({
       fit   <- modelo_lm(); req(fit)
-      df    <- datos_activos()
+      df    <- datos_activos_unif()
       preds <- c(input$preds_num, input$preds_cat)
       req(length(preds) > 0)
       inputs <- lapply(preds, function(nm) {
@@ -2885,7 +2950,7 @@ mod_lm_server <- function(id) {
     resultado_prediccion_lm_data <- eventReactive(
       input$calcular_prediccion_lm, {
         fit   <- modelo_lm(); req(fit)
-        df    <- datos_activos()
+        df    <- datos_activos_unif()
         preds <- c(input$preds_num, input$preds_cat)
         req(length(preds) > 0)
         nueva_obs <- tryCatch({

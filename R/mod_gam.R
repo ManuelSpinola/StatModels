@@ -330,41 +330,28 @@ mod_gam_ui <- function(id) {
         navset_pill(
 
           nav_panel(
-            title = tagList(bs_icon("database", class = "me-1"), "Cargar datos"),
+            title = tagList(bs_icon("collection", class = "me-1"),
+                            "Datos de ejemplo"),
             br(),
             layout_columns(
               col_widths = c(4, 8),
-              card(
-                card_header(bs_icon("folder2-open", class = "me-1"),
-                            "Fuente de datos"),
-                card_body(
-                  style = "overflow: visible; height: auto;",
-                  uiOutput(ns("sel_fuente_datos")),
-                  tags$hr(),
-                  fileInput(
-                    ns("archivo"),
-                    label       = "Seleccionar archivo:",
-                    accept      = c(".csv", ".xlsx", ".xls"),
-                    buttonLabel = "Buscar\u2026",
-                    placeholder = "CSV o Excel"
+              div(
+                radioButtons(
+                  ns("fuente_datos"),
+                  label   = tagList(bs_icon("database", class = "me-1"),
+                                    "Seleccionar dataset:"),
+                  choices = c(
+                    "Densidad de especie de ave (Loyn, 1987)"    = "ejemplo_ave",
+                    "Peso al nacer \u2014 salud perinatal (Hosmer)" = "ejemplo_salud",
+                    "Presencia de \u00e1caros NPRA \u2014 binomial"  = "mite_logistic",
+                    "Abundancia de \u00e1caros Brachy \u2014 Poisson" = "mite_counts",
+                    "Riqueza de hormigas \u2014 Poisson / BN"       = "ants_glm",
+                    "Cangrejos herradura \u2014 Poisson / BN"       = "hcrabs_glm"
                   ),
-                  selectInput(
-                    ns("separador"),
-                    label    = "Separador (CSV):",
-                    choices  = c(
-                      "Coma (,)"         = ",",
-                      "Punto y coma (;)" = ";",
-                      "Tabulador"        = "\t"
-                    ),
-                    selected = ","
-                  ),
-                  p(class = "small text-muted mb-0",
-                    bs_icon("info-circle", class = "me-1"),
-                    "La primera fila debe contener los nombres de las columnas."),
-                  tags$hr(),
-                  uiOutput(ns("info_dataset")),
-                  uiOutput(ns("resumen_datos"))
-                )
+                  selected = "ejemplo_ave"
+                ),
+                tags$hr(),
+                uiOutput(ns("info_dataset"))
               ),
               card(
                 card_header(bs_icon("eye", class = "me-1"), "Vista previa"),
@@ -373,6 +360,49 @@ mod_gam_ui <- function(id) {
                   uiOutput(ns("cards_datos")),
                   br(),
                   DTOutput(ns("tabla_preview"))
+                )
+              )
+            )
+          ),
+
+          nav_panel(
+            title = tagList(bs_icon("folder2-open", class = "me-1"),
+                            "Mis datos"),
+            br(),
+            layout_columns(
+              col_widths = c(4, 8),
+              div(
+                p(class = "small text-muted mb-3",
+                  bs_icon("info-circle", class = "me-1"),
+                  "Sube un archivo CSV o Excel. ",
+                  "La primera fila debe contener los nombres de las columnas."),
+                fileInput(
+                  ns("archivo"),
+                  label       = "Seleccionar archivo:",
+                  accept      = c(".csv", ".xlsx", ".xls"),
+                  buttonLabel = "Buscar\u2026",
+                  placeholder = "CSV o Excel"
+                ),
+                selectInput(
+                  ns("separador"),
+                  label    = "Separador (CSV):",
+                  choices  = c(
+                    "Coma (,)"         = ",",
+                    "Punto y coma (;)" = ";",
+                    "Tabulador"        = "\t"
+                  ),
+                  selected = ","
+                ),
+                tags$hr(),
+                uiOutput(ns("resumen_datos_propio"))
+              ),
+              card(
+                card_header(bs_icon("eye", class = "me-1"), "Vista previa"),
+                card_body(
+                  style = "overflow: auto;",
+                  uiOutput(ns("cards_datos_propio")),
+                  br(),
+                  DTOutput(ns("tabla_preview_propio"))
                 )
               )
             )
@@ -460,6 +490,20 @@ mod_gam_ui <- function(id) {
                         "Especificaci\u00f3n del modelo"),
             card_body(
               style = "overflow: visible; height: auto;",
+              selectInput(
+                ns("familia_gam"),
+                label = "Familia de distribuci\u00f3n:",
+                choices = c(
+                  "Gaussian (continua)"      = "gaussian",
+                  "Binomial (log\u00edstica)" = "binomial",
+                  "Poisson"                  = "poisson",
+                  "Quasipoisson"             = "quasipoisson",
+                  "Binomial negativa"        = "nb"
+                ),
+                selected = "gaussian"
+              ),
+              uiOutput(ns("info_familia_gam")),
+              tags$hr(),
               uiOutput(ns("sel_var_y")),
               tags$hr(),
               p(class = "small fw-bold text-muted mb-1",
@@ -1055,55 +1099,102 @@ mod_gam_server <- function(id) {
     datos_activos <- reactive({
       fuente <- input$fuente_datos
       req(!is.null(fuente) && nchar(fuente) > 0)
-      if (fuente == "ejemplo_ave") {
-        tryCatch({
-          e <- new.env()
-          load(system.file("app/data/birdabundance_lm.rda",
-                           package = "StatModels"), envir = e)
-          e$birdabundance_lm
-        }, error = function(err) {
-          showNotification("Archivo birdabundance_lm.rda no encontrado.",
-                           type = "error", duration = 6)
-          NULL
-        })
-      } else if (fuente == "ejemplo_salud") {
-        tryCatch({
-          e <- new.env()
-          load(system.file("app/data/birthwt_lm.rda",
-                           package = "StatModels"), envir = e)
-          e$birthwt_lm
-        }, error = function(err) {
-          showNotification("Archivo birthwt_lm.rda no encontrado.",
-                           type = "error", duration = 6)
-          NULL
-        })
-      } else {
-        req(input$archivo)
-        ext <- tools::file_ext(input$archivo$name)
-        tryCatch({
-          if (ext == "csv")
-            readr::read_delim(input$archivo$datapath,
-                              delim = input$separador,
-                              show_col_types = FALSE) |>
-              as.data.frame()
-          else
-            readxl::read_excel(input$archivo$datapath) |>
-              as.data.frame()
-        }, error = function(e) {
-          showNotification(paste("Error al leer archivo:", conditionMessage(e)),
-                           type = "error", duration = 6)
-          NULL
-        })
+      tryCatch({
+        archivo_rda <- switch(fuente,
+          ejemplo_ave   = "birdabundance_lm.rda",
+          ejemplo_salud = "birthwt_lm.rda",
+          mite_logistic = "mite_logistic.rda",
+          mite_counts   = "mite_counts.rda",
+          ants_glm      = "ants_glm.rda",
+          hcrabs_glm    = "hcrabs_glm.rda"
+        )
+        req(!is.null(archivo_rda))
+        e <- new.env()
+        load(system.file(paste0("app/data/", archivo_rda),
+                         package = "StatModels"), envir = e)
+        get(ls(e)[1], envir = e)
+      }, error = function(err) {
+        showNotification(paste("Error:", conditionMessage(err)),
+                         type = "error", duration = 6)
+        NULL
+      })
+    })
+
+    # Datos propios
+    datos_propio_gam <- reactive({
+      req(input$archivo)
+      ext <- tools::file_ext(input$archivo$name)
+      tryCatch({
+        if (ext == "csv")
+          readr::read_delim(input$archivo$datapath,
+                            delim = input$separador,
+                            show_col_types = FALSE) |> as.data.frame()
+        else
+          readxl::read_excel(input$archivo$datapath) |> as.data.frame()
+      }, error = function(e) {
+        showNotification(paste("Error al leer archivo:", conditionMessage(e)),
+                         type = "error", duration = 6)
+        NULL
+      })
+    })
+
+    # datos_activos_unif: prioriza datos propios si hay archivo
+    datos_activos_unif <- reactive({
+      if (!is.null(input$archivo)) {
+        dp <- try(datos_propio_gam(), silent = TRUE)
+        if (!inherits(dp, "try-error") && !is.null(dp)) return(dp)
       }
+      datos_activos()
+    })
+
+    # Vista previa datos propios
+    output$resumen_datos_propio <- renderUI({
+      req(datos_propio_gam())
+      d <- datos_propio_gam()
+      div(class = "small text-muted",
+          bs_icon("check-circle-fill",
+                  style = paste0("color:", colores$exito), class = "me-1"),
+          paste0(nrow(d), " filas \u00b7 ", ncol(d), " columnas"))
+    })
+
+    output$cards_datos_propio <- renderUI({
+      req(datos_propio_gam())
+      d    <- datos_propio_gam()
+      nnum <- sum(sapply(d, is.numeric))
+      ncat <- sum(sapply(d, function(x) is.factor(x) || is.character(x)))
+      layout_columns(col_widths = c(4, 4, 4),
+        card(class = "text-center",
+          card_body(class = "p-2",
+            h3(style = paste0("color:", colores$primario, "; font-weight:700;"),
+               nrow(d)),
+            p(class = "small text-muted mb-0", "Observaciones"))),
+        card(class = "text-center",
+          card_body(class = "p-2",
+            h3(style = paste0("color:", colores$acento, "; font-weight:700;"),
+               nnum),
+            p(class = "small text-muted mb-0", "Num\u00e9ricas"))),
+        card(class = "text-center",
+          card_body(class = "p-2",
+            h3(style = paste0("color:", colores$secundario, "; font-weight:700;"),
+               ncat),
+            p(class = "small text-muted mb-0", "Categ\u00f3ricas")))
+      )
+    })
+
+    output$tabla_preview_propio <- renderDT({
+      req(datos_propio_gam())
+      datatable(datos_propio_gam(), rownames = FALSE,
+                options = list(dom = "t", scrollY = "300px", scrollX = TRUE, paging = FALSE),
+                class = "table-sm table-striped")
     })
 
     vars_numericas <- reactive({
-      df <- datos_activos(); req(df)
+      df <- datos_activos_unif(); req(df)
       names(df)[sapply(df, is.numeric)]
     })
 
     vars_categoricas <- reactive({
-      df <- datos_activos(); req(df)
+      df <- datos_activos_unif(); req(df)
       names(df)[sapply(df, function(x) is.factor(x) || is.character(x))]
     })
 
@@ -1111,35 +1202,68 @@ mod_gam_server <- function(id) {
 
         # Tipos de variables
     tipos_usuario <- reactiveVal(NULL)
-    observeEvent(input$fuente_datos, { tipos_usuario(NULL) })
+    observeEvent(datos_activos_unif(), { tipos_usuario(NULL) })
     observeEvent(input$resetear_tipos, {
       tipos_usuario(NULL)
       showNotification("Tipos restaurados.", type = "message", duration = 2)
     })
     observeEvent(input$aplicar_tipos, {
-      df  <- datos_activos(); req(df)
+      df  <- datos_activos_unif(); req(df)
       nms <- names(df)
       nuevos <- lapply(nms, function(nm) input[[paste0("tipo_", nm)]])
       names(nuevos) <- nms
       tipos_usuario(nuevos)
       showNotification("Tipos aplicados.", type = "message", duration = 2)
     })
-    output$sel_fuente_datos <- renderUI({
-      radioButtons(
-        ns("fuente_datos"),
-        label   = tagList(bs_icon("database", class = "me-1"),
-                          "Dataset de ejemplo:"),
-        choices = c(
-          "Densidad de especie de ave (Loyn, 1987)"  = "ejemplo_ave",
-          "Peso al nacer \u2014 salud perinatal (Hosmer)" = "ejemplo_salud",
-          "Cargar mis propios datos"                  = "propio"
-        ),
-        selected = "ejemplo_ave"
+
+        output$info_familia_gam <- renderUI({
+      req(input$familia_gam)
+      switch(input$familia_gam,
+        gaussian    = div(class = "alert alert-info small py-2 px-3 mt-2 mb-0",
+                          bs_icon("info-circle", class = "me-1"),
+                          "Y continua. Los splines modelan relaciones no lineales ",
+                          "en la escala original."),
+        binomial    = div(class = "alert alert-info small py-2 px-3 mt-2 mb-0",
+                          bs_icon("info-circle", class = "me-1"),
+                          "Y binaria (0/1). Los splines operan en escala logit. ",
+                          "exp(\u03b2) = odds ratio (OR) para efectos lineales."),
+        poisson     = div(class = "alert alert-info small py-2 px-3 mt-2 mb-0",
+                          bs_icon("info-circle", class = "me-1"),
+                          "Y = conteos (0, 1, 2\u2026). Los splines operan en escala log. ",
+                          "exp(\u03b2) = raz\u00f3n de tasas (IRR) para efectos lineales. ",
+                          "Asume varianza = media."),
+        quasipoisson = div(class = "alert alert-info small py-2 px-3 mt-2 mb-0",
+                          bs_icon("info-circle", class = "me-1"),
+                          "Conteos con sobredispersi\u00f3n. Igual que Poisson pero estima ",
+                          "\u03c6 (phi), el ", strong("par\u00e1metro de dispersi\u00f3n"), ". ",
+                          "En Poisson puro \u03c6 = 1 (varianza = media). ",
+                          "Si \u03c6 > 1 hay sobredispersi\u00f3n. ",
+                          "Se llama 'quasi' porque no es una distribuci\u00f3n real, ",
+                          "sino una extensi\u00f3n de las ecuaciones de estimaci\u00f3n. ",
+                          "Usa QAIC para comparar modelos. ",
+                          "Alternativa m\u00e1s rigurosa: binomial negativa."),
+        nb          = div(class = "alert alert-info small py-2 px-3 mt-2 mb-0",
+                          bs_icon("info-circle", class = "me-1"),
+                          "Conteos sobredispersados. Los splines operan en escala log. ",
+                          "exp(\u03b2) = IRR para efectos lineales. ",
+                          "Par\u00e1metro de forma \u03b8 estimado autom\u00e1ticamente. ",
+                          "M\u00e1s rigurosa que quasipoisson: es una distribuci\u00f3n ",
+                          "probabil\u00edstica real con AIC v\u00e1lido.")
       )
     })
 
-        output$tabla_tipos <- renderUI({
-      df <- datos_activos(); req(df)
+    familia_mgcv <- reactive({
+      switch(input$familia_gam %||% "gaussian",
+        gaussian     = gaussian(),
+        binomial     = binomial(),
+        poisson      = poisson(),
+        quasipoisson = quasipoisson(),
+        nb           = mgcv::nb()
+      )
+    })
+
+    output$tabla_tipos <- renderUI({
+      df <- datos_activos_unif(); req(df)
       tu <- tipos_usuario()
       filas <- lapply(names(df), function(nm) {
         col    <- df[[nm]]
@@ -1193,7 +1317,7 @@ mod_gam_server <- function(id) {
 
     output$tipos_aplicados_msg <- renderUI({
       tu <- tipos_usuario(); if (is.null(tu)) return(NULL)
-      df <- datos_activos(); req(df)
+      df <- datos_activos_unif(); req(df)
       n_cambios <- sum(sapply(names(tu), function(nm) {
         if (!nm %in% names(df)) return(FALSE)
         actual <- if (is.factor(df[[nm]]) || is.character(df[[nm]]))
@@ -1212,66 +1336,72 @@ mod_gam_server <- function(id) {
 
     output$info_dataset <- renderUI({
       fuente <- input$fuente_datos
-      if (is.null(fuente) || fuente == "ejemplo_ave") {
-        div(class = "alert alert-info small py-2 px-3 mb-2",
-            bs_icon("info-circle-fill", class = "me-1"),
-            strong("Dataset: Densidad de especie de ave (Loyn, 1987)."),
-            " 56 fragmentos de bosque en Victoria, Australia. ",
-            "Variables: densidad_especie, area_ha, distancia_m, altitud_m, pastoreo.")
-      } else if (fuente == "ejemplo_salud") {
-        div(class = "alert alert-info small py-2 px-3 mb-2",
-            bs_icon("info-circle-fill", class = "me-1"),
-            strong("Dataset: Peso al nacer (Hosmer & Lemeshow)."),
-            " 189 neonatos. Variables: peso_g, edad_madre, peso_madre, tabaco, hta.")
-      } else {
-        div(class = "alert alert-info small py-2 px-3 mb-2",
-            bs_icon("info-circle-fill", class = "me-1"),
-            "Datos cargados por el usuario.")
-      }
+      textos <- list(
+        ejemplo_ave = tagList(
+          strong("Densidad de especie de ave (Loyn, 1987)."),
+          " 56 fragmentos de bosque. Relaciones no lineales entre ",
+          strong("area_ha"), ", ", strong("distancia_m"), " y densidad."),
+        ejemplo_salud = tagList(
+          strong("Peso al nacer (Hosmer & Lemeshow)."),
+          " 189 neonatos. Relaciones no lineales entre ",
+          strong("edad_madre"), " / ", strong("peso_madre"), " y peso."),
+        mite_logistic = tagList(
+          strong("Presencia de \u00e1caros NPRA (Borcard & Legendre, 1994)."),
+          " 70 muestras. Relaciones no lineales con ",
+          strong("densidad_sustrato"), " y ", strong("contenido_agua"), "."),
+        mite_counts = tagList(
+          strong("Abundancia de \u00e1caros Brachy."),
+          " 70 muestras. Relaciones unimodales con ",
+          strong("densidad_sustrato"), " y ", strong("contenido_agua"), "."),
+        ants_glm = tagList(
+          strong("Riqueza de hormigas (GLMsData)."),
+          " 44 sitios. Gradiente latitudinal potencialmente no lineal."),
+        hcrabs_glm = tagList(
+          strong("Cangrejos herradura (Brockmann, 1996)."),
+          " 173 hembras. Relaci\u00f3n no lineal entre ancho y sat\u00e9lites.")
+      )
+      info <- textos[[fuente]]
+      if (is.null(info)) return(NULL)
+      div(class = "alert alert-info small py-2 px-3 mb-0",
+          bs_icon("info-circle-fill", class = "me-1"), info)
     })
 
     output$cards_datos <- renderUI({
-      df <- datos_activos(); req(df)
+      df <- datos_activos_unif(); req(df)
       nnum <- length(vars_numericas())
       ncat <- length(vars_categoricas())
       layout_columns(
         col_widths = c(4, 4, 4),
-        card(class = "text-center border-0",
-             style = paste0("background:", colores$fondo),
-             card_body(class = "p-2",
-               h3(style = paste0("color:", colores$primario, "; font-weight:700;"),
-                  nrow(df)),
-               p(class = "small text-muted mb-0", "Observaciones")
-             )),
-        card(class = "text-center border-0",
-             style = paste0("background:", colores$fondo),
-             card_body(class = "p-2",
-               h3(style = paste0("color:", colores$acento, "; font-weight:700;"),
-                  nnum),
-               p(class = "small text-muted mb-0", "Num\u00e9ricas")
-             )),
-        card(class = "text-center border-0",
-             style = paste0("background:", colores$fondo),
-             card_body(class = "p-2",
-               h3(style = paste0("color:", colores$secundario, "; font-weight:700;"),
-                  ncat),
-               p(class = "small text-muted mb-0", "Categ\u00f3ricas")
-             ))
+        card(class = "text-center",
+          card_body(class = "p-2",
+            h3(style = paste0("color:", colores$primario, "; font-weight:700;"),
+               nrow(df)),
+            p(class = "small text-muted mb-0", "Observaciones"))),
+        card(class = "text-center",
+          card_body(class = "p-2",
+            h3(style = paste0("color:", colores$acento, "; font-weight:700;"),
+               nnum),
+            p(class = "small text-muted mb-0", "Num\u00e9ricas"))),
+        card(class = "text-center",
+          card_body(class = "p-2",
+            h3(style = paste0("color:", colores$secundario, "; font-weight:700;"),
+               ncat),
+            p(class = "small text-muted mb-0", "Categ\u00f3ricas")))
       )
     })
 
     output$resumen_datos <- renderUI({
-      df <- datos_activos(); req(df)
+      df <- datos_activos_unif(); req(df)
       div(class = "small text-muted mt-2",
           bs_icon("info-circle", class = "me-1"),
           paste0(nrow(df), " filas \u00b7 ", ncol(df), " columnas"))
     })
 
     output$tabla_preview <- renderDT({
-      df <- datos_activos(); req(df)
-      datatable(head(df, 20),
-                options = list(scrollX = TRUE, dom = "t",
-                               pageLength = 20),
+      df <- datos_activos_unif(); req(df)
+      datatable(df,
+                options = list(dom = "t", scrollY = "300px",
+                               scrollX = TRUE, paging = FALSE),
                 rownames = FALSE,
                 class    = "table-sm table-striped")
     })
@@ -1451,7 +1581,7 @@ mod_gam_server <- function(id) {
         todos <- c(terminos_s, terminos_l)
         fm <- as.formula(paste(input$var_y, "~", paste(todos, collapse = " + ")))
 
-        mgcv::gam(fm, data = df, method = input$metodo_gam)
+        mgcv::gam(fm, data = df, family = familia_mgcv(), method = input$metodo_gam)
       }, error = function(e) {
         showNotification(paste("Error al ajustar GAM:", conditionMessage(e)),
                          type = "error", duration = 6)
@@ -1477,7 +1607,7 @@ mod_gam_server <- function(id) {
         fm <- as.formula(paste(input$var_y, "~",
                                paste(c(terminos_s, terminos_l),
                                      collapse = " + ")))
-        mgcv::gam(fm, data = df, method = input$metodo_gam)
+        mgcv::gam(fm, data = df, family = familia_mgcv(), method = input$metodo_gam)
       }, error = function(e) NULL)
     }, ignoreNULL = TRUE)
 

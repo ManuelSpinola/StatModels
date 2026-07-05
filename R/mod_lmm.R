@@ -313,47 +313,29 @@ mod_lmm_ui <- function(id) {
         card_body(
           navset_pill(
 
+            # ── Sub 1: Datos de ejemplo ─────────────
             nav_panel(
-              title = tagList(bs_icon("database", class = "me-1"),
-                              "Cargar datos"),
+              title = tagList(bs_icon("collection", class = "me-1"),
+                              "Datos de ejemplo"),
               br(),
               layout_columns(
                 col_widths = c(4, 8),
-                card(
-                  card_header(bs_icon("folder2-open", class = "me-1"),
-                              "Fuente de datos"),
-                  card_body(
-                    style = "overflow: visible; height: auto;",
-                    uiOutput(ns("sel_fuente_datos")),
-                    tags$hr(),
-                    fileInput(
-                      ns("archivo"),
-                      label       = "Seleccionar archivo:",
-                      accept      = c(".csv", ".xlsx", ".xls"),
-                      buttonLabel = "Buscar\u2026",
-                      placeholder = "CSV o Excel"
+                div(
+                  radioButtons(
+                    ns("fuente_datos"),
+                    label   = tagList(bs_icon("database", class = "me-1"),
+                                      "Seleccionar dataset:"),
+                    choices = c(
+                      "Pl\u00e1ntulas en fragmentos \u2014 BTS (ecolog\u00eda)"      = "plantulas",
+                      "Privaci\u00f3n de sue\u00f1o \u2014 sleepstudy (psicolog\u00eda)" = "sleepstudy"
                     ),
-                    selectInput(
-                      ns("separador"),
-                      label    = "Separador (CSV):",
-                      choices  = c(
-                        "Coma (,)"         = ",",
-                        "Punto y coma (;)" = ";",
-                        "Tabulador"        = "\t"
-                      ),
-                      selected = ","
-                    ),
-                    p(class = "small text-muted mb-0",
-                      bs_icon("info-circle", class = "me-1"),
-                      "La primera fila debe contener los nombres de las columnas."),
-                    tags$hr(),
-                    uiOutput(ns("info_dataset")),
-                    uiOutput(ns("resumen_datos"))
-                  )
+                    selected = "plantulas"
+                  ),
+                  tags$hr(),
+                  uiOutput(ns("info_dataset"))
                 ),
                 card(
-                  card_header(bs_icon("eye", class = "me-1"),
-                              "Vista previa"),
+                  card_header(bs_icon("eye", class = "me-1"), "Vista previa"),
                   card_body(
                     style = "overflow: auto;",
                     uiOutput(ns("cards_datos")),
@@ -364,6 +346,52 @@ mod_lmm_ui <- function(id) {
               )
             ),
 
+            # ── Sub 2: Mis datos ─────────────────────
+            nav_panel(
+              title = tagList(bs_icon("folder2-open", class = "me-1"),
+                              "Mis datos"),
+              br(),
+              layout_columns(
+                col_widths = c(4, 8),
+                div(
+                  p(class = "small text-muted mb-3",
+                    bs_icon("info-circle", class = "me-1"),
+                    "Sube un archivo CSV o Excel. ",
+                    "La primera fila debe contener los nombres de las columnas. ",
+                    "Aseg\u00farate de que la variable de agrupamiento sea Factor."),
+                  fileInput(
+                    ns("archivo"),
+                    label       = "Seleccionar archivo:",
+                    accept      = c(".csv", ".xlsx", ".xls"),
+                    buttonLabel = "Buscar\u2026",
+                    placeholder = "CSV o Excel"
+                  ),
+                  selectInput(
+                    ns("separador"),
+                    label    = "Separador (CSV):",
+                    choices  = c(
+                      "Coma (,)"         = ",",
+                      "Punto y coma (;)" = ";",
+                      "Tabulador"        = "\t"
+                    ),
+                    selected = ","
+                  ),
+                  tags$hr(),
+                  uiOutput(ns("resumen_datos_propio"))
+                ),
+                card(
+                  card_header(bs_icon("eye", class = "me-1"), "Vista previa"),
+                  card_body(
+                    style = "overflow: auto;",
+                    uiOutput(ns("cards_datos_propio")),
+                    br(),
+                    DTOutput(ns("tabla_preview_propio"))
+                  )
+                )
+              )
+            ),
+
+            # ── Sub 3: Tipos de variables ────────────
             nav_panel(
               title = tagList(bs_icon("sliders2", class = "me-1"),
                               "Tipos de variables"),
@@ -954,22 +982,9 @@ mod_lmm_server <- function(id) {
     # DATOS
     # ────────────────────────────────────────────────────
 
-    output$sel_fuente_datos <- renderUI({
-      radioButtons(
-        ns("fuente_datos"),
-        label   = tagList(bs_icon("database", class = "me-1"),
-                          "Dataset de ejemplo:"),
-        choices = c(
-          "Pl\u00e1ntulas en fragmentos \u2014 BTS (ecolog\u00eda)"  = "plantulas",
-          "Privaci\u00f3n de sue\u00f1o \u2014 sleepstudy (psicolog\u00eda)" = "sleepstudy",
-          "Cargar mis propios datos"                  = "propio"
-        ),
-        selected = "plantulas"
-      )
-    })
+    output$sel_fuente_datos <- renderUI({ NULL }) # ya no se usa — radioButtons directo en UI
 
     datos_activos <- reactive({
-      # Fallback a "plantulas" mientras renderUI no haya disparado todavía
       fuente <- if (!is.null(input$fuente_datos) && nchar(input$fuente_datos) > 0)
         input$fuente_datos else "plantulas"
       tu <- tipos_usuario()
@@ -985,7 +1000,7 @@ mod_lmm_server <- function(id) {
                            type = "error", duration = 6)
           NULL
         })
-      } else if (fuente == "sleepstudy") {
+      } else {
         tryCatch({
           df <- as.data.frame(lme4::sleepstudy)
           df$Subject <- as.factor(df$Subject)
@@ -995,26 +1010,9 @@ mod_lmm_server <- function(id) {
                            type = "error", duration = 6)
           NULL
         })
-      } else {
-        req(input$archivo)
-        ext <- tools::file_ext(input$archivo$name)
-        tryCatch({
-          df <- if (ext %in% c("xlsx", "xls"))
-            readxl::read_excel(input$archivo$datapath)
-          else
-            readr::read_delim(input$archivo$datapath,
-                              delim = input$separador,
-                              show_col_types = FALSE)
-          df |> dplyr::mutate(dplyr::across(where(is.character), factor))
-        }, error = function(e) {
-          showNotification(paste("Error:", conditionMessage(e)),
-                           type = "error", duration = 6)
-          NULL
-        })
       }
 
       req(df)
-      # Aplicar tipos de usuario
       if (!is.null(tu)) {
         for (nm in names(tu)) {
           if (!nm %in% names(df)) next
@@ -1029,6 +1027,65 @@ mod_lmm_server <- function(id) {
         }
       }
       df
+    })
+
+    # ── Datos propios ─────────────────────────────────
+    datos_propio_lmm <- reactive({
+      req(input$archivo)
+      ext <- tools::file_ext(input$archivo$name)
+      tryCatch({
+        df <- if (ext %in% c("xlsx", "xls"))
+          readxl::read_excel(input$archivo$datapath)
+        else
+          readr::read_delim(input$archivo$datapath,
+                            delim = input$separador,
+                            show_col_types = FALSE)
+        df |> dplyr::mutate(dplyr::across(where(is.character), factor))
+      }, error = function(e) {
+        showNotification(paste("Error:", conditionMessage(e)),
+                         type = "error", duration = 6)
+        NULL
+      })
+    })
+
+    output$resumen_datos_propio <- renderUI({
+      req(datos_propio_lmm())
+      d <- datos_propio_lmm()
+      div(class = "small text-muted",
+          bs_icon("check-circle-fill",
+                  style = paste0("color:", colores$exito), class = "me-1"),
+          paste0(nrow(d), " filas \u00b7 ", ncol(d), " columnas"))
+    })
+
+    output$cards_datos_propio <- renderUI({
+      req(datos_propio_lmm())
+      d    <- datos_propio_lmm()
+      nnum <- sum(sapply(d, is.numeric))
+      ncat <- sum(sapply(d, function(x) is.factor(x) || is.character(x)))
+      layout_columns(col_widths = c(4, 4, 4),
+        card(class = "text-center",
+          card_body(class = "p-2",
+            h3(style = paste0("color:", colores$primario, "; font-weight:700;"),
+               nrow(d)),
+            p(class = "small text-muted mb-0", "Observaciones"))),
+        card(class = "text-center",
+          card_body(class = "p-2",
+            h3(style = paste0("color:", colores$acento, "; font-weight:700;"),
+               nnum),
+            p(class = "small text-muted mb-0", "Num\u00e9ricas"))),
+        card(class = "text-center",
+          card_body(class = "p-2",
+            h3(style = paste0("color:", colores$secundario, "; font-weight:700;"),
+               ncat),
+            p(class = "small text-muted mb-0", "Categ\u00f3ricas")))
+      )
+    })
+
+    output$tabla_preview_propio <- renderDT({
+      req(datos_propio_lmm())
+      datatable(datos_propio_lmm(), rownames = FALSE,
+                options = list(dom = "t", scrollY = "300px", scrollX = TRUE, paging = FALSE),
+                class = "table-sm table-striped")
     })
 
     vars_numericas <- reactive({
@@ -1124,17 +1181,41 @@ mod_lmm_server <- function(id) {
       if (is.null(fuente) || fuente == "plantulas") {
         div(class = "alert alert-info small py-2 px-3 mb-2",
             bs_icon("info-circle-fill", class = "me-1"),
-            strong("Dataset: Pl\u00e1ntulas BTS \u2014 Regeneraci\u00f3n en bosque tropical seco."),
-            " 60 parcelas en 10 fragmentos de bosque tropical seco, Costa Rica. ",
-            "Variables: densidad_plantulas (ind/m²), cobertura_dosel (%), ",
-            "pendiente (\u00b0), dist_agua (m), fragmento.")
+            strong("Pl\u00e1ntulas BTS \u2014 Regeneraci\u00f3n en bosque tropical seco."),
+            " 60 parcelas en 10 fragmentos, Costa Rica. ",
+            "Y: ", strong("densidad_plantulas"), " (ind/m\u00b2) \u2014 densidad continua. ",
+            "Predictores: cobertura_dosel (%), pendiente (\u00b0), dist_agua (m). ",
+            "Agrupamiento: parcelas anidadas en fragmentos.", tags$br(), tags$br(),
+            bs_icon("diagram-3", class = "me-1",
+                    style = paste0("color:", colores$primario)),
+            strong("Parametrizaci\u00f3n:"), " hay dos niveles jer\u00e1rquicos \u2014 ",
+            "parcelas dentro de fragmentos. El modelo correcto es:", tags$br(),
+            tags$code("lmer(densidad_plantulas ~ cobertura_dosel + pendiente +"),
+            tags$br(),
+            tags$code("       dist_agua + (1 | fragmento/parcela))"), tags$br(),
+            "El t\u00e9rmino ", tags$code("(1 | fragmento/parcela)"), " equivale a ",
+            tags$code("(1 | fragmento) + (1 | fragmento:parcela)"), ". ",
+            "Estima variabilidad entre fragmentos y entre parcelas dentro de cada fragmento. ",
+            "Si la respuesta al dosel var\u00eda entre fragmentos: ",
+            tags$code("(1 + cobertura_dosel | fragmento)"), ".")
       } else if (fuente == "sleepstudy") {
         div(class = "alert alert-info small py-2 px-3 mb-2",
             bs_icon("info-circle-fill", class = "me-1"),
-            strong("Dataset: sleepstudy (Belenky et al., 2003)."),
-            " 180 observaciones, 18 sujetos \u00d7 10 d\u00edas. ",
-            "Variables: Reaction (tiempo de reacci\u00f3n ms), Days (d\u00edas), ",
-            "Subject (sujeto).")
+            strong("Privaci\u00f3n de sue\u00f1o (Belenky et al., 2003)."),
+            " 180 observaciones: 18 sujetos \u00d7 10 d\u00edas de privaci\u00f3n de sue\u00f1o. ",
+            "Y: ", strong("Reaction"), " (tiempo de reacci\u00f3n en ms) \u2014 continua. ",
+            "Predictor: Days (d\u00edas de privaci\u00f3n). ",
+            "Agrupamiento: Subject (sujeto).", tags$br(), tags$br(),
+            bs_icon("diagram-3", class = "me-1",
+                    style = paste0("color:", colores$primario)),
+            strong("Parametrizaci\u00f3n:"), " medidas repetidas en el mismo sujeto. ",
+            "Cada sujeto tiene su propio tiempo de reacci\u00f3n base ", em("y"),
+            " su propia tasa de deterioro con la privaci\u00f3n:", tags$br(),
+            tags$code("lmer(Reaction ~ Days + (1 + Days | Subject))"), tags$br(),
+            "El t\u00e9rmino ", tags$code("(1 + Days | Subject)"),
+            " permite que cada sujeto tenga diferente intercepto (tiempo base) ",
+            "y diferente pendiente (cu\u00e1nto se deteriora por d\u00eda). ",
+            "Es el ejemplo cl\u00e1sico de pendiente aleatoria.")
       } else {
         div(class = "alert alert-info small py-2 px-3 mb-2",
             "Datos cargados por el usuario.")
@@ -1155,31 +1236,28 @@ mod_lmm_server <- function(id) {
       ncat <- length(vars_categoricas())
       layout_columns(
         col_widths = c(4, 4, 4),
-        card(class = "text-center border-0",
-             style = paste0("background:", colores$fondo),
-             card_body(class = "p-2",
-               h3(style = paste0("color:", colores$primario,
-                                 "; font-weight:700;"), nrow(df)),
-               p(class = "small text-muted mb-0", "Observaciones"))),
-        card(class = "text-center border-0",
-             style = paste0("background:", colores$fondo),
-             card_body(class = "p-2",
-               h3(style = paste0("color:", colores$acento,
-                                 "; font-weight:700;"), nnum),
-               p(class = "small text-muted mb-0", "Num\u00e9ricas"))),
-        card(class = "text-center border-0",
-             style = paste0("background:", colores$fondo),
-             card_body(class = "p-2",
-               h3(style = paste0("color:", colores$secundario,
-                                 "; font-weight:700;"), ncat),
-               p(class = "small text-muted mb-0", "Categ\u00f3ricas")))
+        card(class = "text-center",
+          card_body(class = "p-2",
+            h3(style = paste0("color:", colores$primario, "; font-weight:700;"),
+               nrow(df)),
+            p(class = "small text-muted mb-0", "Observaciones"))),
+        card(class = "text-center",
+          card_body(class = "p-2",
+            h3(style = paste0("color:", colores$acento, "; font-weight:700;"),
+               nnum),
+            p(class = "small text-muted mb-0", "Num\u00e9ricas"))),
+        card(class = "text-center",
+          card_body(class = "p-2",
+            h3(style = paste0("color:", colores$secundario, "; font-weight:700;"),
+               ncat),
+            p(class = "small text-muted mb-0", "Categ\u00f3ricas")))
       )
     })
 
     output$tabla_preview <- renderDT({
       df <- datos_activos(); req(df)
-      datatable(head(df, 15),
-                options = list(scrollX = TRUE, dom = "t", pageLength = 15),
+      datatable(df,
+                options = list(dom = "t", scrollY = "300px", scrollX = TRUE, paging = FALSE),
                 rownames = FALSE,
                 class    = "table-sm table-striped")
     })
