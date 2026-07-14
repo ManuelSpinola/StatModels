@@ -453,7 +453,23 @@ mod_glmm_ui <- function(id) {
                                icon = icon("rotate-left"))
                 )
               ),
-              uiOutput(ns("tipos_aplicados_msg"))
+              uiOutput(ns("tipos_aplicados_msg")),
+
+              tags$hr(),
+              layout_columns(
+                col_widths = c(4, 8),
+                radioButtons(
+                  ns("manejo_na"),
+                  label    = tagList(bs_icon("exclamation-diamond", class = "me-1"),
+                                     "Valores perdidos (NA)"),
+                  choices  = c(
+                    "Conservar"             = "conservar",
+                    "Eliminar filas con NA" = "eliminar"
+                  ),
+                  selected = "conservar"
+                ),
+                uiOutput(ns("na_info"))
+              )
             )
 
           )
@@ -1146,8 +1162,8 @@ mod_glmm_server <- function(id) {
       showNotification("Tipos aplicados.", type = "message", duration = 2)
     })
 
-    # datos_activos ahora es datos_activos_unif
-    datos_activos_alias <- reactive({
+    # datos_activos ahora es datos_activos_unif, con tipos aplicados
+    datos_tipificados <- reactive({
       df <- datos_activos_unif(); req(df)
       tu <- tipos_usuario()
       if (is.null(tu)) return(df)
@@ -1165,12 +1181,43 @@ mod_glmm_server <- function(id) {
       df
     })
 
+    # ── Manejo de NAs ────────────────────────────────────────────────────────
+    datos_finales <- reactive({
+      df <- datos_tipificados()
+      req(df)
+      if (isTRUE(input$manejo_na == "eliminar")) {
+        df <- tidyr::drop_na(df)
+      }
+      df
+    })
+
+    output$na_info <- renderUI({
+      df_orig  <- datos_tipificados()
+      df_final <- datos_finales()
+      req(df_orig)
+      n_na <- sum(!stats::complete.cases(df_orig))
+      if (n_na == 0) return(
+        div(class = "alert alert-success small py-2 px-3 mb-0",
+            bs_icon("check-circle", class = "me-1"), "Sin valores perdidos.")
+      )
+      n_elim <- nrow(df_orig) - nrow(df_final)
+      if (input$manejo_na == "eliminar")
+        div(class = "alert alert-warning small py-2 px-3 mb-0",
+            bs_icon("exclamation-triangle", class = "me-1"),
+            paste0(n_elim, " fila(s) eliminadas. Quedan ", nrow(df_final), " filas."))
+      else
+        div(class = "alert alert-info small py-2 px-3 mb-0",
+            bs_icon("info-circle", class = "me-1"),
+            paste0(n_na, " fila(s) con NA. El modelo puede fallar o excluirlas ",
+                   "autom\u00e1ticamente \u2014 pod\u00e9s eliminarlas arriba para mayor control."))
+    })
+
     vars_numericas <- reactive({
-      df <- datos_activos_unif(); req(df)
+      df <- datos_finales(); req(df)
       names(df)[sapply(df, is.numeric)]
     })
     vars_categoricas <- reactive({
-      df <- datos_activos_unif(); req(df)
+      df <- datos_finales(); req(df)
       names(df)[sapply(df, function(x) is.factor(x) || is.character(x))]
     })
 
@@ -1238,13 +1285,13 @@ mod_glmm_server <- function(id) {
 
     # Vista previa y resumen
     output$tabla_preview <- DT::renderDT({
-      df <- datos_activos_unif(); req(df)
+      df <- datos_finales(); req(df)
       DT::datatable(df, options = list(dom = "t", scrollY = "300px", scrollX = TRUE, paging = FALSE),
                     rownames = FALSE, class = "table-sm table-striped")
     })
 
     output$resumen_datos <- renderUI({
-      df <- datos_activos_unif(); req(df)
+      df <- datos_finales(); req(df)
       div(class = "small text-muted mt-2",
           bs_icon("info-circle", class = "me-1"),
           strong(nrow(df)), " filas \u00b7 ",
@@ -1252,7 +1299,7 @@ mod_glmm_server <- function(id) {
     })
 
     output$cards_datos <- renderUI({
-      df <- datos_activos_unif(); req(df)
+      df <- datos_finales(); req(df)
       nnum <- sum(sapply(df, is.numeric))
       ncat <- sum(sapply(df, function(x) is.factor(x) || is.character(x)))
       layout_columns(col_widths = c(4, 4, 4),
@@ -1334,7 +1381,7 @@ mod_glmm_server <- function(id) {
     })
 
     output$resumen_y <- renderUI({
-      df <- datos_activos_unif(); req(df, input$var_y_exp)
+      df <- datos_finales(); req(df, input$var_y_exp)
       y  <- df[[input$var_y_exp]]
       req(is.numeric(y))
       p_ceros <- round(mean(y == 0) * 100, 1)
@@ -1351,7 +1398,7 @@ mod_glmm_server <- function(id) {
     })
 
     output$plot_hist_y <- renderPlot({
-      df <- datos_activos_unif(); req(df, input$var_y_exp)
+      df <- datos_finales(); req(df, input$var_y_exp)
       y  <- df[[input$var_y_exp]]
       req(is.numeric(y))
       ggplot2::ggplot(data.frame(y = y), ggplot2::aes(x = y)) +
@@ -1363,7 +1410,7 @@ mod_glmm_server <- function(id) {
     }, res = 96)
 
     output$cards_ceros <- renderUI({
-      df <- datos_activos_unif(); req(df, input$var_y_exp)
+      df <- datos_finales(); req(df, input$var_y_exp)
       y  <- df[[input$var_y_exp]]; req(is.numeric(y))
       p_ceros <- round(mean(y == 0) * 100, 1)
       disp    <- round(var(y) / mean(y), 2)
@@ -1392,7 +1439,7 @@ mod_glmm_server <- function(id) {
     })
 
     output$plot_spaghetti <- renderPlot({
-      df <- datos_activos_unif()
+      df <- datos_finales()
       req(df, input$var_y_exp, input$var_x_exp, input$grupo_exp)
       tryCatch({
         n_grps <- length(unique(df[[input$grupo_exp]]))
@@ -1522,7 +1569,7 @@ mod_glmm_server <- function(id) {
 
     # Modelo GLMM
     modelo_glmm <- eventReactive(input$ajustar, {
-      df  <- datos_activos_unif(); req(df, input$var_y, input$familia, input$var_grupo)
+      df  <- datos_finales(); req(df, input$var_y, input$familia, input$var_grupo)
       fam <- input$familia
       preds_num <- input$preds_num
       preds_cat <- input$preds_cat
@@ -2227,7 +2274,7 @@ mod_glmm_server <- function(id) {
 
     output$marginal_valores_tipicos <- renderUI({
       fm <- modelo_glmm(); req(fm)
-      df <- datos_activos_unif(); req(df)
+      df <- datos_finales(); req(df)
       preds <- c(input$preds_num, input$preds_cat)
       req(length(preds) > 1, input$pred_marginal)
       otros <- preds[preds != input$pred_marginal]
@@ -2261,7 +2308,7 @@ mod_glmm_server <- function(id) {
             ggplot2::aes(ymin = CI_low, ymax = CI_high),
             fill = colores$primario, alpha = 0.15)
         if (isTRUE(input$marginal_puntos)) {
-          df_pts <- datos_activos_unif()
+          df_pts <- datos_finales()
           req(df_pts, input$var_y)
           p <- p + ggplot2::geom_point(
             data = df_pts,
