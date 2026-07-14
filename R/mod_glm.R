@@ -554,7 +554,23 @@ mod_glm_ui <- function(id) {
                   )
                 )
               ),
-              uiOutput(ns("tipos_aplicados_msg"))
+              uiOutput(ns("tipos_aplicados_msg")),
+
+              tags$hr(),
+              layout_columns(
+                col_widths = c(4, 8),
+                radioButtons(
+                  ns("manejo_na"),
+                  label    = tagList(bs_icon("exclamation-diamond", class = "me-1"),
+                                     "Valores perdidos (NA)"),
+                  choices  = c(
+                    "Conservar"             = "conservar",
+                    "Eliminar filas con NA" = "eliminar"
+                  ),
+                  selected = "conservar"
+                ),
+                uiOutput(ns("na_info"))
+              )
             ),
 
           )
@@ -1502,18 +1518,49 @@ mod_glm_server <- function(id) {
     })
 
     vars_numericas <- reactive({
-      df <- datos_activos(); req(df)
+      df <- datos_finales(); req(df)
       names(df)[sapply(df, is.numeric)]
     })
 
     vars_categoricas <- reactive({
-      df <- datos_activos(); req(df)
+      df <- datos_finales(); req(df)
       names(df)[sapply(df, function(x) is.factor(x) || is.character(x))]
+    })
+
+    # ── Manejo de NAs ────────────────────────────────────────────────────────
+    datos_finales <- reactive({
+      df <- datos_activos()
+      req(df)
+      if (isTRUE(input$manejo_na == "eliminar")) {
+        df <- tidyr::drop_na(df)
+      }
+      df
+    })
+
+    output$na_info <- renderUI({
+      df_orig  <- datos_activos()
+      df_final <- datos_finales()
+      req(df_orig)
+      n_na <- sum(!stats::complete.cases(df_orig))
+      if (n_na == 0) return(
+        div(class = "alert alert-success small py-2 px-3 mb-0",
+            bs_icon("check-circle", class = "me-1"), "Sin valores perdidos.")
+      )
+      n_elim <- nrow(df_orig) - nrow(df_final)
+      if (input$manejo_na == "eliminar")
+        div(class = "alert alert-warning small py-2 px-3 mb-0",
+            bs_icon("exclamation-triangle", class = "me-1"),
+            paste0(n_elim, " fila(s) eliminadas. Quedan ", nrow(df_final), " filas."))
+      else
+        div(class = "alert alert-info small py-2 px-3 mb-0",
+            bs_icon("info-circle", class = "me-1"),
+            paste0(n_na, " fila(s) con NA. El modelo puede fallar o excluirlas ",
+                   "autom\u00e1ticamente \u2014 pod\u00e9s eliminarlas arriba para mayor control."))
     })
 
     # Resumen, cards y preview
     output$resumen_datos <- renderUI({
-      df <- datos_activos()
+      df <- datos_finales()
       if (is.null(df)) return(NULL)
       div(class = "small text-muted mt-1",
           bs_icon("check-circle-fill",
@@ -1523,7 +1570,7 @@ mod_glm_server <- function(id) {
     })
 
     output$cards_datos <- renderUI({
-      df <- datos_activos(); req(df)
+      df <- datos_finales(); req(df)
       nnum <- length(vars_numericas())
       ncat <- length(vars_categoricas())
       layout_columns(
@@ -1547,7 +1594,7 @@ mod_glm_server <- function(id) {
     })
 
     output$tabla_preview <- renderDT({
-      df <- datos_activos(); req(df)
+      df <- datos_finales(); req(df)
       datatable(df, rownames = FALSE,
                 options = list(dom = "t", scrollY = "300px", scrollX = TRUE, paging = FALSE),
                 class = "table-sm table-striped")
@@ -1650,7 +1697,7 @@ mod_glm_server <- function(id) {
     })
 
     output$cards_correlacion <- renderUI({
-      df  <- datos_activos(); req(df, input$var_x)
+      df  <- datos_finales(); req(df, input$var_x)
       fam <- input$familia
       yv  <- if (fam == "binomial") vars_categoricas() else vars_numericas()
       req(length(yv) >= 1)
@@ -1713,7 +1760,7 @@ mod_glm_server <- function(id) {
     })
 
     output$plot_scatter <- renderPlot(suppressWarnings({
-      df  <- datos_activos(); req(df, input$var_x)
+      df  <- datos_finales(); req(df, input$var_x)
       fam <- input$familia
 
       usar_color <- !is.null(input$var_color) &&
@@ -1785,7 +1832,7 @@ mod_glm_server <- function(id) {
     }), res = 96)
 
     output$insight_scatter <- renderUI({
-      df  <- datos_activos(); req(df, input$var_x)
+      df  <- datos_finales(); req(df, input$var_x)
       fam <- input$familia
 
       if (fam == "binomial") {
@@ -1898,7 +1945,7 @@ mod_glm_server <- function(id) {
 
     # Ajuste del modelo — glm() para binomial/Poisson, MASS::glm.nb() para nbinom2
     modelo_glm <- eventReactive(input$ajustar, {
-      df    <- datos_activos(); req(df, input$var_y)
+      df    <- datos_finales(); req(df, input$var_y)
       preds <- c(input$preds_num, input$preds_cat)
       if (length(preds) == 0) {
         showNotification("Selecciona al menos un predictor.",
@@ -1951,7 +1998,7 @@ mod_glm_server <- function(id) {
     # ── Modelo estandarizado (para importancia de variables) ──
 
     modelo_glm_std <- eventReactive(input$ajustar, {
-      df    <- datos_activos(); req(df, input$var_y)
+      df    <- datos_finales(); req(df, input$var_y)
       preds <- c(input$preds_num, input$preds_cat)
       req(length(preds) > 0)
       preds_num <- input$preds_num
@@ -2034,7 +2081,7 @@ mod_glm_server <- function(id) {
     output$plot_predobs <- renderPlot({
       fit <- modelo_glm(); req(fit)
       tryCatch({
-        df  <- datos_activos()
+        df  <- datos_finales()
         obs <- df[[input$var_y]]
         pred <- fitted(fit)
         tibble::tibble(obs = as.numeric(obs), pred = pred) |>
@@ -2611,7 +2658,7 @@ mod_glm_server <- function(id) {
 
     output$marginal_valores_tipicos <- renderUI({
       fit  <- modelo_glm(); req(fit, input$pred_marginal)
-      df   <- datos_activos()
+      df   <- datos_finales()
       preds <- c(input$preds_num, input$preds_cat)
       otros <- preds[preds != input$pred_marginal]
       if (length(otros) == 0) return(NULL)
@@ -2628,7 +2675,7 @@ mod_glm_server <- function(id) {
 
     output$plot_marginal <- renderPlot({
       fit  <- modelo_glm(); req(fit, input$pred_marginal)
-      df   <- datos_activos()
+      df   <- datos_finales()
       pred <- input$pred_marginal
       es_cat <- pred %in% vars_categoricas()
 
@@ -2757,7 +2804,7 @@ mod_glm_server <- function(id) {
 
     output$inputs_prediccion <- renderUI({
       fit   <- modelo_glm(); req(fit)
-      df    <- datos_activos()
+      df    <- datos_finales()
       preds <- c(input$preds_num, input$preds_cat)
       req(length(preds) > 0)
 
@@ -2787,7 +2834,7 @@ mod_glm_server <- function(id) {
     resultado_prediccion_data <- eventReactive(
       input$calcular_prediccion, {
         fit   <- modelo_glm(); req(fit)
-        df    <- datos_activos()
+        df    <- datos_finales()
         preds <- c(input$preds_num, input$preds_cat)
         req(length(preds) > 0)
 
@@ -3049,7 +3096,7 @@ mod_glm_server <- function(id) {
 
         filas <- list(
           list(g="MUESTRA", m="n (observaciones)",
-               v=nrow(datos_activos()),
+               v=nrow(datos_finales()),
                i="Tamaño de la muestra."),
           list(g=NULL, m="k (predictores)",
                v=tryCatch(
@@ -3109,7 +3156,7 @@ mod_glm_server <- function(id) {
                                        paste(preds_cl, collapse=" + ")))
           fit_cl   <- tryCatch(
             glm(fm_cl, family = stats::binomial(link = input$enlace),
-                data = datos_activos()),
+                data = datos_finales()),
             error = function(e) NULL
           )
 
@@ -3155,7 +3202,7 @@ mod_glm_server <- function(id) {
 
             # 3. Sensibilidad, Especificidad, Accuracy
             sens_spec <- tryCatch({
-              y_obs  <- as.integer(datos_activos()[[input$var_y]])
+              y_obs  <- as.integer(datos_finales()[[input$var_y]])
               y_pred <- as.integer(fitted(fit_cl) >= 0.5)
               tp <- sum(y_obs==1 & y_pred==1)
               tn <- sum(y_obs==0 & y_pred==0)
@@ -3219,7 +3266,7 @@ mod_glm_server <- function(id) {
           # El modelo nulo Poisson tiene devianza conocida:
           # D_nula = 2 * sum(y * log(y/mean(y)) - (y - mean(y)))
           d2 <- tryCatch({
-            df_y <- datos_activos()
+            df_y <- datos_finales()
             y    <- as.numeric(df_y[[input$var_y]])
             mu_0 <- mean(y, na.rm = TRUE)
             # Devianza nula Poisson
@@ -3410,7 +3457,7 @@ mod_glm_server <- function(id) {
                                      paste(preds_fm, collapse=" + ")))
         fit_glm  <- glm(fm_roc,
                         family = stats::binomial(link = input$enlace),
-                        data   = datos_activos())
+                        data   = datos_finales())
 
         roc_data <- performance::performance_roc(fit_glm)
         df_roc   <- as.data.frame(roc_data)
@@ -3461,7 +3508,7 @@ mod_glm_server <- function(id) {
       withProgress(message="Corriendo validación cruzada...",
                    value=0.2, {
                      tryCatch({
-                       df_cv <- datos_activos()
+                       df_cv <- datos_finales()
                        preds <- c(input$preds_num, input$preds_cat)
                        req(length(preds) > 0, input$var_y)
                        fam   <- input$familia
@@ -3617,7 +3664,7 @@ mod_glm_server <- function(id) {
         preds   = c(input$preds_num, input$preds_cat),
         var_y   = input$var_y,
         familia = input$familia,
-        datos   = datos_activos()
+        datos   = datos_finales()
       )
       modelos_guardados(actual)
       showNotification(paste0("Modelo '", nombre, "' guardado."),
