@@ -1273,9 +1273,28 @@ mod_lm_server <- function(id) {
       datos_activos()
     })
 
+    # ── Aplicar tipos elegidos por el usuario ─────────────────────────────────
+    datos_tipificados <- reactive({
+      df <- datos_activos_unif(); req(df)
+      tu <- tipos_usuario()
+      if (is.null(tu)) return(df)
+      for (nm in names(tu)) {
+        if (!nm %in% names(df)) next
+        tipo <- tu[[nm]]
+        if (is.null(tipo)) next
+        if (tipo == "factor" && !is.factor(df[[nm]]))
+          df[[nm]] <- factor(df[[nm]])
+        else if (tipo == "numeric" && !is.numeric(df[[nm]]))
+          df[[nm]] <- suppressWarnings(as.numeric(as.character(df[[nm]])))
+        else if (tipo == "excluir")
+          df[[nm]] <- NULL
+      }
+      df
+    })
+
     # ── Manejo de NAs ────────────────────────────────────────────────────────
     datos_finales <- reactive({
-      df <- datos_activos_unif()
+      df <- datos_tipificados()
       req(df)
       if (isTRUE(input$manejo_na == "eliminar")) {
         df <- tidyr::drop_na(df)
@@ -1284,7 +1303,7 @@ mod_lm_server <- function(id) {
     })
 
     output$na_info <- renderUI({
-      df_orig  <- datos_activos_unif()
+      df_orig  <- datos_tipificados()
       df_final <- datos_finales()
       req(df_orig)
       n_na <- sum(!stats::complete.cases(df_orig))
