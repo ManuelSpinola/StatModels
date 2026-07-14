@@ -561,7 +561,23 @@ mod_lm_ui <- function(id) {
                                icon = icon("rotate-left"))
                 )
               ),
-              uiOutput(ns("tipos_aplicados_msg"))
+              uiOutput(ns("tipos_aplicados_msg")),
+
+              tags$hr(),
+              layout_columns(
+                col_widths = c(4, 8),
+                radioButtons(
+                  ns("manejo_na"),
+                  label    = tagList(bs_icon("exclamation-diamond", class = "me-1"),
+                                     "Valores perdidos (NA)"),
+                  choices  = c(
+                    "Conservar"             = "conservar",
+                    "Eliminar filas con NA" = "eliminar"
+                  ),
+                  selected = "conservar"
+                ),
+                uiOutput(ns("na_info"))
+              )
             )
 
           )
@@ -1257,6 +1273,37 @@ mod_lm_server <- function(id) {
       datos_activos()
     })
 
+    # ── Manejo de NAs ────────────────────────────────────────────────────────
+    datos_finales <- reactive({
+      df <- datos_activos_unif()
+      req(df)
+      if (isTRUE(input$manejo_na == "eliminar")) {
+        df <- tidyr::drop_na(df)
+      }
+      df
+    })
+
+    output$na_info <- renderUI({
+      df_orig  <- datos_activos_unif()
+      df_final <- datos_finales()
+      req(df_orig)
+      n_na <- sum(!stats::complete.cases(df_orig))
+      if (n_na == 0) return(
+        div(class = "alert alert-success small py-2 px-3 mb-0",
+            bs_icon("check-circle", class = "me-1"), "Sin valores perdidos.")
+      )
+      n_elim <- nrow(df_orig) - nrow(df_final)
+      if (input$manejo_na == "eliminar")
+        div(class = "alert alert-warning small py-2 px-3 mb-0",
+            bs_icon("exclamation-triangle", class = "me-1"),
+            paste0(n_elim, " fila(s) eliminadas. Quedan ", nrow(df_final), " filas."))
+      else
+        div(class = "alert alert-info small py-2 px-3 mb-0",
+            bs_icon("info-circle", class = "me-1"),
+            paste0(n_na, " fila(s) con NA. El modelo puede fallar o excluirlas ",
+                   "autom\u00e1ticamente \u2014 pod\u00e9s eliminarlas arriba para mayor control."))
+    })
+
         output$tabla_tipos <- renderUI({
       df <- datos_activos_unif(); req(df)
       tu <- tipos_usuario()
@@ -1463,13 +1510,13 @@ mod_lm_server <- function(id) {
     })
 
     vars_numericas <- reactive({
-      df <- datos_activos_unif()
+      df <- datos_finales()
       req(df)
       names(df)[sapply(df, is.numeric)]
     })
 
     vars_categoricas <- reactive({
-      df <- datos_activos_unif()
+      df <- datos_finales()
       req(df)
       names(df)[sapply(df, function(x) is.factor(x) || is.character(x))]
     })
@@ -1477,7 +1524,7 @@ mod_lm_server <- function(id) {
     # ── Resumen y preview ────────────────────────────────
 
     output$resumen_datos <- renderUI({
-      df <- datos_activos_unif()
+      df <- datos_finales()
       if (is.null(df)) return(NULL)
       div(
         class = "small text-muted mt-2",
@@ -1489,7 +1536,7 @@ mod_lm_server <- function(id) {
     })
 
     output$cards_datos <- renderUI({
-      df <- datos_activos_unif()
+      df <- datos_finales()
       req(df)
       nnum <- length(vars_numericas())
       ncat <- length(vars_categoricas())
@@ -1525,7 +1572,7 @@ mod_lm_server <- function(id) {
     })
 
     output$tabla_preview <- renderDT({
-      df <- datos_activos_unif()
+      df <- datos_finales()
       req(df)
       datatable(
         df,
@@ -1559,7 +1606,7 @@ mod_lm_server <- function(id) {
     })
 
     output$cards_correlacion <- renderUI({
-      df  <- datos_activos_unif()
+      df  <- datos_finales()
       req(df, input$var_x)
       yv  <- vars_numericas()
       req(length(yv) >= 2)
@@ -1595,7 +1642,7 @@ mod_lm_server <- function(id) {
     })
 
     output$plot_scatter <- renderPlot(suppressWarnings({
-      df   <- datos_activos_unif()
+      df   <- datos_finales()
       req(df, input$var_x)
       yv   <- vars_numericas()
       req(length(yv) >= 2)
@@ -1647,7 +1694,7 @@ mod_lm_server <- function(id) {
     }), res = 110)
 
     output$insight_scatter <- renderUI({
-      df   <- datos_activos_unif()
+      df   <- datos_finales()
       req(df, input$var_x)
       yv   <- vars_numericas()
       req(length(yv) >= 2)
@@ -1730,7 +1777,7 @@ mod_lm_server <- function(id) {
     })
 
     modelo_lm <- eventReactive(input$ajustar, {
-      df  <- datos_activos_unif()
+      df  <- datos_finales()
       req(df, input$var_y)
 
       preds <- c(input$preds_num, input$preds_cat)
@@ -1767,7 +1814,7 @@ mod_lm_server <- function(id) {
     # ── Modelo estandarizado (para importancia de variables) ──
 
     modelo_lm_std <- eventReactive(input$ajustar, {
-      df    <- datos_activos_unif(); req(df, input$var_y)
+      df    <- datos_finales(); req(df, input$var_y)
       preds <- c(input$preds_num, input$preds_cat)
       req(length(preds) > 0)
       preds_num <- input$preds_num
@@ -2231,7 +2278,7 @@ mod_lm_server <- function(id) {
       withProgress(message = "Corriendo validación cruzada...",
                    value = 0.2, {
                      tryCatch({
-                       df_cv <- datos_activos_unif()
+                       df_cv <- datos_finales()
                        preds <- c(input$preds_num, input$preds_cat)
                        req(length(preds) > 0, input$var_y)
 
@@ -2360,7 +2407,7 @@ mod_lm_server <- function(id) {
         formula = deparse(formula(fit)),
         preds   = c(input$preds_num, input$preds_cat),
         var_y   = input$var_y,
-        datos   = datos_activos_unif()
+        datos   = datos_finales()
       )
       modelos_guardados_lm(actual)
       showNotification(paste0("Modelo '", nombre, "' guardado."),
@@ -2816,7 +2863,7 @@ mod_lm_server <- function(id) {
 
     output$marginal_valores_tipicos_lm <- renderUI({
       fit   <- modelo_lm(); req(fit, input$pred_marginal_lm)
-      df    <- datos_activos_unif()
+      df    <- datos_finales()
       preds <- c(input$preds_num, input$preds_cat)
       otros <- preds[preds != input$pred_marginal_lm]
       if (length(otros) == 0) return(NULL)
@@ -2833,7 +2880,7 @@ mod_lm_server <- function(id) {
 
     output$plot_marginal_lm <- renderPlot({
       fit  <- modelo_lm(); req(fit, input$pred_marginal_lm)
-      df   <- datos_activos_unif()
+      df   <- datos_finales()
       pred <- input$pred_marginal_lm
       es_cat <- pred %in% vars_categoricas()
 
@@ -2921,7 +2968,7 @@ mod_lm_server <- function(id) {
 
     output$inputs_prediccion_lm <- renderUI({
       fit   <- modelo_lm(); req(fit)
-      df    <- datos_activos_unif()
+      df    <- datos_finales()
       preds <- c(input$preds_num, input$preds_cat)
       req(length(preds) > 0)
       inputs <- lapply(preds, function(nm) {
@@ -2950,7 +2997,7 @@ mod_lm_server <- function(id) {
     resultado_prediccion_lm_data <- eventReactive(
       input$calcular_prediccion_lm, {
         fit   <- modelo_lm(); req(fit)
-        df    <- datos_activos_unif()
+        df    <- datos_finales()
         preds <- c(input$preds_num, input$preds_cat)
         req(length(preds) > 0)
         nueva_obs <- tryCatch({
