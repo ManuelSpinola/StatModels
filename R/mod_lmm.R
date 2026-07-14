@@ -413,7 +413,23 @@ mod_lmm_ui <- function(id) {
                                icon  = icon("rotate-left"))
                 )
               ),
-              uiOutput(ns("tipos_aplicados_msg"))
+              uiOutput(ns("tipos_aplicados_msg")),
+
+              tags$hr(),
+              layout_columns(
+                col_widths = c(4, 8),
+                radioButtons(
+                  ns("manejo_na"),
+                  label    = tagList(bs_icon("exclamation-diamond", class = "me-1"),
+                                     "Valores perdidos (NA)"),
+                  choices  = c(
+                    "Conservar"             = "conservar",
+                    "Eliminar filas con NA" = "eliminar"
+                  ),
+                  selected = "conservar"
+                ),
+                uiOutput(ns("na_info"))
+              )
             )
           )
         )
@@ -985,31 +1001,41 @@ mod_lmm_server <- function(id) {
     output$sel_fuente_datos <- renderUI({ NULL }) # ya no se usa — radioButtons directo en UI
 
     datos_activos <- reactive({
-      fuente <- if (!is.null(input$fuente_datos) && nchar(input$fuente_datos) > 0)
-        input$fuente_datos else "plantulas"
       tu <- tipos_usuario()
 
-      df <- if (fuente == "plantulas") {
-        tryCatch({
-          e <- new.env()
-          load(system.file("app/data/plantulas_lmm.rda",
-                           package = "StatModels"), envir = e)
-          e$plantulas_lmm
-        }, error = function(err) {
-          showNotification("Archivo plantulas_lmm.rda no encontrado.",
-                           type = "error", duration = 6)
-          NULL
-        })
-      } else {
-        tryCatch({
-          df <- as.data.frame(lme4::sleepstudy)
-          df$Subject <- as.factor(df$Subject)
-          df
-        }, error = function(err) {
-          showNotification("lme4::sleepstudy no disponible.",
-                           type = "error", duration = 6)
-          NULL
-        })
+      # Prioriza el archivo subido si existe
+      df <- NULL
+      if (!is.null(input$archivo)) {
+        dp <- try(datos_propio_lmm(), silent = TRUE)
+        if (!inherits(dp, "try-error") && !is.null(dp)) df <- dp
+      }
+
+      if (is.null(df)) {
+        fuente <- if (!is.null(input$fuente_datos) && nchar(input$fuente_datos) > 0)
+          input$fuente_datos else "plantulas"
+
+        df <- if (fuente == "plantulas") {
+          tryCatch({
+            e <- new.env()
+            load(system.file("app/data/plantulas_lmm.rda",
+                             package = "StatModels"), envir = e)
+            e$plantulas_lmm
+          }, error = function(err) {
+            showNotification("Archivo plantulas_lmm.rda no encontrado.",
+                             type = "error", duration = 6)
+            NULL
+          })
+        } else {
+          tryCatch({
+            df <- as.data.frame(lme4::sleepstudy)
+            df$Subject <- as.factor(df$Subject)
+            df
+          }, error = function(err) {
+            showNotification("lme4::sleepstudy no disponible.",
+                             type = "error", duration = 6)
+            NULL
+          })
+        }
       }
 
       req(df)
@@ -1027,6 +1053,37 @@ mod_lmm_server <- function(id) {
         }
       }
       df
+    })
+
+    # ── Manejo de NAs ────────────────────────────────────────────────────────
+    datos_finales <- reactive({
+      df <- datos_activos()
+      req(df)
+      if (isTRUE(input$manejo_na == "eliminar")) {
+        df <- tidyr::drop_na(df)
+      }
+      df
+    })
+
+    output$na_info <- renderUI({
+      df_orig  <- datos_activos()
+      df_final <- datos_finales()
+      req(df_orig)
+      n_na <- sum(!stats::complete.cases(df_orig))
+      if (n_na == 0) return(
+        div(class = "alert alert-success small py-2 px-3 mb-0",
+            bs_icon("check-circle", class = "me-1"), "Sin valores perdidos.")
+      )
+      n_elim <- nrow(df_orig) - nrow(df_final)
+      if (input$manejo_na == "eliminar")
+        div(class = "alert alert-warning small py-2 px-3 mb-0",
+            bs_icon("exclamation-triangle", class = "me-1"),
+            paste0(n_elim, " fila(s) eliminadas. Quedan ", nrow(df_final), " filas."))
+      else
+        div(class = "alert alert-info small py-2 px-3 mb-0",
+            bs_icon("info-circle", class = "me-1"),
+            paste0(n_na, " fila(s) con NA. El modelo puede fallar o excluirlas ",
+                   "autom\u00e1ticamente \u2014 pod\u00e9s eliminarlas arriba para mayor control."))
     })
 
     # ── Datos propios ─────────────────────────────────
@@ -1089,18 +1146,19 @@ mod_lmm_server <- function(id) {
     })
 
     vars_numericas <- reactive({
-      df <- datos_activos(); req(df)
+      df <- datos_finales(); req(df)
       names(df)[sapply(df, is.numeric)]
     })
 
     vars_categoricas <- reactive({
-      df <- datos_activos(); req(df)
+      df <- datos_finales(); req(df)
       names(df)[sapply(df, function(x) is.factor(x) || is.character(x))]
     })
 
     # ── Tipos de variables ────────────────────────────────
     tipos_usuario <- reactiveVal(NULL)
     observeEvent(input$fuente_datos, { tipos_usuario(NULL) })
+    observeEvent(input$archivo, { tipos_usuario(NULL) })
     observeEvent(input$resetear_tipos, {
       tipos_usuario(NULL)
       showNotification("Tipos restaurados.", type = "message", duration = 2)
@@ -1223,7 +1281,7 @@ mod_lmm_server <- function(id) {
     })
 
     output$resumen_datos <- renderUI({
-      df <- datos_activos(); req(df)
+      df <- datos_finales(); req(df)
       div(class = "small text-muted mt-2",
           bs_icon("check-circle-fill", class = "me-1",
                   style = paste0("color:", colores$exito)),
@@ -1231,7 +1289,7 @@ mod_lmm_server <- function(id) {
     })
 
     output$cards_datos <- renderUI({
-      df <- datos_activos(); req(df)
+      df <- datos_finales(); req(df)
       nnum <- length(vars_numericas())
       ncat <- length(vars_categoricas())
       layout_columns(
@@ -1255,7 +1313,7 @@ mod_lmm_server <- function(id) {
     })
 
     output$tabla_preview <- renderDT({
-      df <- datos_activos(); req(df)
+      df <- datos_finales(); req(df)
       datatable(df,
                 options = list(dom = "t", scrollY = "300px", scrollX = TRUE, paging = FALSE),
                 rownames = FALSE,
@@ -1289,7 +1347,7 @@ mod_lmm_server <- function(id) {
     })
 
     output$plot_spaghetti <- renderPlot({
-      df <- datos_activos()
+      df <- datos_finales()
       req(df, input$var_y_exp, input$var_x_exp, input$grupo_exp)
       tryCatch({
         p <- ggplot2::ggplot(df,
@@ -1340,7 +1398,7 @@ mod_lmm_server <- function(id) {
     }, res = 96)
 
     output$insight_estructura <- renderUI({
-      df <- datos_activos()
+      df <- datos_finales()
       req(df, input$grupo_exp, input$var_y_exp)
       tryCatch({
         grupos <- unique(df[[input$grupo_exp]])
@@ -1376,7 +1434,7 @@ mod_lmm_server <- function(id) {
     })
 
     output$sel_efectos_fijos <- renderUI({
-      df <- datos_activos(); req(df, input$var_y)
+      df <- datos_finales(); req(df, input$var_y)
       opts <- names(df)[names(df) != input$var_y]
       checkboxGroupInput(ns("efectos_fijos"), label = NULL,
                          choices = opts,
@@ -1440,7 +1498,7 @@ mod_lmm_server <- function(id) {
     # ── Ajuste del modelo ─────────────────────────────────
 
     modelo_lmm <- eventReactive(input$ajustar, {
-      df <- datos_activos(); req(df, input$var_y, input$efectos_fijos)
+      df <- datos_finales(); req(df, input$var_y, input$efectos_fijos)
       fijos <- input$efectos_fijos
       re    <- tryCatch(formula_re(), error = function(e) NULL)
       req(re)
@@ -2087,7 +2145,7 @@ mod_lmm_server <- function(id) {
 
     output$plot_efecto <- renderPlot({
       fm <- modelo_lmm(); req(fm, input$pred_efecto)
-      df <- datos_activos(); req(df)
+      df <- datos_finales(); req(df)
       tryCatch({
         rel <- modelbased::estimate_relation(fm,
                  by = input$pred_efecto, verbose = FALSE)
@@ -2141,7 +2199,7 @@ mod_lmm_server <- function(id) {
 
     output$inputs_prediccion <- renderUI({
       fm <- modelo_lmm(); req(fm)
-      df <- datos_activos()
+      df <- datos_finales()
       preds <- input$efectos_fijos; req(length(preds) > 0)
       inputs <- lapply(preds, function(nm) {
         col <- df[[nm]]
@@ -2158,7 +2216,7 @@ mod_lmm_server <- function(id) {
 
     resultado_pred <- eventReactive(input$calcular_prediccion, {
       fm <- modelo_lmm(); req(fm)
-      df <- datos_activos()
+      df <- datos_finales()
       preds <- input$efectos_fijos; req(length(preds) > 0)
       tryCatch({
         vals <- lapply(preds, function(nm) {
