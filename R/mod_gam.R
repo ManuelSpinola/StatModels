@@ -432,7 +432,23 @@ mod_gam_ui <- function(id) {
                              icon = icon("rotate-left"))
               )
             ),
-            uiOutput(ns("tipos_aplicados_msg"))
+            uiOutput(ns("tipos_aplicados_msg")),
+
+            tags$hr(),
+            layout_columns(
+              col_widths = c(4, 8),
+              radioButtons(
+                ns("manejo_na"),
+                label    = tagList(bs_icon("exclamation-diamond", class = "me-1"),
+                                   "Valores perdidos (NA)"),
+                choices  = c(
+                  "Conservar"             = "conservar",
+                  "Eliminar filas con NA" = "eliminar"
+                ),
+                selected = "conservar"
+              ),
+              uiOutput(ns("na_info"))
+            )
           )
 
         )
@@ -1147,6 +1163,56 @@ mod_gam_server <- function(id) {
       datos_activos()
     })
 
+    # ── Aplicar tipos elegidos por el usuario ─────────────────────────────────
+    datos_tipificados <- reactive({
+      df <- datos_activos_unif(); req(df)
+      tu <- tipos_usuario()
+      if (is.null(tu)) return(df)
+      for (nm in names(tu)) {
+        if (!nm %in% names(df)) next
+        tipo <- tu[[nm]]
+        if (is.null(tipo)) next
+        if (tipo == "factor" && !is.factor(df[[nm]]))
+          df[[nm]] <- factor(df[[nm]])
+        else if (tipo == "numeric" && !is.numeric(df[[nm]]))
+          df[[nm]] <- suppressWarnings(as.numeric(as.character(df[[nm]])))
+        else if (tipo == "excluir")
+          df[[nm]] <- NULL
+      }
+      df
+    })
+
+    # ── Manejo de NAs ────────────────────────────────────────────────────────
+    datos_finales <- reactive({
+      df <- datos_tipificados()
+      req(df)
+      if (isTRUE(input$manejo_na == "eliminar")) {
+        df <- tidyr::drop_na(df)
+      }
+      df
+    })
+
+    output$na_info <- renderUI({
+      df_orig  <- datos_tipificados()
+      df_final <- datos_finales()
+      req(df_orig)
+      n_na <- sum(!stats::complete.cases(df_orig))
+      if (n_na == 0) return(
+        div(class = "alert alert-success small py-2 px-3 mb-0",
+            bs_icon("check-circle", class = "me-1"), "Sin valores perdidos.")
+      )
+      n_elim <- nrow(df_orig) - nrow(df_final)
+      if (input$manejo_na == "eliminar")
+        div(class = "alert alert-warning small py-2 px-3 mb-0",
+            bs_icon("exclamation-triangle", class = "me-1"),
+            paste0(n_elim, " fila(s) eliminadas. Quedan ", nrow(df_final), " filas."))
+      else
+        div(class = "alert alert-info small py-2 px-3 mb-0",
+            bs_icon("info-circle", class = "me-1"),
+            paste0(n_na, " fila(s) con NA. El modelo puede fallar o excluirlas ",
+                   "autom\u00e1ticamente \u2014 pod\u00e9s eliminarlas arriba para mayor control."))
+    })
+
     # Vista previa datos propios
     output$resumen_datos_propio <- renderUI({
       req(datos_propio_gam())
@@ -1189,12 +1255,12 @@ mod_gam_server <- function(id) {
     })
 
     vars_numericas <- reactive({
-      df <- datos_activos_unif(); req(df)
+      df <- datos_finales(); req(df)
       names(df)[sapply(df, is.numeric)]
     })
 
     vars_categoricas <- reactive({
-      df <- datos_activos_unif(); req(df)
+      df <- datos_finales(); req(df)
       names(df)[sapply(df, function(x) is.factor(x) || is.character(x))]
     })
 
@@ -1367,7 +1433,7 @@ mod_gam_server <- function(id) {
     })
 
     output$cards_datos <- renderUI({
-      df <- datos_activos_unif(); req(df)
+      df <- datos_finales(); req(df)
       nnum <- length(vars_numericas())
       ncat <- length(vars_categoricas())
       layout_columns(
@@ -1391,14 +1457,14 @@ mod_gam_server <- function(id) {
     })
 
     output$resumen_datos <- renderUI({
-      df <- datos_activos_unif(); req(df)
+      df <- datos_finales(); req(df)
       div(class = "small text-muted mt-2",
           bs_icon("info-circle", class = "me-1"),
           paste0(nrow(df), " filas \u00b7 ", ncol(df), " columnas"))
     })
 
     output$tabla_preview <- renderDT({
-      df <- datos_activos_unif(); req(df)
+      df <- datos_finales(); req(df)
       datatable(df,
                 options = list(dom = "t", scrollY = "300px",
                                scrollX = TRUE, paging = FALSE),
