@@ -1000,10 +1000,8 @@ mod_lmm_server <- function(id) {
 
     output$sel_fuente_datos <- renderUI({ NULL }) # ya no se usa — radioButtons directo en UI
 
-    datos_activos <- reactive({
-      tu <- tipos_usuario()
-
-      # Prioriza el archivo subido si existe
+    # datos_base_lmm: solo selecciona la fuente (propio o ejemplo), sin tipos
+    datos_base_lmm <- reactive({
       df <- NULL
       if (!is.null(input$archivo)) {
         dp <- try(datos_propio_lmm(), silent = TRUE)
@@ -1037,27 +1035,15 @@ mod_lmm_server <- function(id) {
           })
         }
       }
-
       req(df)
-      if (!is.null(tu)) {
-        for (nm in names(tu)) {
-          if (!nm %in% names(df)) next
-          tipo <- tu[[nm]]
-          if (is.null(tipo)) next
-          if (tipo == "factor" && !is.factor(df[[nm]]))
-            df[[nm]] <- factor(df[[nm]])
-          else if (tipo == "numeric" && !is.numeric(df[[nm]]))
-            df[[nm]] <- suppressWarnings(as.numeric(as.character(df[[nm]])))
-          else if (tipo == "excluir")
-            df[[nm]] <- NULL
-        }
-      }
       df
     })
 
+    datos_mod <- reactiveVal(NULL)
+
     # ── Manejo de NAs ────────────────────────────────────────────────────────
     datos_finales <- reactive({
-      df <- datos_activos()
+      df <- datos_mod()
       req(df)
       if (isTRUE(input$manejo_na == "eliminar")) {
         df <- tidyr::drop_na(df)
@@ -1066,7 +1052,7 @@ mod_lmm_server <- function(id) {
     })
 
     output$na_info <- renderUI({
-      df_orig  <- datos_activos()
+      df_orig  <- datos_mod()
       df_final <- datos_finales()
       req(df_orig)
       n_na <- sum(!stats::complete.cases(df_orig))
@@ -1157,22 +1143,40 @@ mod_lmm_server <- function(id) {
 
     # ── Tipos de variables ────────────────────────────────
     tipos_usuario <- reactiveVal(NULL)
-    observeEvent(input$fuente_datos, { tipos_usuario(NULL) })
-    observeEvent(input$archivo, { tipos_usuario(NULL) })
+
+    observeEvent(datos_base_lmm(), {
+      tipos_usuario(NULL)
+      datos_mod(datos_base_lmm())
+    })
+
     observeEvent(input$resetear_tipos, {
       tipos_usuario(NULL)
+      datos_mod(datos_base_lmm())
       showNotification("Tipos restaurados.", type = "message", duration = 2)
     })
+
     observeEvent(input$aplicar_tipos, {
-      df <- datos_activos(); req(df)
-      nuevos <- lapply(names(df), function(nm) input[[paste0("tipo_", nm)]])
-      names(nuevos) <- names(df)
+      req(datos_mod())
+      d <- datos_mod()
+      nuevos <- lapply(names(d), function(nm) input[[paste0("tipo_", nm)]])
+      names(nuevos) <- names(d)
       tipos_usuario(nuevos)
+      for (nm in names(nuevos)) {
+        tipo <- nuevos[[nm]]
+        if (is.null(tipo) || !nm %in% names(d)) next
+        if (tipo == "factor" && !is.factor(d[[nm]]))
+          d[[nm]] <- factor(d[[nm]])
+        else if (tipo == "numeric" && !is.numeric(d[[nm]]))
+          d[[nm]] <- suppressWarnings(as.numeric(as.character(d[[nm]])))
+        else if (tipo == "excluir")
+          d[[nm]] <- NULL
+      }
+      datos_mod(d)
       showNotification("Tipos aplicados.", type = "message", duration = 2)
     })
 
     output$tabla_tipos <- renderUI({
-      df <- datos_activos(); req(df)
+      df <- datos_mod(); req(df)
       tu <- tipos_usuario()
       filas <- lapply(names(df), function(nm) {
         col    <- df[[nm]]
