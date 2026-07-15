@@ -11,36 +11,6 @@ mod_gam_ui <- function(id) {
   ns <- NS(id)
 
   tagList(
-  div(
-    class = "px-1 pt-2 pb-2",
-    layout_columns(
-      col_widths = c(9, 3),
-      div(
-        h4(style = paste0("color:", colores$primario,
-                          "; font-weight:700; margin-bottom:4px;"),
-           bs_icon("bezier2", class = "me-2"),
-           "Modelo Aditivo Generalizado (GAM)"),
-        p(class = "text-muted small mb-0",
-          "Extiende el modelo lineal reemplazando los efectos lineales por ",
-          strong("funciones suaves no param\u00e9tricas"), " (splines). ",
-          "Ideal cuando la relaci\u00f3n entre X e Y es no lineal \u2014 curva, ",
-          "sinuosa o con un m\u00e1ximo/m\u00ednimo. El modelo aprende la forma ",
-          "de la relaci\u00f3n directamente de los datos. Paquete: ",
-          strong("mgcv"), " \u00b7 visualizaci\u00f3n con ", strong("gratia"),
-          " y ", strong("easystats"), "."
-        )
-      ),
-      div(
-        class = "text-end pt-1",
-        tags$span(
-          class = "badge",
-          style = paste0("background:", colores$primario,
-                         "; font-size:0.8rem; padding:6px 12px;"),
-          bs_icon("bezier2", class = "me-1"), "mgcv"
-        )
-      )
-    )
-  ),
 
   navset_card_tab(
     id = ns("pestanas"),
@@ -49,8 +19,42 @@ mod_gam_ui <- function(id) {
     # PESTAÑA 1: ¿Qué es?
     # ════════════════════════════════════════════════
     nav_panel(
+      fillable = FALSE,
       title = tagList(bs_icon("book", class = "me-1"), "\u00bfQu\u00e9 es?"),
       card_body(
+
+        div(
+          class = "px-1 pb-2",
+          layout_columns(
+            col_widths = c(9, 3),
+            fill = FALSE,
+            div(
+              h4(style = paste0("color:", colores$primario,
+                                "; font-weight:700; margin-bottom:4px;"),
+                 bs_icon("bezier2", class = "me-2"),
+                 "Modelo Aditivo Generalizado (GAM)"),
+              p(class = "text-muted small mb-0",
+                "Extiende el modelo lineal reemplazando los efectos lineales por ",
+                strong("funciones suaves no param\u00e9tricas"), " (splines). ",
+                "Ideal cuando la relaci\u00f3n entre X e Y es no lineal \u2014 curva, ",
+                "sinuosa o con un m\u00e1ximo/m\u00ednimo. El modelo aprende la forma ",
+                "de la relaci\u00f3n directamente de los datos. Paquete: ",
+                strong("mgcv"), " \u00b7 visualizaci\u00f3n con ", strong("gratia"),
+                " y ", strong("easystats"), "."
+              )
+            ),
+            div(
+              class = "text-end pt-1",
+              tags$span(
+                class = "badge",
+                style = paste0("background:", colores$primario,
+                               "; font-size:0.8rem; padding:6px 12px;"),
+                bs_icon("bezier2", class = "me-1"), "mgcv"
+              )
+            )
+          )
+        ),
+
 
         # ── Intro ────────────────────────────────────
         h4(style = paste0("color:", colores$primario, "; font-weight:700;"),
@@ -68,6 +72,7 @@ mod_gam_ui <- function(id) {
           fill = FALSE,
 
           card(
+            fill = FALSE,
             card_header(
               bs_icon("question-circle", class = "me-1"),
               "\u00bfCu\u00e1ndo usar un GAM?"
@@ -93,6 +98,7 @@ mod_gam_ui <- function(id) {
           ),
 
           card(
+            fill = FALSE,
             card_header(
               bs_icon("code-slash", class = "me-1"),
               "Anatom\u00eda de la f\u00f3rmula"
@@ -148,6 +154,7 @@ mod_gam_ui <- function(id) {
         # ── Fila 2: k ────────────────────────────────
         div(class = "mt-3",
           card(
+            fill = FALSE,
             card_header(
               bs_icon("sliders", class = "me-1"),
               "Par\u00e1metro k \u2014 techo de flexibilidad"
@@ -239,11 +246,13 @@ mod_gam_ui <- function(id) {
     # PESTAÑA 2: Fundamentos
     # ════════════════════════════════════════════════
     nav_panel(
+      fillable = FALSE,
       title = tagList(bs_icon("journal-bookmark", class = "me-1"),
                       "Fundamentos"),
       card_body(
         layout_columns(
           col_widths = c(6, 6),
+          fill = FALSE,
 
           div(
             h5(style = paste0("color:", colores$primario, "; font-weight:700;"),
@@ -325,16 +334,19 @@ mod_gam_ui <- function(id) {
     # PESTAÑA 3: Los datos
     # ════════════════════════════════════════════════
     nav_panel(
+      fillable = FALSE,
       title = tagList(bs_icon("table", class = "me-1"), "Los datos"),
       card_body(
         navset_pill(
 
           nav_panel(
+            fillable = FALSE,
             title = tagList(bs_icon("collection", class = "me-1"),
                             "Datos de ejemplo"),
             br(),
             layout_columns(
               col_widths = c(4, 8),
+              fill = FALSE,
               div(
                 radioButtons(
                   ns("fuente_datos"),
@@ -354,6 +366,7 @@ mod_gam_ui <- function(id) {
                 uiOutput(ns("info_dataset"))
               ),
               card(
+                fill = FALSE,
                 card_header(bs_icon("eye", class = "me-1"), "Vista previa"),
                 card_body(
                   style = "overflow: auto;",
@@ -366,11 +379,13 @@ mod_gam_ui <- function(id) {
           ),
 
           nav_panel(
+            fillable = FALSE,
             title = tagList(bs_icon("folder2-open", class = "me-1"),
                             "Mis datos"),
             br(),
             layout_columns(
               col_widths = c(4, 8),
+              fill = FALSE,
               div(
                 p(class = "small text-muted mb-3",
                   bs_icon("info-circle", class = "me-1"),
@@ -397,6 +412,7 @@ mod_gam_ui <- function(id) {
                 uiOutput(ns("resumen_datos_propio"))
               ),
               card(
+                fill = FALSE,
                 card_header(bs_icon("eye", class = "me-1"), "Vista previa"),
                 card_body(
                   style = "overflow: auto;",
@@ -409,6 +425,7 @@ mod_gam_ui <- function(id) {
           ),
 
           nav_panel(
+            fillable = FALSE,
             title = tagList(bs_icon("sliders2", class = "me-1"),
                             "Tipos de variables"),
             br(),
@@ -421,6 +438,7 @@ mod_gam_ui <- function(id) {
             ),
             layout_columns(
               col_widths = c(10, 2),
+              fill = FALSE,
               uiOutput(ns("tabla_tipos")),
               div(
                 class = "pt-2",
@@ -437,6 +455,7 @@ mod_gam_ui <- function(id) {
             tags$hr(),
             layout_columns(
               col_widths = c(4, 8),
+              fill = FALSE,
               radioButtons(
                 ns("manejo_na"),
                 label    = tagList(bs_icon("exclamation-diamond", class = "me-1"),
@@ -458,6 +477,7 @@ mod_gam_ui <- function(id) {
     # PESTAÑA 4: Explorar
     # ════════════════════════════════════════════════
     nav_panel(
+      fillable = FALSE,
       title = tagList(bs_icon("zoom-in", class = "me-1"), "Explorar"),
       card_body(
         p(class = "small text-muted mb-3",
@@ -469,6 +489,7 @@ mod_gam_ui <- function(id) {
           col_widths = c(4, 8),
           fill = FALSE,
           card(
+            fill = FALSE,
             card_header(bs_icon("sliders", class = "me-1"), "Controles"),
             card_body(
               style = "overflow: visible; height: auto;",
@@ -496,12 +517,15 @@ mod_gam_ui <- function(id) {
     # PESTAÑA 5: Ajustar modelo
     # ════════════════════════════════════════════════
     nav_panel(
+      fillable = FALSE,
       title = tagList(bs_icon("gear", class = "me-1"), "Ajustar modelo"),
       card_body(
         layout_columns(
           col_widths = c(4, 8),
+          fill = FALSE,
 
           card(
+            fill = FALSE,
             card_header(bs_icon("sliders", class = "me-1"),
                         "Especificaci\u00f3n del modelo"),
             card_body(
@@ -618,6 +642,7 @@ mod_gam_ui <- function(id) {
             br(),
             uiOutput(ns("aviso_k")),
             card(
+              fill = FALSE,
               card_header(bs_icon("list-ol", class = "me-1"),
                           "F\u00f3rmula ajustada"),
               card_body(
@@ -634,6 +659,7 @@ mod_gam_ui <- function(id) {
     # PESTAÑA 6: Diagnóstico
     # ════════════════════════════════════════════════
     nav_panel(
+      fillable = FALSE,
       title = tagList(bs_icon("clipboard-check", class = "me-1"),
                       "Diagn\u00f3stico"),
       div(
@@ -647,6 +673,7 @@ mod_gam_ui <- function(id) {
           col_widths = c(6, 6),
           fill = FALSE,
           card(
+            fill = FALSE,
             card_header(bs_icon("graph-up", class = "me-1"),
                         "Gr\u00e1ficos de diagn\u00f3stico",
                         span(class = "text-muted small ms-2",
@@ -716,6 +743,7 @@ mod_gam_ui <- function(id) {
           ),
           div(
             card(
+              fill = FALSE,
               class = "mb-3",
               card_header(bs_icon("terminal", class = "me-1"),
                           "Salida de gam.check()",
@@ -727,6 +755,7 @@ mod_gam_ui <- function(id) {
               )
             ),
             card(
+              fill = FALSE,
               class = "mb-3",
               card_header(bs_icon("table", class = "me-1"),
                           "Verificaci\u00f3n de k",
@@ -741,6 +770,7 @@ mod_gam_ui <- function(id) {
               )
             ),
             card(
+              fill = FALSE,
               class = "mb-0",
               card_header(bs_icon("diagram-3", class = "me-1"),
                           "Concurvidad",
@@ -763,6 +793,7 @@ mod_gam_ui <- function(id) {
     # PESTAÑA 7: Performance
     # ════════════════════════════════════════════════
     nav_panel(
+      fillable = FALSE,
       title = tagList(bs_icon("speedometer2", class = "me-1"),
                       "Performance"),
       div(
@@ -775,6 +806,7 @@ mod_gam_ui <- function(id) {
           col_widths = c(6, 6),
           fill = FALSE,
           card(
+            fill = FALSE,
             card_header(
               bs_icon("speedometer2", class = "me-1"),
               "M\u00e9tricas del modelo",
@@ -787,6 +819,7 @@ mod_gam_ui <- function(id) {
             )
           ),
           card(
+            fill = FALSE,
             card_header(
               bs_icon("arrow-repeat", class = "me-1"),
               "Validaci\u00f3n cruzada",
@@ -800,6 +833,7 @@ mod_gam_ui <- function(id) {
                 strong("datos nuevos"), "?"),
               layout_columns(
                 col_widths = c(4, 4, 4),
+                fill = FALSE,
                 numericInput(ns("cv_folds"), "Folds:", value = 10,
                              min = 3, max = 20),
                 div(class = "pt-4",
@@ -822,6 +856,7 @@ mod_gam_ui <- function(id) {
     # PESTAÑA 8: Parámetros
     # ════════════════════════════════════════════════
     nav_panel(
+      fillable = FALSE,
       title = tagList(bs_icon("list-ol", class = "me-1"),
                       "Par\u00e1metros"),
       div(
@@ -836,6 +871,7 @@ mod_gam_ui <- function(id) {
           col_widths = c(6, 6),
           fill = FALSE,
           card(
+            fill = FALSE,
             card_header(
               bs_icon("layout-text-sidebar", class = "me-1"),
               "T\u00e9rminos param\u00e9tricos",
@@ -848,6 +884,7 @@ mod_gam_ui <- function(id) {
             )
           ),
           card(
+            fill = FALSE,
             card_header(
               bs_icon("bezier2", class = "me-1"),
               "T\u00e9rminos suaves (EDF)",
@@ -864,6 +901,7 @@ mod_gam_ui <- function(id) {
         ),
         div(class = "mt-3",
           card(
+            fill = FALSE,
             card_header(
               bs_icon("bar-chart-steps", class = "me-1"),
               "Importancia de variables",
@@ -888,6 +926,7 @@ mod_gam_ui <- function(id) {
     # PESTAÑA 9: Efectos marginales
     # ════════════════════════════════════════════════
     nav_panel(
+      fillable = FALSE,
       title = tagList(bs_icon("bezier2", class = "me-1"),
                       "Efectos marginales"),
       div(
@@ -902,6 +941,7 @@ mod_gam_ui <- function(id) {
           col_widths = c(4, 8),
           fill = FALSE,
           card(
+            fill = FALSE,
             card_header(bs_icon("sliders", class = "me-1"), "Controles"),
             card_body(
               style = "overflow: visible; height: auto;",
@@ -926,6 +966,7 @@ mod_gam_ui <- function(id) {
           ),
           div(
             card(
+              fill = FALSE,
               class = "mb-3",
               card_header(
                 bs_icon("bezier2", class = "me-1"),
@@ -943,6 +984,7 @@ mod_gam_ui <- function(id) {
         ),
         div(class = "mt-3",
           card(
+            fill = FALSE,
             card_header(
               bs_icon("graph-up-arrow", class = "me-1"),
               "Predicho vs. Observado",
@@ -962,6 +1004,7 @@ mod_gam_ui <- function(id) {
     # PESTAÑA 10: Contrastes
     # ════════════════════════════════════════════════
     nav_panel(
+      fillable = FALSE,
       title = tagList(bs_icon("arrows-angle-expand", class = "me-1"),
                       "Contrastes"),
       div(
@@ -977,7 +1020,9 @@ mod_gam_ui <- function(id) {
         uiOutput(ns("contrasts_no_cat_msg_gam")),
         layout_columns(
           col_widths = c(4, 8),
+          fill = FALSE,
           card(
+            fill = FALSE,
             card_header(bs_icon("sliders", class = "me-1"), "Controles"),
             card_body(
               uiOutput(ns("sel_var_contraste_gam")),
@@ -997,12 +1042,14 @@ mod_gam_ui <- function(id) {
           ),
           div(
             card(
+              fill = FALSE,
               class = "mb-3",
               card_header(bs_icon("table", class = "me-1"),
                           "Tabla de contrastes"),
               card_body(uiOutput(ns("tabla_contrastes_gam")))
             ),
             card(
+              fill = FALSE,
               class = "mb-0",
               card_header(bs_icon("bar-chart-fill", class = "me-1"),
                           "Visualización de contrastes"),
@@ -1019,6 +1066,7 @@ mod_gam_ui <- function(id) {
     # PESTAÑA 11: Comparar modelos
     # ════════════════════════════════════════════════
     nav_panel(
+      fillable = FALSE,
       title = tagList(bs_icon("arrow-left-right", class = "me-1"),
                       "Comparar modelos"),
       div(
@@ -1030,8 +1078,10 @@ mod_gam_ui <- function(id) {
         ),
         layout_columns(
           col_widths = c(4, 8),
+          fill = FALSE,
 
           card(
+            fill = FALSE,
             card_header(bs_icon("list-check", class = "me-1"),
                         "Modelos guardados"),
             card_body(
@@ -1045,6 +1095,7 @@ mod_gam_ui <- function(id) {
 
           div(
             card(
+              fill = FALSE,
               class = "mb-3",
               card_header(
                 bs_icon("table", class = "me-1"),
@@ -1058,6 +1109,7 @@ mod_gam_ui <- function(id) {
               )
             ),
             card(
+              fill = FALSE,
               class = "mb-0",
               card_header(
                 bs_icon("diagram-3", class = "me-1"),
@@ -1081,6 +1133,7 @@ mod_gam_ui <- function(id) {
     # PESTAÑA 12: Código R
     # ════════════════════════════════════════════════
     nav_panel(
+      fillable = FALSE,
       title = tagList(bs_icon("code-slash", class = "me-1"), "C\u00f3digo R"),
       card_body(
         p(class = "text-muted small mb-3",
@@ -1088,6 +1141,7 @@ mod_gam_ui <- function(id) {
           "Copia y ejecuta en tu propia sesi\u00f3n de R."),
         layout_columns(
           col_widths = c(10, 2),
+          fill = FALSE,
           verbatimTextOutput(ns("codigo_r")),
           div(
             downloadButton(ns("descargar_codigo"), "Descargar .R",
@@ -1211,7 +1265,7 @@ mod_gam_server <- function(id) {
       d    <- datos_propio_gam()
       nnum <- sum(sapply(d, is.numeric))
       ncat <- sum(sapply(d, function(x) is.factor(x) || is.character(x)))
-      layout_columns(col_widths = c(4, 4, 4),
+      layout_columns(col_widths = c(4, 4, 4), fill = FALSE,
         card(class = "text-center",
           card_body(class = "p-2",
             h3(style = paste0("color:", colores$primario, "; font-weight:700;"),
@@ -1440,6 +1494,7 @@ mod_gam_server <- function(id) {
       ncat <- length(vars_categoricas())
       layout_columns(
         col_widths = c(4, 4, 4),
+        fill = FALSE,
         card(class = "text-center",
           card_body(class = "p-2",
             h3(style = paste0("color:", colores$primario, "; font-weight:700;"),
@@ -1500,6 +1555,7 @@ mod_gam_server <- function(id) {
       cor_val <- cor(df[[yvar]], df[[input$var_x]], use = "complete.obs")
       layout_columns(
         col_widths = c(6, 6),
+        fill = FALSE,
         card(class = "text-center border-0",
              style = paste0("background:", colores$fondo),
              card_body(class = "p-2",
@@ -1723,6 +1779,7 @@ mod_gam_server <- function(id) {
 
       layout_columns(
         col_widths = c(6, 6),
+        fill = FALSE,
         card(class = "text-center border-0 mb-0",
              style = paste0("background:", colores$fondo),
              card_body(class = "p-2",
@@ -1773,6 +1830,7 @@ mod_gam_server <- function(id) {
           # Tarjetas de estado r\u00e1pido
           layout_columns(
             col_widths = c(6, 6),
+            fill = FALSE,
             div(class = "alert mb-2 py-2 px-3 small",
                 style = paste0("background:", if (conv_ok) "#d4edda" else "#f8d7da",
                                "; border-left: 4px solid ", conv_col, ";"),
@@ -2621,6 +2679,7 @@ mod_gam_server <- function(id) {
       lo     <- round(df_res$CI_low[1], 3)
       hi     <- round(df_res$CI_high[1], 3)
       card(
+        fill = FALSE,
         class = "mt-2",
         card_header(bs_icon("bullseye", class = "me-1"), "Resultado"),
         card_body(

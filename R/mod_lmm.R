@@ -11,36 +11,6 @@ mod_lmm_ui <- function(id) {
   ns <- NS(id)
 
   tagList(
-    div(
-      class = "px-1 pt-2 pb-2",
-      layout_columns(
-        col_widths = c(9, 3),
-        div(
-          h4(style = paste0("color:", colores$primario,
-                            "; font-weight:700; margin-bottom:4px;"),
-             bs_icon("diagram-3", class = "me-2"),
-             "Modelos Lineales Mixtos (LMM)"),
-          p(class = "text-muted small mb-0",
-            "Extienden el LM y el GLM para datos con ",
-            strong("estructura jer\u00e1rquica"), ": parcelas dentro de fragmentos, ",
-            "individuos dentro de poblaciones, medidas repetidas. ",
-            "Combinan ", strong("efectos fijos"), " (poblacionales) con ",
-            strong("efectos aleatorios"), " (variabilidad entre grupos). ",
-            "Paquete: ", strong("lme4"), " \u00b7 inferencia con ",
-            strong("lmerTest"), " \u00b7 diagn\u00f3stico con ", strong("performance"),
-            " y ", strong("easystats"), ".")
-        ),
-        div(
-          class = "text-end pt-1",
-          tags$span(
-            class = "badge",
-            style = paste0("background:", colores$primario,
-                           "; font-size:0.8rem; padding:6px 12px;"),
-            bs_icon("diagram-3", class = "me-1"), "lme4"
-          )
-        )
-      )
-    ),
 
     navset_card_tab(
       id = ns("pestanas"),
@@ -49,8 +19,42 @@ mod_lmm_ui <- function(id) {
       # PESTAÑA 1: ¿Qué es?
       # ════════════════════════════════════════════════
       nav_panel(
+        fillable = FALSE,
         title = tagList(bs_icon("book", class = "me-1"), "\u00bfQu\u00e9 es?"),
         card_body(
+
+          div(
+            class = "px-1 pb-2",
+            layout_columns(
+              col_widths = c(9, 3),
+              fill = FALSE,
+              div(
+                h4(style = paste0("color:", colores$primario,
+                                  "; font-weight:700; margin-bottom:4px;"),
+                   bs_icon("diagram-3", class = "me-2"),
+                   "Modelos Lineales Mixtos (LMM)"),
+                p(class = "text-muted small mb-0",
+                  "Extienden el LM y el GLM para datos con ",
+                  strong("estructura jer\u00e1rquica"), ": parcelas dentro de fragmentos, ",
+                  "individuos dentro de poblaciones, medidas repetidas. ",
+                  "Combinan ", strong("efectos fijos"), " (poblacionales) con ",
+                  strong("efectos aleatorios"), " (variabilidad entre grupos). ",
+                  "Paquete: ", strong("lme4"), " \u00b7 inferencia con ",
+                  strong("lmerTest"), " \u00b7 diagn\u00f3stico con ", strong("performance"),
+                  " y ", strong("easystats"), ".")
+              ),
+              div(
+                class = "text-end pt-1",
+                tags$span(
+                  class = "badge",
+                  style = paste0("background:", colores$primario,
+                                 "; font-size:0.8rem; padding:6px 12px;"),
+                  bs_icon("diagram-3", class = "me-1"), "lme4"
+                )
+              )
+            )
+          ),
+
           h4(style = paste0("color:", colores$primario, "; font-weight:700;"),
              "Modelos Lineales Mixtos \u2014 LMM"),
           p(class = "text-muted small mb-3",
@@ -61,6 +65,7 @@ mod_lmm_ui <- function(id) {
             fill = FALSE,
 
             card(
+              fill = FALSE,
               card_header(bs_icon("question-circle", class = "me-1"),
                           "\u00bfCu\u00e1ndo usar modelos mixtos?"),
               card_body(
@@ -78,6 +83,7 @@ mod_lmm_ui <- function(id) {
             ),
 
             card(
+              fill = FALSE,
               card_header(bs_icon("code-slash", class = "me-1"),
                           "Anatom\u00eda de la f\u00f3rmula"),
               card_body(
@@ -104,6 +110,7 @@ mod_lmm_ui <- function(id) {
             ),
 
             card(
+              fill = FALSE,
               card_header(bs_icon("layers", class = "me-1"),
                           "LMM \u2014 \u00bfcu\u00e1ndo usarlo?"),
               card_body(
@@ -131,6 +138,7 @@ mod_lmm_ui <- function(id) {
             fill = FALSE,
 
             card(
+              fill = FALSE,
               card_header(bs_icon("shuffle", class = "me-1"),
                           "Efectos fijos vs aleatorios"),
               card_body(
@@ -159,6 +167,7 @@ mod_lmm_ui <- function(id) {
             ),
 
             card(
+              fill = FALSE,
               card_header(bs_icon("bar-chart-steps", class = "me-1"),
                           "R\u00b2 Nakagawa \u2014 m\u00e9trica clave"),
               card_body(
@@ -203,11 +212,13 @@ mod_lmm_ui <- function(id) {
       # PESTAÑA 2: Fundamentos
       # ════════════════════════════════════════════════
       nav_panel(
+        fillable = FALSE,
         title = tagList(bs_icon("journal-bookmark", class = "me-1"),
                         "Fundamentos"),
         card_body(
           layout_columns(
             col_widths = c(6, 6),
+            fill = FALSE,
 
             div(
               h5(style = paste0("color:", colores$primario, "; font-weight:700;"),
@@ -309,17 +320,20 @@ mod_lmm_ui <- function(id) {
       # PESTAÑA 3: Los datos
       # ════════════════════════════════════════════════
       nav_panel(
+        fillable = FALSE,
         title = tagList(bs_icon("table", class = "me-1"), "Los datos"),
         card_body(
           navset_pill(
 
             # ── Sub 1: Datos de ejemplo ─────────────
             nav_panel(
+              fillable = FALSE,
               title = tagList(bs_icon("collection", class = "me-1"),
                               "Datos de ejemplo"),
               br(),
               layout_columns(
                 col_widths = c(4, 8),
+                fill = FALSE,
                 div(
                   radioButtons(
                     ns("fuente_datos"),
@@ -335,6 +349,7 @@ mod_lmm_ui <- function(id) {
                   uiOutput(ns("info_dataset"))
                 ),
                 card(
+                  fill = FALSE,
                   card_header(bs_icon("eye", class = "me-1"), "Vista previa"),
                   card_body(
                     style = "overflow: auto;",
@@ -348,11 +363,13 @@ mod_lmm_ui <- function(id) {
 
             # ── Sub 2: Mis datos ─────────────────────
             nav_panel(
+              fillable = FALSE,
               title = tagList(bs_icon("folder2-open", class = "me-1"),
                               "Mis datos"),
               br(),
               layout_columns(
                 col_widths = c(4, 8),
+                fill = FALSE,
                 div(
                   p(class = "small text-muted mb-3",
                     bs_icon("info-circle", class = "me-1"),
@@ -380,6 +397,7 @@ mod_lmm_ui <- function(id) {
                   uiOutput(ns("resumen_datos_propio"))
                 ),
                 card(
+                  fill = FALSE,
                   card_header(bs_icon("eye", class = "me-1"), "Vista previa"),
                   card_body(
                     style = "overflow: auto;",
@@ -393,6 +411,7 @@ mod_lmm_ui <- function(id) {
 
             # ── Sub 3: Tipos de variables ────────────
             nav_panel(
+              fillable = FALSE,
               title = tagList(bs_icon("sliders2", class = "me-1"),
                               "Tipos de variables"),
               br(),
@@ -401,6 +420,7 @@ mod_lmm_ui <- function(id) {
                 "La variable de agrupamiento debe ser ", strong("Factor"), "."),
               layout_columns(
                 col_widths = c(10, 2),
+                fill = FALSE,
                 uiOutput(ns("tabla_tipos")),
                 div(
                   class = "pt-2",
@@ -418,6 +438,7 @@ mod_lmm_ui <- function(id) {
               tags$hr(),
               layout_columns(
                 col_widths = c(4, 8),
+                fill = FALSE,
                 radioButtons(
                   ns("manejo_na"),
                   label    = tagList(bs_icon("exclamation-diamond", class = "me-1"),
@@ -439,6 +460,7 @@ mod_lmm_ui <- function(id) {
       # PESTAÑA 4: Explorar
       # ════════════════════════════════════════════════
       nav_panel(
+        fillable = FALSE,
         title = tagList(bs_icon("zoom-in", class = "me-1"), "Explorar"),
         card_body(
           p(class = "small text-muted mb-3",
@@ -450,6 +472,7 @@ mod_lmm_ui <- function(id) {
             col_widths = c(4, 8),
             fill = FALSE,
             card(
+              fill = FALSE,
               card_header(bs_icon("sliders", class = "me-1"), "Controles"),
               card_body(
                 style = "overflow: visible; height: auto;",
@@ -478,12 +501,15 @@ mod_lmm_ui <- function(id) {
       # PESTAÑA 5: Ajustar modelo
       # ════════════════════════════════════════════════
       nav_panel(
+        fillable = FALSE,
         title = tagList(bs_icon("gear", class = "me-1"), "Ajustar modelo"),
         card_body(
           layout_columns(
             col_widths = c(4, 8),
+            fill = FALSE,
 
             card(
+              fill = FALSE,
               card_header(bs_icon("sliders", class = "me-1"),
                           "Especificaci\u00f3n del modelo"),
               card_body(
@@ -577,6 +603,7 @@ mod_lmm_ui <- function(id) {
               uiOutput(ns("cards_metricas_lmm")),
               br(),
               card(
+                fill = FALSE,
                 card_header(bs_icon("list-ol", class = "me-1"),
                             "F\u00f3rmula ajustada"),
                 card_body(
@@ -593,6 +620,7 @@ mod_lmm_ui <- function(id) {
       # PESTAÑA 6: Diagnóstico
       # ════════════════════════════════════════════════
       nav_panel(
+        fillable = FALSE,
         title = tagList(bs_icon("clipboard-check", class = "me-1"),
                         "Diagn\u00f3stico"),
         div(
@@ -606,6 +634,7 @@ mod_lmm_ui <- function(id) {
             col_widths = c(8, 4),
             fill = FALSE,
             card(
+              fill = FALSE,
               class = "mb-3",
               card_header(bs_icon("graph-up", class = "me-1"),
                           "Gr\u00e1ficos de diagn\u00f3stico",
@@ -617,6 +646,7 @@ mod_lmm_ui <- function(id) {
               )
             ),
             card(
+              fill = FALSE,
               class = "mb-3",
               card_header(bs_icon("info-circle-fill", class = "me-1"),
                           "\u00bfQu\u00e9 muestra cada gr\u00e1fico?"),
@@ -695,6 +725,7 @@ mod_lmm_ui <- function(id) {
             col_widths = c(6, 6),
             fill = FALSE,
             card(
+              fill = FALSE,
               class = "mb-0",
               card_header(bs_icon("diagram-3", class = "me-1"),
                           "Efectos aleatorios (caterpillar plot)"),
@@ -704,6 +735,7 @@ mod_lmm_ui <- function(id) {
               )
             ),
             card(
+              fill = FALSE,
               class = "mb-0",
               card_header(bs_icon("info-circle", class = "me-1"),
                           "Resumen de supuestos"),
@@ -720,6 +752,7 @@ mod_lmm_ui <- function(id) {
       # PESTAÑA 7: Performance
       # ════════════════════════════════════════════════
       nav_panel(
+        fillable = FALSE,
         title = tagList(bs_icon("speedometer2", class = "me-1"),
                         "Performance"),
         div(
@@ -728,6 +761,7 @@ mod_lmm_ui <- function(id) {
             col_widths = c(6, 6),
             fill = FALSE,
             card(
+              fill = FALSE,
               card_header(
                 bs_icon("speedometer2", class = "me-1"),
                 "M\u00e9tricas del modelo",
@@ -740,6 +774,7 @@ mod_lmm_ui <- function(id) {
               )
             ),
             card(
+              fill = FALSE,
               card_header(
                 bs_icon("pie-chart", class = "me-1"),
                 "ICC \u2014 Correlaci\u00f3n intraclase",
@@ -762,6 +797,7 @@ mod_lmm_ui <- function(id) {
       # PESTAÑA 8: Parámetros
       # ════════════════════════════════════════════════
       nav_panel(
+        fillable = FALSE,
         title = tagList(bs_icon("list-ol", class = "me-1"),
                         "Par\u00e1metros"),
         div(
@@ -770,6 +806,7 @@ mod_lmm_ui <- function(id) {
             col_widths = c(6, 6),
             fill = FALSE,
             card(
+              fill = FALSE,
               card_header(
                 bs_icon("layout-text-sidebar", class = "me-1"),
                 "Efectos fijos",
@@ -782,6 +819,7 @@ mod_lmm_ui <- function(id) {
               )
             ),
             card(
+              fill = FALSE,
               card_header(
                 bs_icon("diagram-3", class = "me-1"),
                 "Efectos aleatorios",
@@ -796,6 +834,7 @@ mod_lmm_ui <- function(id) {
           ),
           div(class = "mt-3",
             card(
+              fill = FALSE,
               card_header(
                 bs_icon("bar-chart-steps", class = "me-1"),
                 "Importancia de variables",
@@ -815,6 +854,7 @@ mod_lmm_ui <- function(id) {
       # PESTAÑA 9: Efectos marginales
       # ════════════════════════════════════════════════
       nav_panel(
+        fillable = FALSE,
         title = tagList(bs_icon("graph-up-arrow", class = "me-1"),
                         "Efectos marginales"),
         div(
@@ -828,6 +868,7 @@ mod_lmm_ui <- function(id) {
             col_widths = c(4, 8),
             fill = FALSE,
             card(
+              fill = FALSE,
               card_header(bs_icon("sliders", class = "me-1"), "Controles"),
               card_body(
                 style = "overflow: visible; height: auto;",
@@ -850,6 +891,7 @@ mod_lmm_ui <- function(id) {
             ),
             div(
               card(
+                fill = FALSE,
                 class = "mb-3",
                 card_header(bs_icon("graph-up-arrow", class = "me-1"),
                             "Efecto marginal"),
@@ -868,6 +910,7 @@ mod_lmm_ui <- function(id) {
       # PESTAÑA 10: Contrastes
       # ════════════════════════════════════════════════
       nav_panel(
+        fillable = FALSE,
         title = tagList(bs_icon("arrows-angle-expand", class = "me-1"),
                         "Contrastes"),
         div(
@@ -879,7 +922,9 @@ mod_lmm_ui <- function(id) {
           uiOutput(ns("contrasts_no_cat_msg")),
           layout_columns(
             col_widths = c(4, 8),
+            fill = FALSE,
             card(
+              fill = FALSE,
               card_header(bs_icon("sliders", class = "me-1"), "Controles"),
               card_body(
                 uiOutput(ns("sel_var_contraste")),
@@ -917,6 +962,7 @@ mod_lmm_ui <- function(id) {
       # PESTAÑA 11: Comparar modelos
       # ════════════════════════════════════════════════
       nav_panel(
+        fillable = FALSE,
         title = tagList(bs_icon("arrow-left-right", class = "me-1"),
                         "Comparar modelos"),
         div(
@@ -929,7 +975,9 @@ mod_lmm_ui <- function(id) {
             strong("REML"), "."),
           layout_columns(
             col_widths = c(4, 8),
+            fill = FALSE,
             card(
+              fill = FALSE,
               card_header(bs_icon("list-check", class = "me-1"),
                           "Modelos guardados"),
               card_body(
@@ -942,6 +990,7 @@ mod_lmm_ui <- function(id) {
             ),
             div(
               card(
+                fill = FALSE,
                 class = "mb-3",
                 card_header(bs_icon("table", class = "me-1"),
                             "Tabla comparativa"),
@@ -951,6 +1000,7 @@ mod_lmm_ui <- function(id) {
                 )
               ),
               card(
+                fill = FALSE,
                 class = "mb-0",
                 card_header(bs_icon("diagram-3", class = "me-1"),
                             "Gr\u00e1fico radar"),
@@ -968,6 +1018,7 @@ mod_lmm_ui <- function(id) {
       # PESTAÑA 12: Código R
       # ════════════════════════════════════════════════
       nav_panel(
+        fillable = FALSE,
         title = tagList(bs_icon("code-slash", class = "me-1"),
                         "C\u00f3digo R"),
         card_body(
@@ -975,6 +1026,7 @@ mod_lmm_ui <- function(id) {
             "C\u00f3digo R reproducible para el modelo ajustado."),
           layout_columns(
             col_widths = c(10, 2),
+            fill = FALSE,
             verbatimTextOutput(ns("codigo_r")),
             div(
               downloadButton(ns("descargar_codigo"), "Descargar .R",
@@ -1105,7 +1157,7 @@ mod_lmm_server <- function(id) {
       d    <- datos_propio_lmm()
       nnum <- sum(sapply(d, is.numeric))
       ncat <- sum(sapply(d, function(x) is.factor(x) || is.character(x)))
-      layout_columns(col_widths = c(4, 4, 4),
+      layout_columns(col_widths = c(4, 4, 4), fill = FALSE,
         card(class = "text-center",
           card_body(class = "p-2",
             h3(style = paste0("color:", colores$primario, "; font-weight:700;"),
@@ -1298,6 +1350,7 @@ mod_lmm_server <- function(id) {
       ncat <- length(vars_categoricas())
       layout_columns(
         col_widths = c(4, 4, 4),
+        fill = FALSE,
         card(class = "text-center",
           card_body(class = "p-2",
             h3(style = paste0("color:", colores$primario, "; font-weight:700;"),
@@ -1572,6 +1625,7 @@ mod_lmm_server <- function(id) {
 
         layout_columns(
           col_widths = c(6, 6),
+          fill = FALSE,
           card(class = "text-center border-0",
                style = paste0("background:", colores$fondo),
                title = "Varianza explicada solo por los efectos fijos (predictores). Ver tab Performance para más detalle.",

@@ -16,32 +16,33 @@ mod_glmm_ui <- function(id) {
 
   tagList(
 
-    div(
-      class = "py-3 px-2",
-      h4(
-        bs_icon("diagram-3-fill", class = "me-2"),
-        "Modelo Lineal Generalizado Mixto (GLMM)",
-        style = paste0("color:", colores$primario, "; font-weight:700;")
-      ),
-      p(
-        class = "text-muted mb-0",
-        "Combina la flexibilidad del GLM (familias no gaussianas) con la ",
-        "estructura jer\u00e1rquica del LMM (efectos aleatorios). ",
-        "Ideal para ", strong("conteos, proporciones o presencia/ausencia"),
-        " con datos agrupados. Motor: ", strong("glmmTMB"),
-        " \u00b7 inferencia con ", strong("parameters"),
-        " \u00b7 diagn\u00f3stico con ", strong("performance"), "."
-      )
-    ),
-
     navset_card_tab(
 
       # ════════════════════════════════════════════════
       # PESTAÑA 1: ¿Qué es?
       # ════════════════════════════════════════════════
       nav_panel(
+        fillable = FALSE,
         title = tagList(bs_icon("book", class = "me-1"), "\u00bfQu\u00e9 es?"),
         card_body(
+
+          div(
+            class = "px-1 pb-2",
+            h4(
+              bs_icon("diagram-3-fill", class = "me-2"),
+              "Modelo Lineal Generalizado Mixto (GLMM)",
+              style = paste0("color:", colores$primario, "; font-weight:700;")
+            ),
+            p(
+              class = "text-muted mb-0",
+              "Combina la flexibilidad del GLM (familias no gaussianas) con la ",
+              "estructura jer\u00e1rquica del LMM (efectos aleatorios). ",
+              "Ideal para ", strong("conteos, proporciones o presencia/ausencia"),
+              " con datos agrupados. Motor: ", strong("glmmTMB"),
+              " \u00b7 inferencia con ", strong("parameters"),
+              " \u00b7 diagn\u00f3stico con ", strong("performance"), "."
+            )
+          ),
 
           h5(style = paste0("color:", colores$primario, "; font-weight:700;"),
              "Del GLM al GLMM"),
@@ -54,6 +55,7 @@ mod_glmm_ui <- function(id) {
 
           layout_columns(
             col_widths = c(6, 6),
+            fill = FALSE,
             div(
               class = "card-muestreo mb-3",
               style = paste0("border-left: 4px solid ", colores$primario, ";"),
@@ -169,6 +171,7 @@ mod_glmm_ui <- function(id) {
       # PESTAÑA 2: Fundamentos
       # ════════════════════════════════════════════════
       nav_panel(
+        fillable = FALSE,
         title = tagList(bs_icon("journal-bookmark", class = "me-1"),
                         "Fundamentos"),
         card_body(
@@ -191,6 +194,7 @@ mod_glmm_ui <- function(id) {
                    "1. Familia de distribuci\u00f3n correcta")),
             layout_columns(
               col_widths = c(6, 6),
+              fill = FALSE,
               div(
                 p(class = "small mb-1", strong("\u00bfQu\u00e9 significa?")),
                 p(class = "small text-muted mb-0",
@@ -223,6 +227,7 @@ mod_glmm_ui <- function(id) {
                    "2. Normalidad de los efectos aleatorios")),
             layout_columns(
               col_widths = c(6, 6),
+              fill = FALSE,
               div(
                 p(class = "small mb-1", strong("\u00bfQu\u00e9 significa?")),
                 p(class = "small text-muted mb-0",
@@ -254,6 +259,7 @@ mod_glmm_ui <- function(id) {
                    "3. Sobredispersi\u00f3n (solo Poisson)")),
             layout_columns(
               col_widths = c(6, 6),
+              fill = FALSE,
               div(
                 p(class = "small mb-1", strong("\u00bfQu\u00e9 significa?")),
                 p(class = "small text-muted mb-0",
@@ -285,6 +291,7 @@ mod_glmm_ui <- function(id) {
                    "4. Inflaci\u00f3n de ceros")),
             layout_columns(
               col_widths = c(6, 6),
+              fill = FALSE,
               div(
                 p(class = "small mb-1", strong("\u00bfQu\u00e9 significa?")),
                 p(class = "small text-muted mb-0",
@@ -318,6 +325,7 @@ mod_glmm_ui <- function(id) {
                    "5. Singular fit")),
             layout_columns(
               col_widths = c(6, 6),
+              fill = FALSE,
               div(
                 p(class = "small mb-1", strong("\u00bfQu\u00e9 significa?")),
                 p(class = "small text-muted mb-0",
@@ -343,6 +351,7 @@ mod_glmm_ui <- function(id) {
       # PESTAÑA 3: Los datos
       # ════════════════════════════════════════════════
       nav_panel(
+        fillable = FALSE,
         title = tagList(bs_icon("table", class = "me-1"), "Los datos"),
         card_body(
 
@@ -350,11 +359,13 @@ mod_glmm_ui <- function(id) {
 
             # Sub-tab 1: Datos de ejemplo
             nav_panel(
+              fillable = FALSE,
               title = tagList(bs_icon("collection", class = "me-1"),
                               "Datos de ejemplo"),
               br(),
               layout_columns(
                 col_widths = c(4, 8),
+                fill = FALSE,
                 div(
                   selectInput(
                     ns("familia_datos"),
@@ -375,6 +386,7 @@ mod_glmm_ui <- function(id) {
                   uiOutput(ns("contexto_dataset"))
                 ),
                 card(
+                  fill = FALSE,
                   card_header(bs_icon("eye", class = "me-1"), "Vista previa"),
                   card_body(
                     style = "overflow: auto;",
@@ -388,11 +400,13 @@ mod_glmm_ui <- function(id) {
 
             # Sub-tab 2: Mis datos
             nav_panel(
+              fillable = FALSE,
               title = tagList(bs_icon("folder2-open", class = "me-1"),
                               "Mis datos"),
               br(),
               layout_columns(
                 col_widths = c(4, 8),
+                fill = FALSE,
                 div(
                   p(class = "small text-muted mb-3",
                     bs_icon("info-circle", class = "me-1"),
@@ -417,6 +431,7 @@ mod_glmm_ui <- function(id) {
                   uiOutput(ns("resumen_datos_propio"))
                 ),
                 card(
+                  fill = FALSE,
                   card_header(bs_icon("eye", class = "me-1"), "Vista previa"),
                   card_body(
                     style = "overflow: auto;",
@@ -430,6 +445,7 @@ mod_glmm_ui <- function(id) {
 
             # Sub-tab 2: Tipos de variables
             nav_panel(
+              fillable = FALSE,
               title = tagList(bs_icon("sliders2", class = "me-1"),
                               "Tipos de variables"),
               br(),
@@ -442,6 +458,7 @@ mod_glmm_ui <- function(id) {
               ),
               layout_columns(
                 col_widths = c(10, 2),
+                fill = FALSE,
                 uiOutput(ns("tabla_tipos")),
                 div(
                   class = "pt-2",
@@ -458,6 +475,7 @@ mod_glmm_ui <- function(id) {
               tags$hr(),
               layout_columns(
                 col_widths = c(4, 8),
+                fill = FALSE,
                 radioButtons(
                   ns("manejo_na"),
                   label    = tagList(bs_icon("exclamation-diamond", class = "me-1"),
@@ -480,6 +498,7 @@ mod_glmm_ui <- function(id) {
       # PESTAÑA 4: Explorar
       # ════════════════════════════════════════════════
       nav_panel(
+        fillable = FALSE,
         title = tagList(bs_icon("zoom-in", class = "me-1"), "Explorar"),
         card_body(
           p(class = "small text-muted mb-3",
@@ -491,6 +510,7 @@ mod_glmm_ui <- function(id) {
             fill = FALSE,
 
             card(
+              fill = FALSE,
               card_header(bs_icon("sliders", class = "me-1"), "Controles"),
               card_body(
                 uiOutput(ns("sel_var_y_exp")),
@@ -510,11 +530,13 @@ mod_glmm_ui <- function(id) {
                 col_widths = c(6, 6),
                 fill = FALSE,
                 card(
+                  fill = FALSE,
                   card_header(bs_icon("bar-chart", class = "me-1"),
                               "Distribuci\u00f3n de Y"),
                   card_body(plotOutput(ns("plot_hist_y"), height = "220px"))
                 ),
                 card(
+                  fill = FALSE,
                   card_header(bs_icon("graph-up", class = "me-1"),
                               "Ceros y dispersi\u00f3n"),
                   card_body(uiOutput(ns("cards_ceros")))
@@ -522,6 +544,7 @@ mod_glmm_ui <- function(id) {
               ),
               br(),
               card(
+                fill = FALSE,
                 card_header(bs_icon("diagram-3", class = "me-1"),
                             "Spaghetti plot — variaci\u00f3n entre grupos"),
                 card_body(plotOutput(ns("plot_spaghetti"), height = "320px"))
@@ -535,12 +558,15 @@ mod_glmm_ui <- function(id) {
       # PESTAÑA 5: Ajustar modelo
       # ════════════════════════════════════════════════
       nav_panel(
+        fillable = FALSE,
         title = tagList(bs_icon("gear", class = "me-1"), "Ajustar modelo"),
         card_body(
           layout_columns(
             col_widths = c(4, 8),
+            fill = FALSE,
 
             card(
+              fill = FALSE,
               card_header(bs_icon("toggles", class = "me-1"),
                           "Especificar el modelo"),
               card_body(
@@ -629,7 +655,9 @@ mod_glmm_ui <- function(id) {
               br(),
               layout_columns(
                 col_widths = c(6, 6),
+                fill = FALSE,
                 card(
+                  fill = FALSE,
                   card_header(bs_icon("bullseye", class = "me-1"),
                               "Predichos vs. observados"),
                   card_body(
@@ -639,6 +667,7 @@ mod_glmm_ui <- function(id) {
                   )
                 ),
                 card(
+                  fill = FALSE,
                   card_header(bs_icon("lightbulb", class = "me-1"),
                               "F\u00f3rmula del modelo"),
                   card_body(uiOutput(ns("formula_modelo")))
@@ -653,6 +682,7 @@ mod_glmm_ui <- function(id) {
       # PESTAÑA 6: Diagnóstico
       # ════════════════════════════════════════════════
       nav_panel(
+        fillable = FALSE,
         title = tagList(bs_icon("clipboard-check", class = "me-1"),
                         "Diagn\u00f3stico"),
         div(
@@ -663,6 +693,7 @@ mod_glmm_ui <- function(id) {
 
           # Fila 1: gráficos
           card(
+            fill = FALSE,
             class = "mb-3",
             card_header(bs_icon("graph-up", class = "me-1"),
                         "Gr\u00e1ficos de diagn\u00f3stico",
@@ -679,6 +710,7 @@ mod_glmm_ui <- function(id) {
             col_widths = c(6, 6),
             fill = FALSE,
             card(
+              fill = FALSE,
               class = "mb-3",
               card_header(bs_icon("arrows-expand", class = "me-1"),
                           "Sobredispersi\u00f3n",
@@ -690,6 +722,7 @@ mod_glmm_ui <- function(id) {
               )
             ),
             card(
+              fill = FALSE,
               class = "mb-3",
               card_header(bs_icon("0-circle", class = "me-1"),
                           "Inflaci\u00f3n de ceros",
@@ -707,6 +740,7 @@ mod_glmm_ui <- function(id) {
             col_widths = c(6, 6),
             fill = FALSE,
             card(
+              fill = FALSE,
               class = "mb-0",
               card_header(bs_icon("diagram-3", class = "me-1"),
                           "Efectos aleatorios (caterpillar plot)"),
@@ -716,6 +750,7 @@ mod_glmm_ui <- function(id) {
               )
             ),
             card(
+              fill = FALSE,
               class = "mb-0",
               card_header(bs_icon("info-circle", class = "me-1"),
                           "Resumen de supuestos"),
@@ -732,6 +767,7 @@ mod_glmm_ui <- function(id) {
       # PESTAÑA 7: Performance
       # ════════════════════════════════════════════════
       nav_panel(
+        fillable = FALSE,
         title = tagList(bs_icon("speedometer2", class = "me-1"),
                         "Performance"),
         card_body(
@@ -745,6 +781,7 @@ mod_glmm_ui <- function(id) {
             col_widths = c(6, 6),
             fill = FALSE,
             card(
+              fill = FALSE,
               card_header(bs_icon("speedometer2", class = "me-1"),
                           "M\u00e9tricas del modelo",
                           span(class = "text-muted small ms-2",
@@ -752,6 +789,7 @@ mod_glmm_ui <- function(id) {
               card_body(uiOutput(ns("tabla_performance")))
             ),
             card(
+              fill = FALSE,
               card_header(bs_icon("pie-chart", class = "me-1"),
                           "ICC \u2014 Correlaci\u00f3n intraclase",
                           span(class = "text-muted small ms-2",
@@ -771,6 +809,7 @@ mod_glmm_ui <- function(id) {
       # PESTAÑA 8: Parámetros
       # ════════════════════════════════════════════════
       nav_panel(
+        fillable = FALSE,
         title = tagList(bs_icon("table", class = "me-1"),
                         "Par\u00e1metros"),
         div(
@@ -780,6 +819,7 @@ mod_glmm_ui <- function(id) {
             col_widths = c(6, 6),
             fill = FALSE,
             card(
+              fill = FALSE,
               card_header(bs_icon("layout-text-sidebar", class = "me-1"),
                           "Efectos fijos",
                           span(class = "text-muted small ms-2",
@@ -790,6 +830,7 @@ mod_glmm_ui <- function(id) {
               )
             ),
             card(
+              fill = FALSE,
               card_header(bs_icon("diagram-3", class = "me-1"),
                           "Efectos aleatorios",
                           span(class = "text-muted small ms-2",
@@ -802,6 +843,7 @@ mod_glmm_ui <- function(id) {
           ),
           br(),
           card(
+            fill = FALSE,
             card_header(bs_icon("arrow-left-right", class = "me-1"),
                         uiOutput(ns("transformed_header"))),
             card_body(
@@ -811,6 +853,7 @@ mod_glmm_ui <- function(id) {
           ),
           br(),
           card(
+            fill = FALSE,
             card_header(bs_icon("bar-chart-steps", class = "me-1"),
                         "Importancia de variables",
                         span(class = "text-muted small ms-2",
@@ -831,6 +874,7 @@ mod_glmm_ui <- function(id) {
       # PESTAÑA 9: Efectos marginales
       # ════════════════════════════════════════════════
       nav_panel(
+        fillable = FALSE,
         title = tagList(bs_icon("graph-up-arrow", class = "me-1"),
                         "Efectos marginales"),
         card_body(
@@ -844,8 +888,10 @@ mod_glmm_ui <- function(id) {
 
           layout_columns(
             col_widths = c(4, 8),
+            fill = FALSE,
 
             card(
+              fill = FALSE,
               card_header(bs_icon("sliders", class = "me-1"), "Controles"),
               card_body(
                 style = "overflow: visible; height: auto;",
@@ -863,6 +909,7 @@ mod_glmm_ui <- function(id) {
 
             div(
               card(
+                fill = FALSE,
                 card_header(bs_icon("graph-up-arrow", class = "me-1"),
                             "Efecto marginal",
                             span(class = "text-muted small ms-2",
@@ -880,6 +927,7 @@ mod_glmm_ui <- function(id) {
       # PESTAÑA 10: Contrastes
       # ════════════════════════════════════════════════
       nav_panel(
+        fillable = FALSE,
         title = tagList(bs_icon("arrows-angle-expand", class = "me-1"),
                         "Contrastes"),
         card_body(
@@ -891,7 +939,9 @@ mod_glmm_ui <- function(id) {
           uiOutput(ns("contrasts_no_cat_msg")),
           layout_columns(
             col_widths = c(4, 8),
+            fill = FALSE,
             card(
+              fill = FALSE,
               card_header(bs_icon("sliders", class = "me-1"), "Controles"),
               card_body(
                 uiOutput(ns("sel_var_contraste")),
@@ -923,6 +973,7 @@ mod_glmm_ui <- function(id) {
       # PESTAÑA 11: Comparar modelos
       # ════════════════════════════════════════════════
       nav_panel(
+        fillable = FALSE,
         title = tagList(bs_icon("arrow-left-right", class = "me-1"),
                         "Comparar modelos"),
         card_body(
@@ -931,7 +982,9 @@ mod_glmm_ui <- function(id) {
             "gu\u00e1rdalos con nombres descriptivos y comp\u00e1ralos aqu\u00ed por AIC y BIC."),
           layout_columns(
             col_widths = c(4, 8),
+            fill = FALSE,
             card(
+              fill = FALSE,
               card_header(bs_icon("list-check", class = "me-1"),
                           "Modelos guardados"),
               card_body(
@@ -968,6 +1021,7 @@ mod_glmm_ui <- function(id) {
       # PESTAÑA 12: Código R
       # ════════════════════════════════════════════════
       nav_panel(
+        fillable = FALSE,
         title = tagList(bs_icon("code-slash", class = "me-1"),
                         "C\u00f3digo R"),
         card_body(
@@ -976,6 +1030,7 @@ mod_glmm_ui <- function(id) {
             strong("glmmTMB"), " y ", strong("easystats"),
             ". Se actualiza seg\u00fan las selecciones activas."),
           card(
+            fill = FALSE,
             card_header(
               class = "d-flex justify-content-between align-items-center",
               tagList(bs_icon("code-slash"), " Script reproducible"),
@@ -1121,7 +1176,7 @@ mod_glmm_server <- function(id) {
       d    <- datos_propio_glmm()
       nnum <- sum(sapply(d, is.numeric))
       ncat <- sum(sapply(d, function(x) is.factor(x) || is.character(x)))
-      layout_columns(col_widths = c(4, 4, 4),
+      layout_columns(col_widths = c(4, 4, 4), fill = FALSE,
         card(class = "text-center",
           card_body(class = "p-2",
             h3(style = paste0("color:", colores$primario, "; font-weight:700;"),
@@ -1303,7 +1358,7 @@ mod_glmm_server <- function(id) {
       df <- datos_finales(); req(df)
       nnum <- sum(sapply(df, is.numeric))
       ncat <- sum(sapply(df, function(x) is.factor(x) || is.character(x)))
-      layout_columns(col_widths = c(4, 4, 4),
+      layout_columns(col_widths = c(4, 4, 4), fill = FALSE,
         card(class = "text-center",
           card_body(class = "p-2",
             h3(style = paste0("color:", colores$primario, "; font-weight:700;"),
@@ -1667,6 +1722,7 @@ mod_glmm_server <- function(id) {
           round(r2$R2_conditional, 3) else "\u2014"
         layout_columns(
           col_widths = c(4, 4, 4),
+          fill = FALSE,
           div(class = "alert alert-primary small py-2 px-3 mb-0 text-center",
               bs_icon("calculator", class = "me-1"),
               strong("AIC"), br(), strong(aic)),
