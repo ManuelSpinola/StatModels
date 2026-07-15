@@ -16,30 +16,31 @@ mod_lm_ui <- function(id) {
 
   tagList(
 
-    div(
-      class = "py-3 px-2",
-      h4(
-        bs_icon("graph-up", class = "me-2"),
-        "Modelo lineal general (LM)",
-        style = paste0("color:", colores$primario, "; font-weight:700;")
-      ),
-      p(
-        class = "text-muted mb-0",
-        "Una familia de modelos que relaciona una variable respuesta ",
-        "numérica continua con uno o más predictores. Incluye la regresión ",
-        "lineal simple y múltiple, el ANOVA y el ANCOVA — todos bajo el ",
-        "mismo marco matemático: ", strong("Y = β₀ + β₁X₁ + β₂X₂ + … + ε"), "."
-      )
-    ),
-
     navset_card_tab(
 
       # ════════════════════════════════════════════════
       # PESTAÑA 1: ¿Qué es?
       # ════════════════════════════════════════════════
       nav_panel(
+        fillable = FALSE,
         title = tagList(bs_icon("book", class = "me-1"), "¿Qué es?"),
         card_body(
+
+          div(
+            class = "px-1 pb-2",
+            h4(
+              bs_icon("graph-up", class = "me-2"),
+              "Modelo lineal general (LM)",
+              style = paste0("color:", colores$primario, "; font-weight:700;")
+            ),
+            p(
+              class = "text-muted mb-0",
+              "Una familia de modelos que relaciona una variable respuesta ",
+              "numérica continua con uno o más predictores. Incluye la regresión ",
+              "lineal simple y múltiple, el ANOVA y el ANCOVA — todos bajo el ",
+              "mismo marco matemático: ", strong("Y = β₀ + β₁X₁ + β₂X₂ + … + ε"), "."
+            )
+          ),
 
           # ── Contexto del dataset ────────────────────
 
@@ -192,6 +193,7 @@ mod_lm_ui <- function(id) {
 
           layout_columns(
             col_widths = c(4, 4, 4),
+            fill = FALSE,
             div(
               class = "alert alert-warning small py-2 px-3 mb-0",
               bs_icon("x-circle-fill", class = "me-2",
@@ -224,6 +226,7 @@ mod_lm_ui <- function(id) {
       # PESTAÑA 2: Fundamentos
       # ════════════════════════════════════════════════
       nav_panel(
+        fillable = FALSE,
         title = tagList(bs_icon("journal-bookmark", class = "me-1"),
                         "Fundamentos"),
         card_body(
@@ -254,6 +257,7 @@ mod_lm_ui <- function(id) {
                    "1. Linealidad")),
             layout_columns(
               col_widths = c(6, 6),
+              fill = FALSE,
               div(
                 p(class = "small mb-1", strong("¿Qué significa?")),
                 p(class = "small text-muted mb-0",
@@ -292,6 +296,7 @@ mod_lm_ui <- function(id) {
                    "2. Normalidad de los residuos")),
             layout_columns(
               col_widths = c(6, 6),
+              fill = FALSE,
               div(
                 p(class = "small mb-1", strong("¿Qué significa?")),
                 p(class = "small text-muted mb-0",
@@ -332,6 +337,7 @@ mod_lm_ui <- function(id) {
                    "3. Homocedasticidad")),
             layout_columns(
               col_widths = c(6, 6),
+              fill = FALSE,
               div(
                 p(class = "small mb-1", strong("¿Qué significa?")),
                 p(class = "small text-muted mb-0",
@@ -372,6 +378,7 @@ mod_lm_ui <- function(id) {
                    "4. Independencia de los errores")),
             layout_columns(
               col_widths = c(6, 6),
+              fill = FALSE,
               div(
                 p(class = "small mb-1", strong("¿Qué significa?")),
                 p(class = "small text-muted mb-0",
@@ -413,6 +420,7 @@ mod_lm_ui <- function(id) {
                    "5. Ausencia de multicolinealidad")),
             layout_columns(
               col_widths = c(6, 6),
+              fill = FALSE,
               div(
                 p(class = "small mb-1", strong("¿Qué significa?")),
                 p(class = "small text-muted mb-0",
@@ -458,16 +466,19 @@ mod_lm_ui <- function(id) {
       # PESTAÑA 3: Los datos
       # ════════════════════════════════════════════════
       nav_panel(
+        fillable = FALSE,
         title = tagList(bs_icon("table", class = "me-1"), "Los datos"),
         card_body(
           navset_pill(
 
             nav_panel(
+              fillable = FALSE,
               title = tagList(bs_icon("collection", class = "me-1"),
                               "Datos de ejemplo"),
               br(),
               layout_columns(
                 col_widths = c(4, 8),
+                fill = FALSE,
                 div(
                   radioButtons(
                     ns("fuente_datos"),
@@ -483,6 +494,7 @@ mod_lm_ui <- function(id) {
                   uiOutput(ns("info_dataset"))
                 ),
                 card(
+                  fill = FALSE,
                   card_header(bs_icon("eye", class = "me-1"), "Vista previa"),
                   card_body(
                     style = "overflow: auto;",
@@ -495,11 +507,13 @@ mod_lm_ui <- function(id) {
             ),
 
             nav_panel(
+              fillable = FALSE,
               title = tagList(bs_icon("folder2-open", class = "me-1"),
                               "Mis datos"),
               br(),
               layout_columns(
                 col_widths = c(4, 8),
+                fill = FALSE,
                 div(
                   p(class = "small text-muted mb-3",
                     bs_icon("info-circle", class = "me-1"),
@@ -526,6 +540,7 @@ mod_lm_ui <- function(id) {
                   uiOutput(ns("resumen_datos_propio"))
                 ),
                 card(
+                  fill = FALSE,
                   card_header(bs_icon("eye", class = "me-1"), "Vista previa"),
                   card_body(
                     style = "overflow: auto;",
@@ -538,6 +553,7 @@ mod_lm_ui <- function(id) {
             ),
 
             nav_panel(
+              fillable = FALSE,
               title = tagList(bs_icon("sliders2", class = "me-1"),
                               "Tipos de variables"),
               br(),
@@ -550,6 +566,7 @@ mod_lm_ui <- function(id) {
               ),
               layout_columns(
                 col_widths = c(10, 2),
+                fill = FALSE,
                 uiOutput(ns("tabla_tipos")),
                 div(
                   class = "pt-2",
@@ -566,6 +583,7 @@ mod_lm_ui <- function(id) {
               tags$hr(),
               layout_columns(
                 col_widths = c(4, 8),
+                fill = FALSE,
                 radioButtons(
                   ns("manejo_na"),
                   label    = tagList(bs_icon("exclamation-diamond", class = "me-1"),
@@ -589,6 +607,7 @@ mod_lm_ui <- function(id) {
       # PESTAÑA 4: Explorar
       # ════════════════════════════════════════════════
       nav_panel(
+        fillable = FALSE,
         title = tagList(bs_icon("zoom-in", class = "me-1"),
                         "Explorar"),
         card_body(
@@ -602,6 +621,7 @@ mod_lm_ui <- function(id) {
             fill = FALSE,
 
             card(
+              fill = FALSE,
               card_header(bs_icon("sliders", class = "me-1"),
                           "Controles"),
               card_body(
@@ -630,13 +650,16 @@ mod_lm_ui <- function(id) {
       # PESTAÑA 5: Ajustar modelo
       # ════════════════════════════════════════════════
       nav_panel(
+        fillable = FALSE,
         title = tagList(bs_icon("gear", class = "me-1"),
                         "Ajustar modelo"),
         card_body(
           layout_columns(
             col_widths = c(4, 8),
+            fill = FALSE,
 
             card(
+              fill = FALSE,
               card_header(bs_icon("toggles", class = "me-1"),
                           "Especificar el modelo"),
               card_body(
@@ -720,7 +743,9 @@ mod_lm_ui <- function(id) {
               br(),
               layout_columns(
                 col_widths = c(6, 6),
+                fill = FALSE,
                 card(
+                  fill = FALSE,
                   card_header(bs_icon("bullseye", class = "me-1"),
                               "Predichos vs. observados"),
                   card_body(
@@ -730,6 +755,7 @@ mod_lm_ui <- function(id) {
                   )
                 ),
                 card(
+                  fill = FALSE,
                   card_header(bs_icon("lightbulb", class = "me-1"),
                               "Interpretación"),
                   card_body(uiOutput(ns("texto_modelo")))
@@ -744,6 +770,7 @@ mod_lm_ui <- function(id) {
       # PESTAÑA 6: Diagnóstico
       # ════════════════════════════════════════════════
       nav_panel(
+        fillable = FALSE,
         title = tagList(bs_icon("clipboard-check", class = "me-1"),
                         "Diagnóstico"),
         card_body(
@@ -756,6 +783,7 @@ mod_lm_ui <- function(id) {
 
           layout_columns(
             col_widths = c(4, 4, 4),
+            fill = FALSE,
 
             # ── Col 1: semáforo ────────────────────────
             div(
@@ -766,6 +794,7 @@ mod_lm_ui <- function(id) {
             # ── Col 2: residuos + Q-Q ──────────────────
             div(
               card(
+                fill = FALSE,
                 class = "mb-2",
                 card_header(
                   class = "py-1",
@@ -779,6 +808,7 @@ mod_lm_ui <- function(id) {
                 )
               ),
               card(
+                fill = FALSE,
                 class = "mb-0",
                 card_header(
                   class = "py-1",
@@ -796,6 +826,7 @@ mod_lm_ui <- function(id) {
             # ── Col 3: scale-location + VIF ───────────
             div(
               card(
+                fill = FALSE,
                 class = "mb-2",
                 card_header(
                   class = "py-1",
@@ -810,6 +841,7 @@ mod_lm_ui <- function(id) {
                 )
               ),
               card(
+                fill = FALSE,
                 class = "mb-0",
                 card_header(
                   class = "py-1",
@@ -832,6 +864,7 @@ mod_lm_ui <- function(id) {
       # PESTAÑA 7: Performance
       # ════════════════════════════════════════════════
       nav_panel(
+        fillable = FALSE,
         title = tagList(bs_icon("speedometer2", class = "me-1"),
                         "Performance"),
         card_body(
@@ -846,8 +879,10 @@ mod_lm_ui <- function(id) {
 
           layout_columns(
             col_widths = c(6, 6),
+            fill = FALSE,
 
             card(
+              fill = FALSE,
               card_header(
                 bs_icon("speedometer2", class = "me-1"),
                 "Métricas del modelo",
@@ -859,6 +894,7 @@ mod_lm_ui <- function(id) {
 
             div(
               card(
+                fill = FALSE,
                 class = "mb-3",
                 card_header(
                   bs_icon("graph-up-arrow", class = "me-1"),
@@ -872,6 +908,7 @@ mod_lm_ui <- function(id) {
               ),
 
               card(
+                fill = FALSE,
                 class = "mb-0",
                 card_header(
                   bs_icon("arrow-repeat", class = "me-1"),
@@ -886,6 +923,7 @@ mod_lm_ui <- function(id) {
                   ),
                   layout_columns(
                     col_widths = c(4, 4, 4),
+                    fill = FALSE,
                     numericInput(
                       ns("cv_folds_lm"),
                       label = "Folds:",
@@ -913,6 +951,7 @@ mod_lm_ui <- function(id) {
       # PESTAÑA 8: Parámetros
       # ════════════════════════════════════════════════
       nav_panel(
+        fillable = FALSE,
         title = tagList(bs_icon("table", class = "me-1"), "Parámetros"),
         div(
           class = "p-3",
@@ -929,6 +968,7 @@ mod_lm_ui <- function(id) {
             col_widths = c(6, 6),
             fill = FALSE,
             card(
+              fill = FALSE,
               card_header(
                 bs_icon("layout-text-sidebar", class = "me-1"),
                 "Tabla de coeficientes",
@@ -941,6 +981,7 @@ mod_lm_ui <- function(id) {
               )
             ),
             card(
+              fill = FALSE,
               card_header(
                 bs_icon("bar-chart-fill", class = "me-1"),
                 "Forest plot",
@@ -958,6 +999,7 @@ mod_lm_ui <- function(id) {
           ),
           div(class = "mt-3",
               card(
+                fill = FALSE,
                 card_header(
                   bs_icon("bar-chart-steps", class = "me-1"),
                   "Importancia de variables",
@@ -979,6 +1021,7 @@ mod_lm_ui <- function(id) {
           ),
           div(class = "mt-3",
               card(
+                fill = FALSE,
                 card_header(bs_icon("chat-text", class = "me-1"),
                             "Interpretación — haz clic en una fila"),
                 card_body(
@@ -995,6 +1038,7 @@ mod_lm_ui <- function(id) {
       # PESTAÑA 9: Efectos marginales
       # ════════════════════════════════════════════════
       nav_panel(
+        fillable = FALSE,
         title = tagList(bs_icon("graph-up-arrow", class = "me-1"),
                         "Efectos marginales"),
         card_body(
@@ -1011,8 +1055,10 @@ mod_lm_ui <- function(id) {
 
           layout_columns(
             col_widths = c(4, 8),
+            fill = FALSE,
 
             card(
+              fill = FALSE,
               card_header(bs_icon("sliders", class = "me-1"),
                           "Controles"),
               card_body(
@@ -1035,6 +1081,7 @@ mod_lm_ui <- function(id) {
 
             div(
               card(
+                fill = FALSE,
                 card_header(
                   bs_icon("graph-up-arrow", class = "me-1"),
                   "Efecto marginal",
@@ -1063,8 +1110,10 @@ mod_lm_ui <- function(id) {
 
           layout_columns(
             col_widths = c(4, 8),
+            fill = FALSE,
 
             card(
+              fill = FALSE,
               card_header(bs_icon("sliders", class = "me-1"),
                           "Valores de los predictores"),
               card_body(
@@ -1080,6 +1129,7 @@ mod_lm_ui <- function(id) {
             ),
 
             card(
+              fill = FALSE,
               card_header(bs_icon("bullseye", class = "me-1"),
                           "Resultado"),
               card_body(uiOutput(ns("resultado_prediccion_lm")))
@@ -1092,6 +1142,7 @@ mod_lm_ui <- function(id) {
       # PESTAÑA 10: Contrastes
       # ════════════════════════════════════════════════
       nav_panel(
+        fillable = FALSE,
         title = tagList(bs_icon("arrows-angle-expand", class = "me-1"),
                         "Contrastes"),
         card_body(
@@ -1107,8 +1158,10 @@ mod_lm_ui <- function(id) {
 
           layout_columns(
             col_widths = c(4, 8),
+            fill = FALSE,
 
             card(
+              fill = FALSE,
               card_header(bs_icon("sliders", class = "me-1"),
                           "Controles"),
               card_body(
@@ -1130,6 +1183,7 @@ mod_lm_ui <- function(id) {
 
             div(
               card(
+                fill = FALSE,
                 class = "mb-3",
                 card_header(
                   bs_icon("table", class = "me-1"),
@@ -1138,6 +1192,7 @@ mod_lm_ui <- function(id) {
                 card_body(uiOutput(ns("tabla_contrastes_lm")))
               ),
               card(
+                fill = FALSE,
                 class = "mb-0",
                 card_header(
                   bs_icon("bar-chart-fill", class = "me-1"),
@@ -1156,6 +1211,7 @@ mod_lm_ui <- function(id) {
       # PESTAÑA 11: Comparar modelos
       # ════════════════════════════════════════════════
       nav_panel(
+        fillable = FALSE,
         title = tagList(bs_icon("arrow-left-right", class = "me-1"),
                         "Comparar modelos"),
         card_body(
@@ -1166,8 +1222,10 @@ mod_lm_ui <- function(id) {
           ),
           layout_columns(
             col_widths = c(4, 8),
+            fill = FALSE,
 
             card(
+              fill = FALSE,
               card_header(bs_icon("list-check", class = "me-1"),
                           "Modelos guardados"),
               card_body(
@@ -1182,6 +1240,7 @@ mod_lm_ui <- function(id) {
 
             div(
               card(
+                fill = FALSE,
                 class = "mb-3",
                 card_header(
                   bs_icon("table", class = "me-1"),
@@ -1192,6 +1251,7 @@ mod_lm_ui <- function(id) {
                 card_body(uiOutput(ns("tabla_comparacion_lm")))
               ),
               card(
+                fill = FALSE,
                 class = "mb-0",
                 card_header(
                   bs_icon("diagram-3", class = "me-1"),
@@ -1216,6 +1276,7 @@ mod_lm_ui <- function(id) {
       # PESTAÑA 12: Código R
       # ════════════════════════════════════════════════
       nav_panel(
+        fillable = FALSE,
         title = tagList(bs_icon("code-slash", class = "me-1"), "Código R"),
         card_body(
           p(class = "text-muted small mb-3",
@@ -1224,6 +1285,7 @@ mod_lm_ui <- function(id) {
             ". Se actualiza automáticamente según las selecciones activas."
           ),
           card(
+            fill = FALSE,
             card_header(
               class = "d-flex justify-content-between align-items-center",
               tagList(bs_icon("code-slash"), " Script reproducible"),
@@ -1503,7 +1565,7 @@ mod_lm_server <- function(id) {
       d    <- datos_propio()
       nnum <- sum(sapply(d, is.numeric))
       ncat <- sum(sapply(d, function(x) is.factor(x) || is.character(x)))
-      layout_columns(col_widths = c(4, 4, 4),
+      layout_columns(col_widths = c(4, 4, 4), fill = FALSE,
         card(class = "text-center",
           card_body(class = "p-2",
             h3(style = paste0("color:", colores$primario, "; font-weight:700;"),
@@ -1564,7 +1626,9 @@ mod_lm_server <- function(id) {
 
       layout_columns(
         col_widths = c(4, 4, 4),
+        fill = FALSE,
         card(
+          fill = FALSE,
           class = "text-center",
           card_body(class = "p-2",
                     h3(style = paste0("color:", colores$primario,
@@ -1573,6 +1637,7 @@ mod_lm_server <- function(id) {
           )
         ),
         card(
+          fill = FALSE,
           class = "text-center",
           card_body(class = "p-2",
                     h3(style = paste0("color:", colores$acento,
@@ -1581,6 +1646,7 @@ mod_lm_server <- function(id) {
           )
         ),
         card(
+          fill = FALSE,
           class = "text-center",
           card_body(class = "p-2",
                     h3(style = paste0("color:", colores$secundario,
@@ -1638,7 +1704,9 @@ mod_lm_server <- function(id) {
       r2_val  <- cor_val^2
       layout_columns(
         col_widths = c(6, 6),
+        fill = FALSE,
         card(
+          fill = FALSE,
           class = "text-center border-0",
           style = paste0("background:", colores$fondo),
           card_body(class = "p-2",
@@ -1649,6 +1717,7 @@ mod_lm_server <- function(id) {
           )
         ),
         card(
+          fill = FALSE,
           class = "text-center border-0",
           style = paste0("background:", colores$fondo),
           card_body(class = "p-2",
@@ -1872,6 +1941,7 @@ mod_lm_server <- function(id) {
 
       layout_columns(
         col_widths = c(3, 3, 3, 3),
+        fill = FALSE,
         card(class = "text-center", card_body(class = "p-2",
                                               h3(style = paste0("color:", col_r2, "; font-weight:700;"), r2adj),
                                               p(class = "small text-muted mb-0", strong("R² ajustado")),
@@ -2379,6 +2449,7 @@ mod_lm_server <- function(id) {
         met <- cm$.metric[i]
         col <- if (met == "rsq") colores$exito else colores$primario
         card(
+          fill = FALSE,
           class = "text-center",
           card_body(class = "p-2",
                     h4(style = paste0("color:", col, "; font-weight:700;"),
