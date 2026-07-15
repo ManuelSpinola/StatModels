@@ -1163,28 +1163,11 @@ mod_gam_server <- function(id) {
       datos_activos()
     })
 
-    # ── Aplicar tipos elegidos por el usuario ─────────────────────────────────
-    datos_tipificados <- reactive({
-      df <- datos_activos_unif(); req(df)
-      tu <- tipos_usuario()
-      if (is.null(tu)) return(df)
-      for (nm in names(tu)) {
-        if (!nm %in% names(df)) next
-        tipo <- tu[[nm]]
-        if (is.null(tipo)) next
-        if (tipo == "factor" && !is.factor(df[[nm]]))
-          df[[nm]] <- factor(df[[nm]])
-        else if (tipo == "numeric" && !is.numeric(df[[nm]]))
-          df[[nm]] <- suppressWarnings(as.numeric(as.character(df[[nm]])))
-        else if (tipo == "excluir")
-          df[[nm]] <- NULL
-      }
-      df
-    })
+    datos_mod <- reactiveVal(NULL)
 
     # ── Manejo de NAs ────────────────────────────────────────────────────────
     datos_finales <- reactive({
-      df <- datos_tipificados()
+      df <- datos_mod()
       req(df)
       if (isTRUE(input$manejo_na == "eliminar")) {
         df <- tidyr::drop_na(df)
@@ -1193,7 +1176,7 @@ mod_gam_server <- function(id) {
     })
 
     output$na_info <- renderUI({
-      df_orig  <- datos_tipificados()
+      df_orig  <- datos_mod()
       df_final <- datos_finales()
       req(df_orig)
       n_na <- sum(!stats::complete.cases(df_orig))
@@ -1268,17 +1251,36 @@ mod_gam_server <- function(id) {
 
         # Tipos de variables
     tipos_usuario <- reactiveVal(NULL)
-    observeEvent(datos_activos_unif(), { tipos_usuario(NULL) })
+
+    observeEvent(datos_activos_unif(), {
+      tipos_usuario(NULL)
+      datos_mod(datos_activos_unif())
+    })
+
     observeEvent(input$resetear_tipos, {
       tipos_usuario(NULL)
+      datos_mod(datos_activos_unif())
       showNotification("Tipos restaurados.", type = "message", duration = 2)
     })
+
     observeEvent(input$aplicar_tipos, {
-      df  <- datos_activos_unif(); req(df)
-      nms <- names(df)
+      req(datos_mod())
+      d   <- datos_mod()
+      nms <- names(d)
       nuevos <- lapply(nms, function(nm) input[[paste0("tipo_", nm)]])
       names(nuevos) <- nms
       tipos_usuario(nuevos)
+      for (nm in names(nuevos)) {
+        tipo <- nuevos[[nm]]
+        if (is.null(tipo) || !nm %in% names(d)) next
+        if (tipo == "factor" && !is.factor(d[[nm]]))
+          d[[nm]] <- factor(d[[nm]])
+        else if (tipo == "numeric" && !is.numeric(d[[nm]]))
+          d[[nm]] <- suppressWarnings(as.numeric(as.character(d[[nm]])))
+        else if (tipo == "excluir")
+          d[[nm]] <- NULL
+      }
+      datos_mod(d)
       showNotification("Tipos aplicados.", type = "message", duration = 2)
     })
 
@@ -1329,7 +1331,7 @@ mod_gam_server <- function(id) {
     })
 
     output$tabla_tipos <- renderUI({
-      df <- datos_activos_unif(); req(df)
+      df <- datos_mod(); req(df)
       tu <- tipos_usuario()
       filas <- lapply(names(df), function(nm) {
         col    <- df[[nm]]
@@ -1383,7 +1385,7 @@ mod_gam_server <- function(id) {
 
     output$tipos_aplicados_msg <- renderUI({
       tu <- tipos_usuario(); if (is.null(tu)) return(NULL)
-      df <- datos_activos_unif(); req(df)
+      df <- datos_mod(); req(df)
       n_cambios <- sum(sapply(names(tu), function(nm) {
         if (!nm %in% names(df)) return(FALSE)
         actual <- if (is.factor(df[[nm]]) || is.character(df[[nm]]))
