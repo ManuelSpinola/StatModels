@@ -437,7 +437,13 @@ mod_lm_ui <- function(id) {
                   " Valores de referencia:", br(),
                   "• VIF < 3 — sin problema", br(),
                   "• VIF 3–5 — moderado, aceptable", br(),
-                  "• VIF > 5 — problemático, requiere acción"),
+                  "• VIF > 5 — problemático, requiere acción", br(),
+                  tags$span(class = "text-muted", style = "font-size:0.8rem;",
+                            "Para predictores categóricos con más de 2 ",
+                            "niveles se calcula el GVIF ajustado ",
+                            "(Fox & Monette, 1992), reescalado a la misma ",
+                            "métrica que el VIF para que los umbrales de ",
+                            "arriba sigan aplicando.")),
                 div(
                   class = "alert alert-warning small py-1 px-2 mb-0",
                   bs_icon("exclamation-triangle", class = "me-1"),
@@ -596,6 +602,46 @@ mod_lm_ui <- function(id) {
                 ),
                 uiOutput(ns("na_info"))
               )
+            ),
+
+            nav_panel(
+              fillable = FALSE,
+              title = tagList(bs_icon("funnel", class = "me-1"),
+                              "Filtrar datos"),
+              br(),
+              p(class = "small text-muted mb-3",
+                "Filtra las filas que se usarán en el resto de la app ",
+                "(exploración, ajuste del modelo, diagnóstico, etc.). ",
+                "Para variables numéricas define un rango; para ",
+                "categóricas, marca los niveles a conservar."),
+              layout_columns(
+                col_widths = c(4, 8),
+                fill = FALSE,
+                div(
+                  uiOutput(ns("panel_filtros_lm")),
+                  tags$hr(),
+                  actionButton(ns("aplicar_filtro_lm"),
+                               "Aplicar filtros",
+                               class = "btn-primary w-100 mb-2",
+                               icon  = icon("filter")),
+                  actionButton(ns("quitar_filtro_lm"),
+                               "Quitar filtros",
+                               class = "btn-outline-secondary w-100 btn-sm",
+                               icon  = icon("rotate-left"))
+                ),
+                div(
+                  uiOutput(ns("info_filtro_lm")),
+                  card(
+                    fill = FALSE,
+                    card_header(bs_icon("eye", class = "me-1"),
+                                "Vista previa de los datos filtrados"),
+                    card_body(
+                      style = "overflow: auto;",
+                      DTOutput(ns("tabla_preview_filtro_lm"))
+                    )
+                  )
+                )
+              )
             )
 
           )
@@ -668,45 +714,64 @@ mod_lm_ui <- function(id) {
                   "Las métricas se actualizan al ajustar."),
                 uiOutput(ns("sel_var_y")),
                 tags$hr(),
-                p(class = "small fw-bold text-muted mb-1",
-                  "Predictores numéricos"),
-                uiOutput(ns("checks_numericos")),
-                tags$hr(),
-                p(class = "small fw-bold text-muted mb-1",
-                  "Predictores categóricos"),
-                uiOutput(ns("checks_categoricos")),
-                tags$hr(),
-                conditionalPanel(
-                  condition = paste0(
-                    "(input['", ns("preds_num"), "'] !== null && ",
-                    "input['", ns("preds_num"), "'].length + ",
-                    "(input['", ns("preds_cat"), "'] !== null ? ",
-                    "input['", ns("preds_cat"), "'].length : 0)) >= 2"
-                  ),
-                  div(
-                    p(class = "small fw-bold text-muted mb-1",
-                      bs_icon("diagram-2", class = "me-1"),
-                      "Interacciones (opcional)"),
-                    uiOutput(ns("checks_interacciones")),
-                    tags$hr()
-                  )
-                ),
                 div(
-                  class = "mb-3",
-                  p(class = "small fw-bold text-muted mb-1",
-                    bs_icon("distribute-vertical", class = "me-1"),
-                    "Estandarización"),
+                  class = "mb-2",
                   checkboxInput(
-                    ns("estandarizar"),
+                    ns("modelo_nulo"),
                     label = tagList(
-                      "Estandarizar predictores numéricos",
+                      "Modelo nulo (solo intercepto)",
                       tags$small(class = "text-muted d-block mt-1",
-                                 "Permite comparar el peso relativo de cada predictor ",
-                                 "(β en unidades de SD). El modelo se ajusta en ",
-                                 "escala original — los efectos marginales y ",
-                                 "predicciones siempre en unidades reales.")
+                                 "Ajusta Y ~ 1, sin predictores. Predice la ",
+                                 "media de Y para todas las observaciones — ",
+                                 "sirve como línea base en ",
+                                 strong("Comparar modelos"), ".")
                     ),
                     value = FALSE
+                  )
+                ),
+                conditionalPanel(
+                  condition = paste0("!input['", ns("modelo_nulo"), "']"),
+                  tags$hr(),
+                  p(class = "small fw-bold text-muted mb-1",
+                    "Predictores numéricos"),
+                  uiOutput(ns("checks_numericos")),
+                  tags$hr(),
+                  p(class = "small fw-bold text-muted mb-1",
+                    "Predictores categóricos"),
+                  uiOutput(ns("checks_categoricos")),
+                  tags$hr(),
+                  conditionalPanel(
+                    condition = paste0(
+                      "(input['", ns("preds_num"), "'] !== null && ",
+                      "input['", ns("preds_num"), "'].length + ",
+                      "(input['", ns("preds_cat"), "'] !== null ? ",
+                      "input['", ns("preds_cat"), "'].length : 0)) >= 2"
+                    ),
+                    div(
+                      p(class = "small fw-bold text-muted mb-1",
+                        bs_icon("diagram-2", class = "me-1"),
+                        "Interacciones (opcional)"),
+                      uiOutput(ns("checks_interacciones")),
+                      tags$hr()
+                    )
+                  ),
+                  div(
+                    class = "mb-3",
+                    p(class = "small fw-bold text-muted mb-1",
+                      bs_icon("distribute-vertical", class = "me-1"),
+                      "Estandarización"),
+                    checkboxInput(
+                      ns("estandarizar"),
+                      label = tagList(
+                        "Estandarizar predictores numéricos",
+                        tags$small(class = "text-muted d-block mt-1",
+                                   "Permite comparar el peso relativo de cada predictor ",
+                                   "(β en unidades de SD). El modelo se ajusta en ",
+                                   "escala original — los efectos marginales y ",
+                                   "predicciones siempre en unidades reales.")
+                      ),
+                      value = FALSE
+                    )
                   )
                 ),
                 actionButton(
@@ -813,12 +878,21 @@ mod_lm_ui <- function(id) {
                 card_header(
                   class = "py-1",
                   bs_icon("bar-chart", class = "me-1"),
-                  "Q-Q normal",
-                  span(class = "text-muted small ms-1", "— normalidad")
+                  "Normalidad",
+                  span(class = "text-muted small ms-1", "— de los residuos")
                 ),
                 card_body(
                   class = "p-1",
-                  plotOutput(ns("plot_qq"), height = "240px")
+                  navset_pill(
+                    nav_panel(
+                      title = "Q-Q normal",
+                      plotOutput(ns("plot_qq"), height = "220px")
+                    ),
+                    nav_panel(
+                      title = "Densidad",
+                      plotOutput(ns("plot_density_resid"), height = "220px")
+                    )
+                  )
                 )
               )
             ),
@@ -852,7 +926,8 @@ mod_lm_ui <- function(id) {
                 ),
                 card_body(
                   class = "p-1",
-                  plotOutput(ns("plot_vif"), height = "240px")
+                  plotOutput(ns("plot_vif"), height = "215px"),
+                  uiOutput(ns("nota_gvif_lm"))
                 )
               )
             )
@@ -1217,8 +1292,11 @@ mod_lm_ui <- function(id) {
         card_body(
           p(class = "small text-muted mb-3",
             "Ajusta distintos modelos en la pestaña ",
-            strong("Ajustar modelo"), ", guarda cada uno con un ",
-            "nombre descriptivo y compáralos aquí por AIC, AICc, BIC y R²."
+            strong("Ajustar modelo"), " — incluyendo, si quieres, el ",
+            strong("modelo nulo"), " como línea base — guarda cada uno con ",
+            "un nombre descriptivo y compáralos aquí por AIC, AICc, BIC, R² ",
+            "y el ", strong("peso de Akaike"), " (probabilidad relativa de ",
+            "que cada modelo sea el mejor del conjunto, dado los datos)."
           ),
           layout_columns(
             col_widths = c(4, 8),
@@ -1356,7 +1434,7 @@ mod_lm_server <- function(id) {
     })
 
     # ── Manejo de NAs ────────────────────────────────────────────────────────
-    datos_finales <- reactive({
+    datos_na_manejados <- reactive({
       df <- datos_mod()
       req(df)
       if (isTRUE(input$manejo_na == "eliminar")) {
@@ -1365,9 +1443,103 @@ mod_lm_server <- function(id) {
       df
     })
 
+    # ── Filtrado de filas ───────────────────────────────────────────────────
+    # filtros_lm es NULL cuando no hay filtros activos (se usan todos los datos)
+    filtros_lm <- reactiveVal(NULL)
+
+    observeEvent(datos_na_manejados(), {
+      filtros_lm(NULL)
+    }, ignoreInit = TRUE)
+
+    output$panel_filtros_lm <- renderUI({
+      df <- datos_na_manejados(); req(df)
+      controles <- lapply(names(df), function(nm) {
+        col <- df[[nm]]
+        if (is.numeric(col)) {
+          rng <- range(col, na.rm = TRUE)
+          if (rng[1] == rng[2]) return(NULL)
+          paso <- signif((rng[2] - rng[1]) / 100, 2)
+          sliderInput(
+            ns(paste0("filtro_", nm)),
+            label = nm,
+            min   = rng[1], max = rng[2],
+            value = rng, step = paso
+          )
+        } else {
+          niveles <- levels(factor(col))
+          checkboxGroupInput(
+            ns(paste0("filtro_", nm)),
+            label    = nm,
+            choices  = niveles,
+            selected = niveles,
+            inline   = TRUE
+          )
+        }
+      })
+      tagList(controles)
+    })
+
+    observeEvent(input$aplicar_filtro_lm, {
+      df <- datos_na_manejados(); req(df)
+      spec <- lapply(names(df), function(nm) {
+        val <- input[[paste0("filtro_", nm)]]
+        if (is.numeric(df[[nm]]))
+          list(var = nm, tipo = "rango", valor = val)
+        else
+          list(var = nm, tipo = "niveles", valor = val)
+      })
+      names(spec) <- names(df)
+      filtros_lm(spec)
+      showNotification("Filtros aplicados.", type = "message", duration = 2)
+    })
+
+    observeEvent(input$quitar_filtro_lm, {
+      filtros_lm(NULL)
+      showNotification("Filtros eliminados — usando todos los datos.",
+                       type = "message", duration = 2)
+    })
+
+    datos_finales <- reactive({
+      df <- datos_na_manejados()
+      req(df)
+      spec <- filtros_lm()
+      if (is.null(spec)) return(df)
+      for (nm in names(spec)) {
+        if (!nm %in% names(df)) next
+        s <- spec[[nm]]
+        if (is.null(s$valor)) next
+        if (s$tipo == "rango") {
+          df <- df[!is.na(df[[nm]]) & df[[nm]] >= s$valor[1] &
+                     df[[nm]] <= s$valor[2], , drop = FALSE]
+        } else {
+          df <- df[as.character(df[[nm]]) %in% s$valor, , drop = FALSE]
+        }
+      }
+      df
+    })
+
+    output$info_filtro_lm <- renderUI({
+      total    <- nrow(datos_na_manejados())
+      filtrado <- nrow(datos_finales())
+      if (is.null(filtros_lm()) || filtrado == total) return(
+        div(class = "alert alert-secondary small py-2 px-3 mb-3",
+            bs_icon("info-circle", class = "me-1"),
+            paste0("Sin filtros activos — usando las ", total, " filas."))
+      )
+      div(class = "alert alert-info small py-2 px-3 mb-3",
+          bs_icon("funnel-fill", class = "me-1"),
+          paste0("Mostrando ", filtrado, " de ", total, " filas ",
+                 "(", round(100 * filtrado / total, 0), "%)."))
+    })
+
+    output$tabla_preview_filtro_lm <- renderDT({
+      df <- datos_finales(); req(df)
+      datatable(df, options = list(pageLength = 5, scrollX = TRUE))
+    })
+
     output$na_info <- renderUI({
       df_orig  <- datos_mod()
-      df_final <- datos_finales()
+      df_final <- datos_na_manejados()
       req(df_orig)
       n_na <- sum(!stats::complete.cases(df_orig))
       if (n_na == 0) return(
@@ -1869,20 +2041,24 @@ mod_lm_server <- function(id) {
       df  <- datos_finales()
       req(df, input$var_y)
 
-      preds <- c(input$preds_num, input$preds_cat)
-      if (length(preds) == 0) {
-        showNotification("Selecciona al menos un predictor.",
-                         type = "warning", duration = 4)
-        return(NULL)
+      if (isTRUE(input$modelo_nulo)) {
+        fm <- as.formula(paste(input$var_y, "~ 1"))
+      } else {
+        preds <- c(input$preds_num, input$preds_cat)
+        if (length(preds) == 0) {
+          showNotification("Selecciona al menos un predictor, o activa 'Modelo nulo'.",
+                           type = "warning", duration = 4)
+          return(NULL)
+        }
+
+        ints     <- input$interacciones
+        terminos <- if (!is.null(ints) && length(ints) > 0)
+          c(preds, ints) else preds
+
+        fm <- as.formula(
+          paste(input$var_y, "~", paste(terminos, collapse = " + "))
+        )
       }
-
-      ints     <- input$interacciones
-      terminos <- if (!is.null(ints) && length(ints) > 0)
-        c(preds, ints) else preds
-
-      fm <- as.formula(
-        paste(input$var_y, "~", paste(terminos, collapse = " + "))
-      )
 
       withProgress(message = "Ajustando modelo...", value = 0.5, {
         fit <- tryCatch(
@@ -1903,6 +2079,7 @@ mod_lm_server <- function(id) {
     # ── Modelo estandarizado (para importancia de variables) ──
 
     modelo_lm_std <- eventReactive(input$ajustar, {
+      if (isTRUE(input$modelo_nulo)) return(NULL)
       df    <- datos_finales(); req(df, input$var_y)
       preds <- c(input$preds_num, input$preds_cat)
       req(length(preds) > 0)
@@ -1936,8 +2113,9 @@ mod_lm_server <- function(id) {
       sigma <- round(s$sigma, 2)
       aic_v <- round(AIC(fit), 0)
       np    <- length(coef(fit)) - 1L
-      col_r2 <- if (r2adj > 0.8) colores$exito else
-        if (r2adj > 0.5) colores$acento else colores$peligro
+      col_r2 <- if (np == 0) colores$texto else
+        if (r2adj > 0.8) colores$exito else
+          if (r2adj > 0.5) colores$acento else colores$peligro
 
       layout_columns(
         col_widths = c(3, 3, 3, 3),
@@ -1994,6 +2172,24 @@ mod_lm_server <- function(id) {
       r2adj <- round(s$adj.r.squared, 3)
       sigma <- round(s$sigma, 2)
       np    <- length(coef(fit)) - 1L
+
+      if (np == 0) {
+        return(tagList(
+          div(class = "alert alert-secondary small py-2 px-3 mb-2",
+              bs_icon("dash-circle", class = "me-1"),
+              strong("Modelo nulo (solo intercepto)."),
+              " Predice el mismo valor — la media de ",
+              strong(input$var_y), " (", round(mean(fitted(fit)), 2),
+              ") — para todas las observaciones. No explica nada de la ",
+              "variación (R² = 0 por definición)."),
+          p(class = "small",
+            "Úsalo como ", strong("línea base"), " en la pestaña ",
+            strong("Comparar modelos"), ": si un modelo con predictores no ",
+            "mejora sustancialmente el AIC/AICc frente al modelo nulo, ",
+            "esos predictores no están aportando información útil.")
+        ))
+      }
+
       cal   <- if (r2adj > 0.8) "excelente" else
         if (r2adj > 0.6) "bueno" else "débil"
 
@@ -2049,6 +2245,20 @@ mod_lm_server <- function(id) {
     }
 
     # Datos compartidos para ambas columnas del semáforo
+    # Devuelve el VIF, o el GVIF ajustado para predictores categóricos con
+    # más de 2 niveles, reescalado a la misma métrica que el VIF clásico
+    # (Fox & Monette, 1992): GVIF^(1/(2*Df)) al cuadrado.
+    vif_ajustado_lm <- function(fit) {
+      v <- car::vif(fit)
+      if (is.matrix(v)) {
+        out <- v[, 3]^2
+        names(out) <- rownames(v)
+        out
+      } else {
+        v
+      }
+    }
+
     supuestos_data <- reactive({
       fit <- modelo_lm()
       req(fit)
@@ -2061,9 +2271,21 @@ mod_lm_server <- function(id) {
         error = function(e) NA
       )
       vif_max <- tryCatch({
-        if (length(coef(fit)) > 2) max(car::vif(fit), na.rm = TRUE) else 1
+        if (length(coef(fit)) > 2) max(vif_ajustado_lm(fit), na.rm = TRUE) else 1
       }, error = function(e) 1)
-      r2adj <- summary(fit)$adj.r.squared
+
+      # Breusch-Pagan / Cook-Weisberg — homocedasticidad
+      bp_test <- tryCatch(car::ncvTest(fit), error = function(e) NULL)
+      bp_p    <- if (!is.null(bp_test)) bp_test$p else NA
+      bp_chi  <- if (!is.null(bp_test)) unname(bp_test$ChiSquare) else NA
+
+      # Durbin-Watson — autocorrelación de residuos según el orden de las filas
+      dw_test <- tryCatch({
+        set.seed(42)
+        car::durbinWatsonTest(fit)
+      }, error = function(e) NULL)
+      dw_stat <- if (!is.null(dw_test)) dw_test$dw else NA
+      dw_p    <- if (!is.null(dw_test)) dw_test$p  else NA
 
       list(
         list(
@@ -2081,23 +2303,39 @@ mod_lm_server <- function(id) {
           ok     = if (is.na(sw_p)) "No calculado (muestra muy grande)."
           else paste0("Shapiro-Wilk: p = ", round(sw_p, 3), "."),
           warn   = paste0("Shapiro-Wilk: p = ", round(sw_p, 3),
-                          ". Revisa el Q-Q."),
+                          ". Revisa el Q-Q y la densidad."),
           bad    = "Desviación severa. Los IC pueden ser incorrectos."
         ),
         list(
           nombre = "Homocedasticidad",
           def    = "La varianza de los errores debe ser constante.",
-          st     = if (r2adj > 0.7) "ok" else "warn",
-          ok     = "La dispersión de los residuos parece constante.",
-          warn   = "Posible heterocedasticidad. Revisa scale-location.",
-          bad    = "Heterocedasticidad clara. Transforma Y o usa errores robustos."
+          st     = if (is.na(bp_p) || bp_p > 0.05) "ok" else
+            if (bp_p > 0.01) "warn" else "bad",
+          ok     = if (is.na(bp_p))
+            "No se pudo calcular (¿modelo sin predictores?)." else
+              paste0("Breusch-Pagan: \u03c7\u00b2 = ", round(bp_chi, 2),
+                     ", p = ", round(bp_p, 3), "."),
+          warn   = paste0("Breusch-Pagan: \u03c7\u00b2 = ", round(bp_chi, 2),
+                          ", p = ", round(bp_p, 3), ". Revisa scale-location."),
+          bad    = paste0("Breusch-Pagan: \u03c7\u00b2 = ", round(bp_chi, 2),
+                          ", p = ", round(bp_p, 3),
+                          ". Heterocedasticidad clara — transforma Y o usa errores robustos.")
         ),
         list(
           nombre = "Independencia",
-          def    = "Las observaciones no deben estar correlacionadas.",
-          st     = "ok",
-          ok     = "Asumida. Verifica si los datos son temporales o espaciales.",
-          warn   = "Posible dependencia. Considera modelos mixtos (LMM).",
+          def    = paste0("Las observaciones no deben estar correlacionadas. ",
+                          "(Durbin-Watson solo es informativo si el orden de ",
+                          "las filas refleja una secuencia temporal o espacial)."),
+          st     = if (is.na(dw_p) || dw_p > 0.05) "ok" else "warn",
+          ok     = if (is.na(dw_p))
+            "No se pudo calcular. Verifica si los datos son temporales o espaciales." else
+              paste0("Durbin-Watson: DW = ", round(dw_stat, 2),
+                     ", p = ", round(dw_p, 3),
+                     " — sin autocorrelación detectable en el orden actual."),
+          warn   = paste0("Durbin-Watson: DW = ", round(dw_stat, 2),
+                          ", p = ", round(dw_p, 3),
+                          ". Posible dependencia — considera modelos mixtos (LMM) ",
+                          "si hay estructura temporal, espacial o jerárquica."),
           bad    = "Dependencia clara. El LM no es apropiado."
         ),
         list(
@@ -2170,6 +2408,28 @@ mod_lm_server <- function(id) {
         )
     }, res = 96)
 
+    output$plot_density_resid <- renderPlot({
+      fit <- modelo_lm(); req(fit)
+      res <- resid(fit)
+      tibble::tibble(res = res) |>
+        ggplot(aes(x = res)) +
+        geom_histogram(aes(y = after_stat(density)),
+                       bins = min(20, max(7, round(length(res) / 4))),
+                       fill = colores$primario, alpha = 0.35,
+                       color = colores$primario, linewidth = 0.3) +
+        geom_density(color = colores$acento, linewidth = 1.1) +
+        stat_function(fun = dnorm,
+                      args = list(mean = mean(res), sd = stats::sd(res)),
+                      color = colores$texto, linetype = "dashed",
+                      linewidth = 0.8) +
+        labs(x = "Residuos", y = "Densidad") +
+        theme_minimal(base_size = 13) +
+        theme(
+          panel.grid.minor = element_blank(),
+          plot.margin = margin(10, 15, 10, 10)
+        )
+    }, res = 96)
+
     output$plot_scale <- renderPlot({
       fit <- modelo_lm(); req(fit)
       tibble::tibble(
@@ -2200,9 +2460,8 @@ mod_lm_server <- function(id) {
             theme_void()
         )
       }
-      vif_vals <- tryCatch(car::vif(fit), error = function(e) NULL)
+      vif_vals <- tryCatch(vif_ajustado_lm(fit), error = function(e) NULL)
       if (is.null(vif_vals)) return(invisible(NULL))
-      if (is.matrix(vif_vals)) vif_vals <- vif_vals[, 1]
 
       tibble::tibble(
         term  = names(vif_vals),
@@ -2236,6 +2495,15 @@ mod_lm_server <- function(id) {
           plot.margin        = margin(10, 15, 10, 10)
         )
     }, res = 110)
+
+    output$nota_gvif_lm <- renderUI({
+      fit <- modelo_lm(); req(fit)
+      v <- tryCatch(car::vif(fit), error = function(e) NULL)
+      if (is.null(v) || !is.matrix(v)) return(NULL)
+      p(class = "text-muted mb-0", style = "font-size:0.7rem;",
+        bs_icon("info-circle", class = "me-1"),
+        "Categóricas con >2 niveles: GVIF ajustado (mismos umbrales).")
+    })
 
     # ────────────────────────────────────────────────────
     # PESTAÑA 7: Performance
@@ -2556,6 +2824,18 @@ mod_lm_server <- function(id) {
       rows <- rows[!sapply(rows, is.null)]
       if (length(rows) == 0) return(NULL)
 
+      # ── Peso de Akaike (Burnham & Anderson, 2002) ──────────────────
+      # Basado en AICc (más apropiado con muestras pequeñas, n/k < 40),
+      # igual criterio que ya se usa para elegir el mejor modelo.
+      aiccs    <- sapply(rows, function(r) r$aicc)
+      delta    <- aiccs - min(aiccs, na.rm = TRUE)
+      rel_lik  <- exp(-0.5 * delta)
+      pesos_ak <- rel_lik / sum(rel_lik, na.rm = TRUE)
+      for (i in seq_along(rows)) {
+        rows[[i]]$delta_aicc  <- round(delta[i], 1)
+        rows[[i]]$peso_akaike <- round(pesos_ak[i], 3)
+      }
+
       best_aicc <- which.min(sapply(rows, function(r) r$aicc))
 
       tags$table(
@@ -2564,7 +2844,9 @@ mod_lm_server <- function(id) {
           style = paste0("background:", colores$primario, "; color:#fff;"),
           tags$tr(
             tags$th("Modelo"), tags$th("AIC"),
-            tags$th("AICc"),  tags$th("BIC"),
+            tags$th("AICc"),  tags$th("\u0394AICc"),
+            tags$th("Peso Akaike (w\u1d62)"),
+            tags$th("BIC"),
             tags$th("R²"),    tags$th("R² adj.")
           )
         ),
@@ -2581,7 +2863,10 @@ mod_lm_server <- function(id) {
                                                "; margin-right:4px")), r$nm)
               else r$nm
             ),
-            tags$td(r$aic), tags$td(r$aicc), tags$td(r$bic),
+            tags$td(r$aic), tags$td(r$aicc),
+            tags$td(r$delta_aicc),
+            tags$td(scales::percent(r$peso_akaike, accuracy = 0.1)),
+            tags$td(r$bic),
             tags$td(r$r2),  tags$td(r$r2adj)
           )
         }))
@@ -2945,7 +3230,11 @@ mod_lm_server <- function(id) {
     output$sel_pred_marginal_lm <- renderUI({
       fit <- modelo_lm(); req(fit)
       preds <- c(input$preds_num, input$preds_cat)
-      req(length(preds) > 0)
+      if (length(preds) == 0) return(
+        div(class = "alert alert-secondary small py-2 px-3 mb-0",
+            bs_icon("info-circle", class = "me-1"),
+            "El modelo nulo no tiene predictores que explorar.")
+      )
       selectInput(ns("pred_marginal_lm"),
                   label    = "Predictor a explorar:",
                   choices  = preds,
@@ -3302,15 +3591,23 @@ mod_lm_server <- function(id) {
 
     codigo_generado <- reactive({
       req(input$var_y)
-      preds <- c(input$preds_num, input$preds_cat)
-      ints  <- input$interacciones
-      terminos <- if (!is.null(ints) && length(ints) > 0)
-        c(preds, ints) else preds
-      formula_txt <- if (length(terminos) > 0)
-        paste(input$var_y, "~", paste(terminos, collapse = " + "))
-      else paste(input$var_y, "~ 1")
 
-      tiene_cat <- length(input$preds_cat) > 0
+      es_nulo <- isTRUE(input$modelo_nulo)
+      if (es_nulo) {
+        preds       <- character(0)
+        terminos    <- character(0)
+        formula_txt <- paste(input$var_y, "~ 1")
+        tiene_cat   <- FALSE
+      } else {
+        preds <- c(input$preds_num, input$preds_cat)
+        ints  <- input$interacciones
+        terminos <- if (!is.null(ints) && length(ints) > 0)
+          c(preds, ints) else preds
+        formula_txt <- if (length(terminos) > 0)
+          paste(input$var_y, "~", paste(terminos, collapse = " + "))
+        else paste(input$var_y, "~ 1")
+        tiene_cat <- length(input$preds_cat) > 0
+      }
 
       if (input$fuente_datos == "ejemplo_ave") {
         carga <- paste0(
@@ -3334,6 +3631,31 @@ mod_lm_server <- function(id) {
         )
       }
 
+      # ── Filtros activos (pestaña "Filtrar datos") ─────────────────
+      spec <- filtros_lm()
+      filtro_txt <- ""
+      if (!is.null(spec)) {
+        condiciones <- Filter(Negate(is.null), lapply(spec, function(s) {
+          if (is.null(s$valor)) return(NULL)
+          if (s$tipo == "rango") {
+            paste0(s$var, " >= ", s$valor[1], " & ",
+                   s$var, " <= ", s$valor[2])
+          } else {
+            niveles_txt <- paste0("c(", paste0("\"", s$valor, "\"", collapse = ", "), ")")
+            paste0(s$var, " %in% ", niveles_txt)
+          }
+        }))
+        if (length(condiciones) > 0) {
+          filtro_txt <- paste0(
+            "\n# \u2500\u2500 Filtros aplicados en la app \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n",
+            "datos <- datos |>\n",
+            "  dplyr::filter(\n    ",
+            paste(condiciones, collapse = ",\n    "),
+            "\n  )\n"
+          )
+        }
+      }
+
       encabezado <- encabezado_script("StatModels",
                                       "Modelo lineal general (LM)")
 
@@ -3343,12 +3665,14 @@ mod_lm_server <- function(id) {
         "library(tidymodels)\n",
         "library(parameters)   # easystats\n",
         "library(performance)  # easystats\n",
+        "library(car)          # ncvTest, durbinWatsonTest, vif\n",
         if (!is.null(input$archivo) &&
             tools::file_ext(input$archivo$name) %in% c("xlsx","xls"))
           "library(readxl)\n" else "",
         "\n",
         "# \u2500\u2500 Datos \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n",
         carga,
+        filtro_txt,
         "\n",
         "# \u2500\u2500 Dividir entrenamiento / prueba (75/25) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n",
         "set.seed(42)\n",
@@ -3375,13 +3699,19 @@ mod_lm_server <- function(id) {
         "  extract_fit_parsnip() |>\n",
         "  pluck(\"fit\")\n\n",
         "model_parameters(lm_fit)          # coeficientes + IC 95%\n",
-        "standardize_parameters(lm_fit)    # betas estandarizados\n\n",
-        "# \u2500\u2500 Diagn\u00f3stico (easystats) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n",
+        if (!es_nulo)
+          "standardize_parameters(lm_fit)    # betas estandarizados\n\n" else "\n",
+        "# \u2500\u2500 Diagn\u00f3stico (easystats + car) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n",
         "model_performance(lm_fit)         # R\u00b2, AIC, sigma\n",
         "check_model(lm_fit)               # 6 gr\u00e1ficos autom\u00e1ticos\n",
         "check_normality(lm_fit)           # Shapiro-Wilk\n",
-        "check_heteroscedasticity(lm_fit)  # Breusch-Pagan\n",
-        "check_collinearity(lm_fit)        # VIF\n"
+        "ncvTest(lm_fit)                   # Breusch-Pagan / Cook-Weisberg\n",
+        "durbinWatsonTest(lm_fit)          # Durbin-Watson (independencia)\n",
+        if (!es_nulo)
+          paste0(
+            "vif(lm_fit)                       # VIF (o GVIF si hay factores\n",
+            "                                   # con m\u00e1s de 2 niveles)\n"
+          ) else ""
       )
     })
 

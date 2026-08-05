@@ -12,7 +12,7 @@
 #' @importFrom purrr map map_chr map_dbl
 #' @importFrom scales percent comma
 #' @importFrom MASS glm.nb stepAIC
-#' @importFrom car Anova vif
+#' @importFrom car Anova vif ncvTest durbinWatsonTest
 #' @importFrom mgcv gam s te k.check
 #' @importFrom gratia draw
 #' @importFrom lme4 lmer glmer isSingular VarCorr ranef getME
