@@ -592,6 +592,46 @@ mod_glm_ui <- function(id) {
               )
             ),
 
+            nav_panel(
+              fillable = FALSE,
+              title = tagList(bs_icon("funnel", class = "me-1"),
+                              "Filtrar datos"),
+              br(),
+              p(class = "small text-muted mb-3",
+                "Filtra las filas que se usarán en el resto de la app ",
+                "(exploración, ajuste del modelo, diagnóstico, etc.). ",
+                "Para variables numéricas define un rango; para ",
+                "categóricas, marca los niveles a conservar."),
+              layout_columns(
+                col_widths = c(4, 8),
+                fill = FALSE,
+                div(
+                  uiOutput(ns("panel_filtros_glm")),
+                  tags$hr(),
+                  actionButton(ns("aplicar_filtro_glm"),
+                               "Aplicar filtros",
+                               class = "btn-primary w-100 mb-2",
+                               icon  = icon("filter")),
+                  actionButton(ns("quitar_filtro_glm"),
+                               "Quitar filtros",
+                               class = "btn-outline-secondary w-100 btn-sm",
+                               icon  = icon("rotate-left"))
+                ),
+                div(
+                  uiOutput(ns("info_filtro_glm")),
+                  card(
+                    fill = FALSE,
+                    card_header(bs_icon("eye", class = "me-1"),
+                                "Vista previa de los datos filtrados"),
+                    card_body(
+                      style = "overflow: auto;",
+                      DTOutput(ns("tabla_preview_filtro_glm"))
+                    )
+                  )
+                )
+              )
+            ),
+
           )
         )
       ),
@@ -674,47 +714,66 @@ mod_glm_ui <- function(id) {
                 uiOutput(ns("sel_enlace")),
                 uiOutput(ns("sel_offset")),
                 tags$hr(),
-                p(class = "small fw-bold text-muted mb-1",
-                  "Predictores numéricos"),
-                uiOutput(ns("checks_numericos")),
-                tags$hr(),
-                p(class = "small fw-bold text-muted mb-1",
-                  "Predictores categóricos"),
-                uiOutput(ns("checks_categoricos")),
-                tags$hr(),
-                # Interacciones
-                conditionalPanel(
-                  condition = paste0(
-                    "(input['", ns("preds_num"), "'] !== null && ",
-                    "input['", ns("preds_num"), "'].length + ",
-                    "(input['", ns("preds_cat"), "'] !== null ? ",
-                    "input['", ns("preds_cat"), "'].length : 0)) >= 2"
-                  ),
-                  div(
-                    p(class = "small fw-bold text-muted mb-1",
-                      bs_icon("diagram-2", class = "me-1"),
-                      "Interacciones (opcional)"),
-                    uiOutput(ns("checks_interacciones")),
-                    tags$hr()
-                  )
-                ),
                 div(
-                  class = "mb-3",
-                  p(class = "small fw-bold text-muted mb-1",
-                    bs_icon("distribute-vertical", class = "me-1"),
-                    "Estandarización"),
+                  class = "mb-2",
                   checkboxInput(
-                    ns("estandarizar"),
+                    ns("modelo_nulo"),
                     label = tagList(
-                      "Estandarizar predictores numéricos",
+                      "Modelo nulo (solo intercepto)",
                       tags$small(class = "text-muted d-block mt-1",
-                                 "Mejora la estabilidad numérica del algoritmo ",
-                                 "iterativo y permite comparar el peso relativo ",
-                                 "de cada predictor (β en unidades de SD). ",
-                                 "Los efectos marginales y predicciones siempre ",
-                                 "se muestran en escala original.")
+                                 "Ajusta Y ~ 1 (con el offset si lo definiste), ",
+                                 "sin predictores. Predice la tasa/probabilidad ",
+                                 "media para todas las observaciones — sirve ",
+                                 "como línea base en ", strong("Comparar modelos"), ".")
                     ),
                     value = FALSE
+                  )
+                ),
+                conditionalPanel(
+                  condition = paste0("!input['", ns("modelo_nulo"), "']"),
+                  tags$hr(),
+                  p(class = "small fw-bold text-muted mb-1",
+                    "Predictores numéricos"),
+                  uiOutput(ns("checks_numericos")),
+                  tags$hr(),
+                  p(class = "small fw-bold text-muted mb-1",
+                    "Predictores categóricos"),
+                  uiOutput(ns("checks_categoricos")),
+                  tags$hr(),
+                  # Interacciones
+                  conditionalPanel(
+                    condition = paste0(
+                      "(input['", ns("preds_num"), "'] !== null && ",
+                      "input['", ns("preds_num"), "'].length + ",
+                      "(input['", ns("preds_cat"), "'] !== null ? ",
+                      "input['", ns("preds_cat"), "'].length : 0)) >= 2"
+                    ),
+                    div(
+                      p(class = "small fw-bold text-muted mb-1",
+                        bs_icon("diagram-2", class = "me-1"),
+                        "Interacciones (opcional)"),
+                      uiOutput(ns("checks_interacciones")),
+                      tags$hr()
+                    )
+                  ),
+                  div(
+                    class = "mb-3",
+                    p(class = "small fw-bold text-muted mb-1",
+                      bs_icon("distribute-vertical", class = "me-1"),
+                      "Estandarización"),
+                    checkboxInput(
+                      ns("estandarizar"),
+                      label = tagList(
+                        "Estandarizar predictores numéricos",
+                        tags$small(class = "text-muted d-block mt-1",
+                                   "Mejora la estabilidad numérica del algoritmo ",
+                                   "iterativo y permite comparar el peso relativo ",
+                                   "de cada predictor (β en unidades de SD). ",
+                                   "Los efectos marginales y predicciones siempre ",
+                                   "se muestran en escala original.")
+                      ),
+                      value = FALSE
+                    )
                   )
                 ),
                 actionButton(
@@ -804,13 +863,28 @@ mod_glm_ui <- function(id) {
               fill = FALSE,
               card_header(
                 bs_icon("clipboard-check", class = "me-1"),
-                "Gráficos de diagnóstico",
-                span(class = "text-muted small ms-2",
-                     "— performance::check_model() · easystats")
+                "Gráficos de diagnóstico"
               ),
               card_body(
                 class = "p-1",
-                plotOutput(ns("plot_check_model"), height = "650px")
+                navset_pill(
+                  nav_panel(
+                    title = "check_model (performance)",
+                    p(class = "text-muted small mt-2 mb-1 px-2",
+                      "— performance::check_model() · easystats"),
+                    plotOutput(ns("plot_check_model"), height = "620px")
+                  ),
+                  nav_panel(
+                    title = "Residuos simulados (DHARMa)",
+                    p(class = "text-muted small mt-2 mb-1 px-2",
+                      "— DHARMa::simulateResiduals() · residuos cuantílicos ",
+                      "aleatorizados, uniformes(0,1) bajo el modelo correcto. ",
+                      "Válidos para cualquier familia (a diferencia de los ",
+                      "residuos crudos)."),
+                    uiOutput(ns("aviso_dharma")),
+                    plotOutput(ns("plot_dharma"), height = "560px")
+                  )
+                )
               )
             )
           )
@@ -1175,7 +1249,9 @@ mod_glm_ui <- function(id) {
           p(class = "small text-muted mb-3",
             "Ajusta distintos modelos en la pestaña ",
             strong("Ajustar modelo"), ", guarda cada uno con un ",
-            "nombre descriptivo y compáralos aquí por AIC, AICc y BIC."
+            "nombre descriptivo y compáralos aquí por AIC, AICc, BIC y el ",
+            strong("peso de Akaike"), " (probabilidad relativa de que cada ",
+            "modelo sea el mejor del conjunto, dado los datos)."
           ),
           layout_columns(
             col_widths = c(4, 8),
@@ -1590,7 +1666,7 @@ mod_glm_server <- function(id) {
     })
 
     # ── Manejo de NAs ────────────────────────────────────────────────────────
-    datos_finales <- reactive({
+    datos_na_manejados <- reactive({
       df <- datos_mod()
       req(df)
       if (isTRUE(input$manejo_na == "eliminar")) {
@@ -1599,9 +1675,102 @@ mod_glm_server <- function(id) {
       df
     })
 
+    # ── Filtrado de filas ───────────────────────────────────────────────────
+    filtros_glm <- reactiveVal(NULL)
+
+    observeEvent(datos_na_manejados(), {
+      filtros_glm(NULL)
+    }, ignoreInit = TRUE)
+
+    output$panel_filtros_glm <- renderUI({
+      df <- datos_na_manejados(); req(df)
+      controles <- lapply(names(df), function(nm) {
+        col <- df[[nm]]
+        if (is.numeric(col)) {
+          rng <- range(col, na.rm = TRUE)
+          if (rng[1] == rng[2]) return(NULL)
+          paso <- signif((rng[2] - rng[1]) / 100, 2)
+          sliderInput(
+            ns(paste0("filtro_", nm)),
+            label = nm,
+            min   = rng[1], max = rng[2],
+            value = rng, step = paso
+          )
+        } else {
+          niveles <- levels(factor(col))
+          checkboxGroupInput(
+            ns(paste0("filtro_", nm)),
+            label    = nm,
+            choices  = niveles,
+            selected = niveles,
+            inline   = TRUE
+          )
+        }
+      })
+      tagList(controles)
+    })
+
+    observeEvent(input$aplicar_filtro_glm, {
+      df <- datos_na_manejados(); req(df)
+      spec <- lapply(names(df), function(nm) {
+        val <- input[[paste0("filtro_", nm)]]
+        if (is.numeric(df[[nm]]))
+          list(var = nm, tipo = "rango", valor = val)
+        else
+          list(var = nm, tipo = "niveles", valor = val)
+      })
+      names(spec) <- names(df)
+      filtros_glm(spec)
+      showNotification("Filtros aplicados.", type = "message", duration = 2)
+    })
+
+    observeEvent(input$quitar_filtro_glm, {
+      filtros_glm(NULL)
+      showNotification("Filtros eliminados — usando todos los datos.",
+                       type = "message", duration = 2)
+    })
+
+    datos_finales <- reactive({
+      df <- datos_na_manejados()
+      req(df)
+      spec <- filtros_glm()
+      if (is.null(spec)) return(df)
+      for (nm in names(spec)) {
+        if (!nm %in% names(df)) next
+        s <- spec[[nm]]
+        if (is.null(s$valor)) next
+        if (s$tipo == "rango") {
+          df <- df[!is.na(df[[nm]]) & df[[nm]] >= s$valor[1] &
+                     df[[nm]] <= s$valor[2], , drop = FALSE]
+        } else {
+          df <- df[as.character(df[[nm]]) %in% s$valor, , drop = FALSE]
+        }
+      }
+      df
+    })
+
+    output$info_filtro_glm <- renderUI({
+      total    <- nrow(datos_na_manejados())
+      filtrado <- nrow(datos_finales())
+      if (is.null(filtros_glm()) || filtrado == total) return(
+        div(class = "alert alert-secondary small py-2 px-3 mb-3",
+            bs_icon("info-circle", class = "me-1"),
+            paste0("Sin filtros activos — usando las ", total, " filas."))
+      )
+      div(class = "alert alert-info small py-2 px-3 mb-3",
+          bs_icon("funnel-fill", class = "me-1"),
+          paste0("Mostrando ", filtrado, " de ", total, " filas ",
+                 "(", round(100 * filtrado / total, 0), "%)."))
+    })
+
+    output$tabla_preview_filtro_glm <- renderDT({
+      df <- datos_finales(); req(df)
+      datatable(df, options = list(pageLength = 5, scrollX = TRUE))
+    })
+
     output$na_info <- renderUI({
       df_orig  <- datos_mod()
-      df_final <- datos_finales()
+      df_final <- datos_na_manejados()
       req(df_orig)
       n_na <- sum(!stats::complete.cases(df_orig))
       if (n_na == 0) return(
@@ -1955,7 +2124,7 @@ mod_glm_server <- function(id) {
       nums <- vars_numericas()
       if (length(nums) == 0) return(NULL)
       familia <- input$familia
-      if (!familia %in% c("poisson", "nbinom2")) return(NULL)
+      if (!familia %in% c("poisson", "quasipoisson", "nbinom2")) return(NULL)
       selectInput(ns("offset_var"),
                   label = "Variable offset (opcional):",
                   choices = c("Sin offset" = "ninguno", nums),
@@ -2010,30 +2179,35 @@ mod_glm_server <- function(id) {
 
     # Ajuste del modelo — glm() para binomial/Poisson, MASS::glm.nb() para nbinom2
     modelo_glm <- eventReactive(input$ajustar, {
-      df    <- datos_finales(); req(df, input$var_y)
-      preds <- c(input$preds_num, input$preds_cat)
-      if (length(preds) == 0) {
-        showNotification("Selecciona al menos un predictor.",
-                         type = "warning", duration = 4)
-        return(NULL)
-      }
+      df <- datos_finales(); req(df, input$var_y)
 
-      ints     <- input$interacciones
-      terminos <- if (!is.null(ints) && length(ints) > 0)
-        c(preds, ints) else preds
-
-      # Offset
+      # Offset (se conserva también en el modelo nulo)
       offset_txt <- ""
       if (!is.null(input$offset_var) &&
           input$offset_var != "ninguno") {
         offset_txt <- paste0(" + offset(log(", input$offset_var, "))")
       }
 
-      fm_txt <- paste0(
-        input$var_y, " ~ ",
-        paste(terminos, collapse = " + "),
-        offset_txt
-      )
+      if (isTRUE(input$modelo_nulo)) {
+        fm_txt <- paste0(input$var_y, " ~ 1", offset_txt)
+      } else {
+        preds <- c(input$preds_num, input$preds_cat)
+        if (length(preds) == 0) {
+          showNotification("Selecciona al menos un predictor, o activa 'Modelo nulo'.",
+                           type = "warning", duration = 4)
+          return(NULL)
+        }
+
+        ints     <- input$interacciones
+        terminos <- if (!is.null(ints) && length(ints) > 0)
+          c(preds, ints) else preds
+
+        fm_txt <- paste0(
+          input$var_y, " ~ ",
+          paste(terminos, collapse = " + "),
+          offset_txt
+        )
+      }
       fm <- as.formula(fm_txt)
 
       withProgress(message = "Ajustando modelo GLM...", value = 0.5, {
@@ -2063,6 +2237,7 @@ mod_glm_server <- function(id) {
     # ── Modelo estandarizado (para importancia de variables) ──
 
     modelo_glm_std <- eventReactive(input$ajustar, {
+      if (isTRUE(input$modelo_nulo)) return(NULL)
       df    <- datos_finales(); req(df, input$var_y)
       preds <- c(input$preds_num, input$preds_cat)
       req(length(preds) > 0)
@@ -2182,12 +2357,34 @@ mod_glm_server <- function(id) {
         enl   <- input$enlace
         n_p   <- length(coef(fit)) - 1L
         fam_txt <- switch(fam,
-                          "binomial" = "binomial (logística)",
-                          "poisson"  = "Poisson",
-                          "nbinom2"  = "binomial negativa",
+                          "binomial"     = "binomial (logística)",
+                          "poisson"      = "Poisson",
+                          "quasipoisson" = "quasipoisson",
+                          "nbinom2"      = "binomial negativa",
+                          fam
         )
         aic_txt <- tryCatch(strong(round(pm$AIC, 1)), error = function(e) "—")
         bic_txt <- tryCatch(strong(round(pm$BIC, 1)), error = function(e) "—")
+
+        if (isTRUE(input$modelo_nulo)) {
+          return(tagList(
+            div(class = "alert alert-secondary small py-2 px-3 mb-2",
+                bs_icon("dash-circle", class = "me-1"),
+                strong("Modelo nulo (solo intercepto)."),
+                " Familia ", strong(fam_txt), ". Predice la misma tasa o ",
+                "probabilidad promedio — exp(\u03b2\u2080) = ",
+                round(mean(fitted(fit)), 3),
+                if (grepl("offset\\(", deparse(formula(fit))))
+                  " (en la escala del offset)." else "."
+                , " No explica variación alguna."),
+            p(class = "small",
+              "Úsalo como ", strong("línea base"), " en la pestaña ",
+              strong("Comparar modelos"), ": si un modelo con predictores no ",
+              "mejora sustancialmente el AIC/AICc frente al modelo nulo, ",
+              "esos predictores no aportan información útil.")
+          ))
+        }
+
         tagList(
           p(class = "small",
             "Modelo ", strong(fam_txt),
@@ -2201,7 +2398,7 @@ mod_glm_server <- function(id) {
               "Los coeficientes están en escala ",
               strong("log-odds"),
               ". Ver pestaña Parámetros para odds ratios.")
-          else if (fam %in% c("poisson", "nbinom2"))
+          else if (fam %in% c("poisson", "quasipoisson", "nbinom2"))
             p(class = "small text-muted",
               "Los coeficientes están en escala ",
               strong("log"),
@@ -2225,7 +2422,7 @@ mod_glm_server <- function(id) {
       sep_warning <- tryCatch({
         fit <- modelo_glm()
         if (!is.null(fit) && fam == "binomial") {
-          se_vals <- sqrt(diag(vcov(fit)$cond))
+          se_vals <- sqrt(diag(vcov(fit)))
           if (any(se_vals > 100, na.rm = TRUE)) {
             # Identificar qué predictor tiene el problema
             nms_prob <- names(se_vals)[se_vals > 100 &
@@ -2256,7 +2453,7 @@ mod_glm_server <- function(id) {
             strong("odds ratios (OR)"),
             " — la forma más común de reportar regresión logística. ",
             "OR > 1 aumenta las chances, OR < 1 las disminuye, OR = 1 sin efecto.")
-        } else if (fam %in% c("poisson", "nbinom2")) {
+        } else if (fam %in% c("poisson", "quasipoisson", "nbinom2")) {
           p(class = "small text-muted mb-3",
             "Los coeficientes están en escala ", strong("log"),
             ". Exponenciando (exp(β)) se obtienen las ",
@@ -2413,7 +2610,7 @@ mod_glm_server <- function(id) {
       if (fam == "binomial")
         tagList(bs_icon("arrow-left-right", class = "me-1"),
                 "Odds Ratios (OR) — exp(β)")
-      else if (fam %in% c("poisson", "nbinom2"))
+      else if (fam %in% c("poisson", "quasipoisson", "nbinom2"))
         tagList(bs_icon("arrow-left-right", class = "me-1"),
                 "Razones de tasas de incidencia (IRR) — exp(β)")
       else
@@ -2427,7 +2624,7 @@ mod_glm_server <- function(id) {
         p(class = "small text-muted", "Ajusta el modelo primero.")
       )
       fam <- input$familia
-      if (!fam %in% c("binomial", "poisson", "nbinom2")) return(
+      if (!fam %in% c("binomial", "poisson", "quasipoisson", "nbinom2")) return(
         p(class = "small text-muted",
           "Transformación exp(β) no aplica para esta familia.")
       )
@@ -2671,7 +2868,7 @@ mod_glm_server <- function(id) {
             if (sig) paste0("Efecto significativo (p = ", p_txt, ").")
             else paste0("Efecto NO significativo (p = ", p_txt, ").")
           )
-        } else if (fam %in% c("poisson", "nbinom2")) {
+        } else if (fam %in% c("poisson", "quasipoisson", "nbinom2")) {
           paste0(
             "Por cada unidad adicional de '", sel,
             "', el log del conteo esperado cambia en ",
@@ -2715,7 +2912,11 @@ mod_glm_server <- function(id) {
     output$sel_pred_marginal <- renderUI({
       fit <- modelo_glm(); req(fit)
       preds <- c(input$preds_num, input$preds_cat)
-      req(length(preds) > 0)
+      if (length(preds) == 0) return(
+        div(class = "alert alert-secondary small py-2 px-3 mb-0",
+            bs_icon("info-circle", class = "me-1"),
+            "El modelo nulo no tiene predictores que explorar.")
+      )
       selectInput(ns("pred_marginal"),
                   label    = "Predictor a explorar:",
                   choices  = preds,
@@ -3324,8 +3525,8 @@ mod_glm_server <- function(id) {
           }
         }
 
-        # Métricas específicas para Poisson y BN
-        if (fam %in% c("poisson", "nbinom2")) {
+        # Métricas específicas para Poisson, quasipoisson y BN
+        if (fam %in% c("poisson", "quasipoisson", "nbinom2")) {
 
           # D² — devianza explicada
           # Usando devianza del modelo vs modelo nulo de Poisson
@@ -3819,6 +4020,28 @@ mod_glm_server <- function(id) {
       })
       best <- which.min(criterio)
 
+      # ── Peso de Akaike (Burnham & Anderson, 2002) ──────────────────
+      # Solo es comparable DENTRO del mismo criterio: AICc entre sí,
+      # QAICc entre sí. Nunca se mezclan modelos quasipoisson con el resto.
+      grupo_quasi <- sapply(rows, function(r) isTRUE(r$es_quasi))
+
+      pesos_grupo <- function(idx) {
+        if (length(idx) == 0) return(NULL)
+        crit <- sapply(rows[idx], function(r) {
+          v <- r$aicc
+          if (is.character(v)) NA_real_ else as.numeric(v)
+        })
+        if (all(is.na(crit))) return(rep(NA_real_, length(idx)))
+        delta   <- crit - min(crit, na.rm = TRUE)
+        rel_lik <- exp(-0.5 * delta)
+        rel_lik / sum(rel_lik, na.rm = TRUE)
+      }
+
+      pesos <- rep(NA_real_, length(rows))
+      if (any(!grupo_quasi)) pesos[!grupo_quasi] <- pesos_grupo(which(!grupo_quasi))
+      if (any(grupo_quasi))  pesos[grupo_quasi]  <- pesos_grupo(which(grupo_quasi))
+      for (i in seq_along(rows)) rows[[i]]$peso_akaike <- pesos[i]
+
       tagList(
         if (tiene_quasi)
           div(class = "alert alert-info small py-2 px-3 mb-2",
@@ -3826,7 +4049,9 @@ mod_glm_server <- function(id) {
               "Los modelos ", strong("quasipoisson"), " usan ",
               strong("QAICc"), " (corregido por sobredispersión \u03c6) ",
               "en lugar de AICc. No son directamente comparables con ",
-              "modelos de otras familias."),
+              "modelos de otras familias — el ", strong("peso de Akaike"),
+              " se calcula por separado dentro de cada grupo ",
+              "(quasipoisson entre sí, el resto entre sí)."),
 
         tags$table(
           class = "table table-sm table-hover small mb-0",
@@ -3837,6 +4062,7 @@ mod_glm_server <- function(id) {
               tags$th(if (tiene_quasi) "AICc / QAICc" else "AICc"),
               tags$th("AIC / \u2014"),
               tags$th("BIC / \u2014"),
+              tags$th("Peso Akaike (w\u1d62)"),
               if (tiene_quasi) tags$th("\u03c6 (dispersión)") else NULL
             )
           ),
@@ -3855,6 +4081,8 @@ mod_glm_server <- function(id) {
               tags$td(r$aicc),
               tags$td(r$aic),
               tags$td(r$bic),
+              tags$td(if (!is.na(r$peso_akaike))
+                scales::percent(r$peso_akaike, accuracy = 0.1) else "\u2014"),
               if (tiene_quasi)
                 tags$td(if (!is.na(r$phi)) r$phi else "\u2014")
               else NULL
@@ -3895,6 +4123,16 @@ mod_glm_server <- function(id) {
     # DIAGNÓSTICO
     # ────────────────────────────────────────────────────
 
+    # Residuos simulados (DHARMa) — compartidos entre el semáforo y el
+    # gráfico. No aplica a quasipoisson: las familias "quasi" no tienen
+    # una distribución de probabilidad completa de la cual simular.
+    dharma_sim <- reactive({
+      fit <- modelo_glm(); req(fit)
+      if (isTRUE(input$familia == "quasipoisson")) return(NULL)
+      tryCatch(DHARMa::simulateResiduals(fit, n = 500, seed = 42),
+               error = function(e) NULL)
+    })
+
     supuestos_data_glm <- reactive({
       fit <- modelo_glm(); req(fit)
       fam <- input$familia
@@ -3914,6 +4152,26 @@ mod_glm_server <- function(id) {
              ratio=round(cz$ratio,2))
       }, error=function(e) list(obs=NA, pred=NA, ratio=NA))
 
+      # Ajuste global — test de uniformidad de residuos simulados (DHARMa)
+      # Generalización de "los residuos se ven bien" válida para cualquier
+      # familia (a diferencia de Shapiro-Wilk, que asume errores Gaussianos).
+      unif_p <- tryCatch({
+        sim <- dharma_sim()
+        if (is.null(sim)) NA else
+          DHARMa::testUniformity(sim, plot = FALSE)$p.value
+      }, error = function(e) NA)
+
+      # Independencia — Durbin-Watson sobre residuos de Pearson.
+      # Aproximación asintótica (DW ~ N(2, 4/n) bajo H0): las tablas
+      # exactas de Durbin-Watson son válidas solo para OLS, no para GLM.
+      dw <- tryCatch({
+        pres <- residuals(fit, type = "pearson")
+        n    <- length(pres)
+        stat <- sum(diff(pres)^2) / sum(pres^2)
+        z    <- (stat - 2) / sqrt(4 / n)
+        list(stat = round(stat, 2), p = round(2 * (1 - pnorm(abs(z))), 3))
+      }, error = function(e) list(stat = NA, p = NA))
+
       list(
         list(
           nombre = "Distribución de la familia",
@@ -3925,11 +4183,38 @@ mod_glm_server <- function(id) {
           bad    = "Familia incorrecta — el modelo no es válido."
         ),
         list(
+          nombre = "Ajuste global (residuos simulados)",
+          def    = paste0("Los residuos cuantílicos simulados (DHARMa) ",
+                          "deben distribuirse uniforme(0,1) si la familia, ",
+                          "el enlace y la forma funcional son correctos."),
+          st     = if (fam == "quasipoisson") "ok" else
+            if (is.na(unif_p)) "ok" else
+              if (unif_p > 0.05) "ok" else if (unif_p > 0.01) "warn" else "bad",
+          ok     = if (fam == "quasipoisson")
+            "No aplica para quasipoisson (sin distribución de la cual simular)."
+          else if (is.na(unif_p)) "No se pudo calcular."
+          else paste0("Test de uniformidad (KS): p = ", round(unif_p, 3), "."),
+          warn   = paste0("Test de uniformidad (KS): p = ", round(unif_p, 3),
+                          ". Revisa el gráfico de residuos DHARMa."),
+          bad    = paste0("Test de uniformidad (KS): p = ", round(unif_p, 3),
+                          ". El modelo está mal especificado — revisa familia, ",
+                          "enlace o términos faltantes en el gráfico DHARMa.")
+        ),
+        list(
           nombre = "Independencia",
-          def    = "Las observaciones no deben estar correlacionadas.",
-          st     = "ok",
-          ok     = "Asumida según el diseño. Verifica si hay estructura jerárquica.",
-          warn   = "Posible dependencia. Considera GLMM.",
+          def    = paste0("Las observaciones no deben estar correlacionadas. ",
+                          "(Durbin-Watson sobre residuos de Pearson — ",
+                          "aproximación asintótica, solo informativa si el ",
+                          "orden de las filas refleja una secuencia ",
+                          "temporal o espacial)."),
+          st     = if (is.na(dw$p) || dw$p > 0.05) "ok" else "warn",
+          ok     = if (is.na(dw$p))
+            "No se pudo calcular. Verifica si hay estructura jerárquica." else
+              paste0("Durbin-Watson: DW = ", dw$stat, ", p = ", dw$p,
+                     " — sin autocorrelación detectable en el orden actual."),
+          warn   = paste0("Durbin-Watson: DW = ", dw$stat, ", p = ", dw$p,
+                          ". Posible dependencia — considera GLMM si hay ",
+                          "estructura temporal, espacial o jerárquica."),
           bad    = "Dependencia clara. Usa modelos mixtos."
         ),
         list(
@@ -3990,7 +4275,7 @@ mod_glm_server <- function(id) {
           ),
           st     = tryCatch({
             if (fam != "binomial") "ok" else {
-              se_vals <- sqrt(diag(vcov(fit)$cond))
+              se_vals <- sqrt(diag(vcov(fit)))
               if (any(se_vals > 100, na.rm = TRUE)) "bad"
               else if (any(se_vals > 10, na.rm = TRUE)) "warn"
               else "ok"
@@ -4048,13 +4333,14 @@ mod_glm_server <- function(id) {
 
     output$semaforo_col1 <- renderUI({
       sp <- supuestos_data_glm(); req(sp)
-      do.call(tagList, lapply(sp[1:3], sem_item_glm))
+      # sp[1:4]: familia, ajuste global (DHARMa), independencia, sobredispersión
+      do.call(tagList, lapply(sp[1:4], sem_item_glm))
     })
 
     output$semaforo_col2 <- renderUI({
       sp <- supuestos_data_glm(); req(sp)
-      # sp[4:6]: independencia, VIF, separación perfecta
-      idx <- seq(4, length(sp))
+      # sp[5:7]: inflación de ceros, VIF, separación perfecta
+      idx <- seq(5, length(sp))
       do.call(tagList, lapply(sp[idx], sem_item_glm))
     })
 
@@ -4077,30 +4363,66 @@ mod_glm_server <- function(id) {
       })
     }, res=72, width="auto", height=650)
 
+    output$aviso_dharma <- renderUI({
+      req(input$familia)
+      if (input$familia == "quasipoisson")
+        div(class = "alert alert-warning small py-2 px-3 mx-2 mb-2",
+            bs_icon("exclamation-triangle-fill", class = "me-1"),
+            "DHARMa no aplica a ", strong("quasipoisson"),
+            ": esta familia no tiene una distribución de probabilidad ",
+            "completa de la cual simular datos nuevos (solo describe la ",
+            "relación varianza-media). Usa el ", strong("check_model"),
+            " o la métrica de ", strong("Sobredispersión"), " del semáforo.")
+    })
+
+    output$plot_dharma <- renderPlot({
+      fit <- modelo_glm(); req(fit)
+      req(input$familia != "quasipoisson")
+      sim <- dharma_sim()
+      if (is.null(sim)) return(
+        ggplot() + annotate("text", x = 0.5, y = 0.5,
+                            label = "No se pudo simular residuos para este modelo.",
+                            color = colores$texto, size = 4.5, hjust = 0.5) +
+          theme_void()
+      )
+      plot(sim, quantreg = FALSE)
+    }, res = 96, height = 560)
+
     # ────────────────────────────────────────────────────
     # CÓDIGO R
     # ────────────────────────────────────────────────────
 
     codigo_generado <- reactive({
       req(input$var_y)
-      preds    <- c(input$preds_num, input$preds_cat)
-      ints     <- input$interacciones
-      terminos <- if (!is.null(ints) && length(ints) > 0)
-        c(preds, ints) else preds
-      formula_txt <- if (length(terminos) > 0)
-        paste(input$var_y, "~", paste(terminos, collapse=" + "))
-      else paste(input$var_y, "~ 1")
 
-      # Offset
+      es_nulo <- isTRUE(input$modelo_nulo)
+
+      # Offset (se conserva también en el modelo nulo)
       offset_txt <- ""
       if (!is.null(input$offset_var) &&
           input$offset_var != "ninguno")
         offset_txt <- paste0(' + offset(log(', input$offset_var, '))')
 
+      if (es_nulo) {
+        formula_txt <- paste0(input$var_y, " ~ 1")
+      } else {
+        preds    <- c(input$preds_num, input$preds_cat)
+        ints     <- input$interacciones
+        terminos <- if (!is.null(ints) && length(ints) > 0)
+          c(preds, ints) else preds
+        formula_txt <- if (length(terminos) > 0)
+          paste(input$var_y, "~", paste(terminos, collapse=" + "))
+        else paste(input$var_y, "~ 1")
+      }
+
+      # Enlace realmente seleccionado en la app (antes quedaba fijo)
+      enlace_actual <- if (!is.null(input$enlace)) input$enlace else "log"
+
       fam_txt <- switch(input$familia,
-                        "binomial" = 'binomial(link = "logit")',
-                        "poisson"  = 'poisson(link = "log")',
-                        "nbinom2"  = '"negative.binomial"  # MASS::glm.nb no requiere family',
+                        "binomial"     = paste0('binomial(link = "', enlace_actual, '")'),
+                        "poisson"      = paste0('poisson(link = "', enlace_actual, '")'),
+                        "quasipoisson" = 'quasipoisson(link = "log")',
+                        "nbinom2"      = NA_character_  # glm.nb no usa argumento family
       )
 
       fuente <- input$fuente_datos
@@ -4123,32 +4445,80 @@ mod_glm_server <- function(id) {
       else
         'datos <- read.csv("tu_archivo.csv")\n'
 
+      # Filtros activos (pestaña "Filtrar datos")
+      spec <- filtros_glm()
+      filtro_txt <- ""
+      if (!is.null(spec)) {
+        condiciones <- Filter(Negate(is.null), lapply(spec, function(s) {
+          if (is.null(s$valor)) return(NULL)
+          if (s$tipo == "rango") {
+            paste0(s$var, " >= ", s$valor[1], " & ",
+                   s$var, " <= ", s$valor[2])
+          } else {
+            niveles_txt <- paste0("c(", paste0("\"", s$valor, "\"", collapse = ", "), ")")
+            paste0(s$var, " %in% ", niveles_txt)
+          }
+        }))
+        if (length(condiciones) > 0) {
+          filtro_txt <- paste0(
+            "\n# \u2500\u2500 Filtros aplicados en la app \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n",
+            "datos <- datos |>\n",
+            "  dplyr::filter(\n    ",
+            paste(condiciones, collapse = ",\n    "),
+            "\n  )\n"
+          )
+        }
+      }
+
       encabezado <- encabezado_script("StatModels",
                                       "Modelo lineal generalizado (GLM)")
+
+      # Bloque de ajuste — glm() para binomial/Poisson/quasipoisson,
+      # MASS::glm.nb() para nbinom2 (no acepta el argumento family)
+      ajuste_txt <- if (input$familia == "nbinom2") {
+        paste0(
+          "fit <- MASS::glm.nb(\n",
+          "  ", formula_txt, offset_txt, ",\n",
+          "  data = datos\n",
+          ")\n"
+        )
+      } else {
+        paste0(
+          "fit <- glm(\n",
+          "  ", formula_txt, offset_txt, ",\n",
+          "  family = ", fam_txt, ",\n",
+          "  data   = datos\n",
+          ")\n"
+        )
+      }
 
       paste0(
         encabezado,
         "# \u2500\u2500 Paquetes \u2500\u2500\n",
-        "library(MASS)      # glm.nb para binomial negativa\n",
-        "library(parameters)   # easystats\n",
-        "library(performance)  # easystats\n",
-        "library(modelbased)   # easystats\n\n",
+        "library(MASS)          # glm.nb para binomial negativa\n",
+        "library(parameters)    # easystats\n",
+        "library(performance)   # easystats\n",
+        "library(modelbased)    # easystats\n",
+        "library(DHARMa)        # residuos simulados\n\n",
         "# \u2500\u2500 Datos \u2500\u2500\n",
-        carga, "\n",
+        carga,
+        filtro_txt,
+        "\n",
         "# \u2500\u2500 Ajuste del modelo \u2500\u2500\n",
-        "fit <- glm.nb(\n",
-        "  ", formula_txt, offset_txt, ",\n",
-        "  family = ", fam_txt, ",\n",
-        "  data   = datos\n",
-        ")\n\n",
+        ajuste_txt, "\n",
         "# \u2500\u2500 Parámetros \u2500\u2500\n",
         "model_parameters(fit)                    # coeficientes\n",
-        "model_parameters(fit, exponentiate=TRUE)  # OR o IRR\n\n",
+        if (!es_nulo)
+          "model_parameters(fit, exponentiate=TRUE)  # OR o IRR\n\n" else "\n",
         "# \u2500\u2500 Performance \u2500\u2500\n",
         "model_performance(fit)\n",
-        "r2(fit)\n\n",
+        if (!es_nulo) "r2(fit)\n\n" else "\n",
         "# \u2500\u2500 Diagnóstico \u2500\u2500\n",
         "check_model(fit)\n",
+        if (input$familia != "quasipoisson")
+          "simulateResiduals(fit, n = 500) |> plot()  # DHARMa\n"
+        else
+          "# DHARMa no aplica a quasipoisson (sin distribución para simular)\n",
         if (input$familia %in% c("poisson","nbinom2"))
           paste0("check_overdispersion(fit)\n",
                  "check_zeroinflation(fit)\n")
@@ -4157,10 +4527,13 @@ mod_glm_server <- function(id) {
                  "performance_hosmer(fit)\n",
                  "performance_roc(fit)\n"),
         "\n",
-        "# \u2500\u2500 Efectos marginales \u2500\u2500\n",
-        "estimate_relation(fit, by = 'predictor')\n\n",
-        "# \u2500\u2500 Contrastes \u2500\u2500\n",
-        "estimate_contrasts(fit, contrast = 'variable_categorica')\n"
+        if (!es_nulo) paste0(
+          "# \u2500\u2500 Efectos marginales \u2500\u2500\n",
+          "estimate_relation(fit, by = 'predictor')\n\n",
+          "# \u2500\u2500 Contrastes \u2500\u2500\n",
+          "estimate_contrasts(fit, contrast = 'variable_categorica')\n"
+        ) else
+          "# El modelo nulo no tiene predictores que interpretar —\n# úsalo como línea base en la comparación de modelos.\n"
       )
     })
 

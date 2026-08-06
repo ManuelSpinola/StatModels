@@ -17,7 +17,7 @@
 #' @importFrom gratia draw
 #' @importFrom lme4 lmer glmer isSingular VarCorr ranef getME
 #' @importFrom parameters model_parameters
-#' @importFrom performance model_performance r2_nakagawa icc check_model
+#' @importFrom performance model_performance r2_nakagawa icc check_model check_overdispersion check_zeroinflation check_collinearity
 #' @importFrom modelbased estimate_relation estimate_contrasts estimate_means estimate_expectation
 #' @importFrom datawizard standardize
 #' @importFrom see plot
@@ -29,4 +29,5 @@
 #' @importFrom workflows workflow
 #' @importFrom tune tune_grid
 #' @importFrom yardstick rmse
+#' @importFrom DHARMa simulateResiduals testUniformity
 NULL

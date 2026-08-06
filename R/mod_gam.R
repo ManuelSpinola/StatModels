@@ -468,6 +468,46 @@ mod_gam_ui <- function(id) {
               ),
               uiOutput(ns("na_info"))
             )
+          ),
+
+          nav_panel(
+            fillable = FALSE,
+            title = tagList(bs_icon("funnel", class = "me-1"),
+                            "Filtrar datos"),
+            br(),
+            p(class = "small text-muted mb-3",
+              "Filtra las filas que se usarán en el resto de la app ",
+              "(exploración, ajuste del modelo, diagnóstico, etc.). ",
+              "Para variables numéricas define un rango; para ",
+              "categóricas, marca los niveles a conservar."),
+            layout_columns(
+              col_widths = c(4, 8),
+              fill = FALSE,
+              div(
+                uiOutput(ns("panel_filtros_gam")),
+                tags$hr(),
+                actionButton(ns("aplicar_filtro_gam"),
+                             "Aplicar filtros",
+                             class = "btn-primary w-100 mb-2",
+                             icon  = icon("filter")),
+                actionButton(ns("quitar_filtro_gam"),
+                             "Quitar filtros",
+                             class = "btn-outline-secondary w-100 btn-sm",
+                             icon  = icon("rotate-left"))
+              ),
+              div(
+                uiOutput(ns("info_filtro_gam")),
+                card(
+                  fill = FALSE,
+                  card_header(bs_icon("eye", class = "me-1"),
+                              "Vista previa de los datos filtrados"),
+                  card_body(
+                    style = "overflow: auto;",
+                    DTOutput(ns("tabla_preview_filtro_gam"))
+                  )
+                )
+              )
+            )
           )
 
         )
@@ -546,51 +586,70 @@ mod_gam_ui <- function(id) {
               tags$hr(),
               uiOutput(ns("sel_var_y")),
               tags$hr(),
-              p(class = "small fw-bold text-muted mb-1",
-                bs_icon("bezier2", class = "me-1"),
-                "Predictores con spline s()"),
-              p(class = "small text-muted mb-2",
-                "Estas variables se modelar\u00e1n con una funci\u00f3n suave no param\u00e9trica."),
-              uiOutput(ns("sel_preds_spline")),
-              tags$hr(),
-              p(class = "small fw-bold text-muted mb-1",
-                bs_icon("graph-up", class = "me-1"),
-                "Predictores lineales"),
-              p(class = "small text-muted mb-2",
-                "Estas variables tendr\u00e1n efecto lineal tradicional (\u03b2)."),
-              uiOutput(ns("sel_preds_lineal")),
-              tags$hr(),
-              p(class = "small fw-bold text-muted mb-1",
-                bs_icon("sliders2", class = "me-1"),
-                "Opciones del spline"),
-              p(class = "small text-muted mb-2",
-                strong("bs"), " (basis) = tipo de funci\u00f3n base del spline. ",
-                strong("k"), " = n\u00famero m\u00e1ximo de segmentos (mgcv ",
-                "decide cu\u00e1ntos usar realmente)."),
-              numericInput(
-                  ns("k_spline"),
-                  label = "k (knots m\u00e1x.):",
-                  value = 10, min = 3, max = 30
-                ),
-                selectInput(
-                  ns("bs_spline"),
-                  label = "Base (bs):",
-                  choices = c(
-                    "Thin plate — tp (recomendado)" = "tp",
-                    "Cubic regression — cr"          = "cr",
-                    "P-spline — ps"                  = "ps"
-                  ),
-                  selected = "tp"
-                ),
-              div(class = "mt-2",
+              div(
+                class = "mb-2",
                 checkboxInput(
-                  ns("usar_tensor"),
+                  ns("modelo_nulo"),
                   label = tagList(
-                    "Usar ", code("te()"), " para interacci\u00f3n entre 2 variables",
+                    "Modelo nulo (solo intercepto)",
                     tags$small(class = "text-muted d-block mt-1",
-                      "Solo aplica cuando hay \u22652 predictores con spline.")
+                               "Ajusta Y ~ 1, sin términos suaves ni lineales. ",
+                               "Predice la media (o tasa/probabilidad media) para ",
+                               "todas las observaciones — sirve como línea base en ",
+                               strong("Comparar modelos"), ".")
                   ),
                   value = FALSE
+                )
+              ),
+              conditionalPanel(
+                condition = paste0("!input['", ns("modelo_nulo"), "']"),
+                tags$hr(),
+                p(class = "small fw-bold text-muted mb-1",
+                  bs_icon("bezier2", class = "me-1"),
+                  "Predictores con spline s()"),
+                p(class = "small text-muted mb-2",
+                  "Estas variables se modelar\u00e1n con una funci\u00f3n suave no param\u00e9trica."),
+                uiOutput(ns("sel_preds_spline")),
+                tags$hr(),
+                p(class = "small fw-bold text-muted mb-1",
+                  bs_icon("graph-up", class = "me-1"),
+                  "Predictores lineales"),
+                p(class = "small text-muted mb-2",
+                  "Estas variables tendr\u00e1n efecto lineal tradicional (\u03b2)."),
+                uiOutput(ns("sel_preds_lineal")),
+                tags$hr(),
+                p(class = "small fw-bold text-muted mb-1",
+                  bs_icon("sliders2", class = "me-1"),
+                  "Opciones del spline"),
+                p(class = "small text-muted mb-2",
+                  strong("bs"), " (basis) = tipo de funci\u00f3n base del spline. ",
+                  strong("k"), " = n\u00famero m\u00e1ximo de segmentos (mgcv ",
+                  "decide cu\u00e1ntos usar realmente)."),
+                numericInput(
+                    ns("k_spline"),
+                    label = "k (knots m\u00e1x.):",
+                    value = 10, min = 3, max = 30
+                  ),
+                  selectInput(
+                    ns("bs_spline"),
+                    label = "Base (bs):",
+                    choices = c(
+                      "Thin plate — tp (recomendado)" = "tp",
+                      "Cubic regression — cr"          = "cr",
+                      "P-spline — ps"                  = "ps"
+                    ),
+                    selected = "tp"
+                  ),
+                div(class = "mt-2",
+                  checkboxInput(
+                    ns("usar_tensor"),
+                    label = tagList(
+                      "Usar ", code("te()"), " para interacci\u00f3n entre 2 variables",
+                      tags$small(class = "text-muted d-block mt-1",
+                        "Solo aplica cuando hay \u22652 predictores con spline.")
+                    ),
+                    value = FALSE
+                  )
                 )
               ),
               tags$hr(),
@@ -665,78 +724,100 @@ mod_gam_ui <- function(id) {
       div(
         class = "p-3",
         p(class = "small text-muted mb-3",
-          "Verificaci\u00f3n de supuestos del GAM: normalidad de residuos, ",
-          "patrones sistem\u00e1ticos, y si k es suficientemente grande. ",
-          "Generado con ", strong("mgcv::gam.check()"), "."
+          "Verificaci\u00f3n de supuestos del GAM, adaptados a la familia elegida. ",
+          "Generado con ", strong("mgcv::gam.check()"), " y ",
+          strong("DHARMa"), "."
         ),
         layout_columns(
-          col_widths = c(6, 6),
+          col_widths = c(3, 4, 5),
           fill = FALSE,
+
+          # Semáforo de supuestos
+          div(
+            uiOutput(ns("semaforo_col1")),
+            uiOutput(ns("semaforo_col2"))
+          ),
+
           card(
             fill = FALSE,
             card_header(bs_icon("graph-up", class = "me-1"),
-                        "Gr\u00e1ficos de diagn\u00f3stico",
-                        span(class = "text-muted small ms-2",
-                             "— gam.check() \u00b7 mgcv")),
+                        "Gr\u00e1ficos de diagn\u00f3stico"),
             card_body(
-              style = "height: auto;",
-              plotOutput(ns("plot_diagnostico"), height = "420px"),
-              tags$hr(),
-              p(class = "small fw-bold mb-2",
-                bs_icon("info-circle-fill", class = "me-1"),
-                "\u00bfQu\u00e9 muestra cada gr\u00e1fico?"),
-              layout_columns(
-                col_widths = c(6, 6),
-                fill = FALSE,
-                div(
-                  div(class = "d-flex gap-2 mb-2",
-                    div(class = "badge text-bg-secondary",
-                        style = "min-width:24px; height:24px; line-height:24px;",
-                        "1"),
+              style = "height: auto; padding: 4px;",
+              navset_pill(
+                nav_panel(
+                  title = "gam.check() (mgcv)",
+                  plotOutput(ns("plot_diagnostico"), height = "420px"),
+                  tags$hr(),
+                  p(class = "small fw-bold mb-2",
+                    bs_icon("info-circle-fill", class = "me-1"),
+                    "\u00bfQu\u00e9 muestra cada gr\u00e1fico?"),
+                  layout_columns(
+                    col_widths = c(6, 6),
+                    fill = FALSE,
                     div(
-                      p(class = "small fw-bold mb-0", "QQ-plot de residuos"),
-                      p(class = "small text-muted mb-0",
-                        "Compara los residuos contra la distribuci\u00f3n normal te\u00f3rica. ",
-                        "Los puntos deben seguir la l\u00ednea diagonal. ",
-                        "Desviaciones en las colas \u21d2 residuos no normales o valores at\u00edpicos.")
-                    )
-                  ),
-                  div(class = "d-flex gap-2 mb-0",
-                    div(class = "badge text-bg-secondary",
-                        style = "min-width:24px; height:24px; line-height:24px;",
-                        "3"),
+                      div(class = "d-flex gap-2 mb-2",
+                        div(class = "badge text-bg-secondary",
+                            style = "min-width:24px; height:24px; line-height:24px;",
+                            "1"),
+                        div(
+                          p(class = "small fw-bold mb-0", "QQ-plot de residuos"),
+                          p(class = "small text-muted mb-0",
+                            "Compara los residuos contra la distribuci\u00f3n te\u00f3rica ",
+                            "esperada seg\u00fan la familia. Los puntos deben seguir la ",
+                            "l\u00ednea diagonal. Desviaciones en las colas \u21d2 residuos ",
+                            "at\u00edpicos o familia mal especificada.")
+                        )
+                      ),
+                      div(class = "d-flex gap-2 mb-0",
+                        div(class = "badge text-bg-secondary",
+                            style = "min-width:24px; height:24px; line-height:24px;",
+                            "3"),
+                        div(
+                          p(class = "small fw-bold mb-0", "Histograma de residuos"),
+                          p(class = "small text-muted mb-0",
+                            "Distribuci\u00f3n de los residuos. Para familia gaussiana debe ",
+                            "ser sim\u00e9trica y acampanada; para otras familias su forma ",
+                            "de referencia cambia \u2014 usa mejor la pesta\u00f1a DHARMa.")
+                        )
+                      )
+                    ),
                     div(
-                      p(class = "small fw-bold mb-0", "Histograma de residuos"),
-                      p(class = "small text-muted mb-0",
-                        "Distribuci\u00f3n de los residuos. Debe ser sim\u00e9trica y en forma de campana. ",
-                        "Asimetr\u00eda o bimodalidad \u21d2 problema con la distribuci\u00f3n o valores at\u00edpicos.")
+                      div(class = "d-flex gap-2 mb-2",
+                        div(class = "badge text-bg-secondary",
+                            style = "min-width:24px; height:24px; line-height:24px;",
+                            "2"),
+                        div(
+                          p(class = "small fw-bold mb-0", "Residuos vs. valores ajustados"),
+                          p(class = "small text-muted mb-0",
+                            "Residuos en funci\u00f3n de los valores predichos. ",
+                            "Debe verse como nube aleatoria sin patr\u00f3n. ",
+                            "Embudo o curva \u21d2 heterocedasticidad o estructura no capturada.")
+                        )
+                      ),
+                      div(class = "d-flex gap-2 mb-0",
+                        div(class = "badge text-bg-secondary",
+                            style = "min-width:24px; height:24px; line-height:24px;",
+                            "4"),
+                        div(
+                          p(class = "small fw-bold mb-0", "Respuesta vs. valores ajustados"),
+                          p(class = "small text-muted mb-0",
+                            "Valores observados vs. predichos. Los puntos deben alinearse en la diagonal 1:1. ",
+                            "Desviaci\u00f3n sistem\u00e1tica \u21d2 falta un predictor o k insuficiente.")
+                        )
+                      )
                     )
                   )
                 ),
-                div(
-                  div(class = "d-flex gap-2 mb-2",
-                    div(class = "badge text-bg-secondary",
-                        style = "min-width:24px; height:24px; line-height:24px;",
-                        "2"),
-                    div(
-                      p(class = "small fw-bold mb-0", "Residuos vs. valores ajustados"),
-                      p(class = "small text-muted mb-0",
-                        "Residuos en funci\u00f3n de los valores predichos. ",
-                        "Debe verse como nube aleatoria sin patr\u00f3n. ",
-                        "Embudo o curva \u21d2 heterocedasticidad o estructura no capturada.")
-                    )
-                  ),
-                  div(class = "d-flex gap-2 mb-0",
-                    div(class = "badge text-bg-secondary",
-                        style = "min-width:24px; height:24px; line-height:24px;",
-                        "4"),
-                    div(
-                      p(class = "small fw-bold mb-0", "Respuesta vs. valores ajustados"),
-                      p(class = "small text-muted mb-0",
-                        "Valores observados vs. predichos. Los puntos deben alinearse en la diagonal 1:1. ",
-                        "Desviaci\u00f3n sistem\u00e1tica \u21d2 falta un predictor o k insuficiente.")
-                    )
-                  )
+                nav_panel(
+                  title = "Residuos simulados (DHARMa)",
+                  p(class = "text-muted small mt-2 mb-1 px-2",
+                    "— DHARMa::simulateResiduals() \u00b7 residuos cuant\u00edlicos ",
+                    "aleatorizados, uniformes(0,1) bajo el modelo correcto. ",
+                    "V\u00e1lidos para cualquier familia, a diferencia de los ",
+                    "residuos crudos."),
+                  uiOutput(ns("aviso_dharma_gam")),
+                  plotOutput(ns("plot_dharma_gam"), height = "460px")
                 )
               )
             )
@@ -1073,8 +1154,10 @@ mod_gam_ui <- function(id) {
         class = "p-3",
         p(class = "small text-muted mb-3",
           "Ajusta distintos modelos en ", strong("Ajustar modelo"),
-          ", gu\u00e1rdalos con nombre y comp\u00e1ralos por AIC, AICc, BIC, ",
-          "R\u00b2 y devianza explicada."
+          " — incluyendo, si quer\u00e9s, el ", strong("modelo nulo"),
+          " como l\u00ednea base — gu\u00e1rdalos con nombre y comp\u00e1ralos por ",
+          "AIC, AICc, BIC, el ", strong("peso de Akaike"),
+          " y devianza explicada."
         ),
         layout_columns(
           col_widths = c(4, 8),
@@ -1220,7 +1303,7 @@ mod_gam_server <- function(id) {
     datos_mod <- reactiveVal(NULL)
 
     # ── Manejo de NAs ────────────────────────────────────────────────────────
-    datos_finales <- reactive({
+    datos_na_manejados <- reactive({
       df <- datos_mod()
       req(df)
       if (isTRUE(input$manejo_na == "eliminar")) {
@@ -1229,9 +1312,102 @@ mod_gam_server <- function(id) {
       df
     })
 
+    # ── Filtrado de filas ───────────────────────────────────────────────────
+    filtros_gam <- reactiveVal(NULL)
+
+    observeEvent(datos_na_manejados(), {
+      filtros_gam(NULL)
+    }, ignoreInit = TRUE)
+
+    output$panel_filtros_gam <- renderUI({
+      df <- datos_na_manejados(); req(df)
+      controles <- lapply(names(df), function(nm) {
+        col <- df[[nm]]
+        if (is.numeric(col)) {
+          rng <- range(col, na.rm = TRUE)
+          if (rng[1] == rng[2]) return(NULL)
+          paso <- signif((rng[2] - rng[1]) / 100, 2)
+          sliderInput(
+            ns(paste0("filtro_", nm)),
+            label = nm,
+            min   = rng[1], max = rng[2],
+            value = rng, step = paso
+          )
+        } else {
+          niveles <- levels(factor(col))
+          checkboxGroupInput(
+            ns(paste0("filtro_", nm)),
+            label    = nm,
+            choices  = niveles,
+            selected = niveles,
+            inline   = TRUE
+          )
+        }
+      })
+      tagList(controles)
+    })
+
+    observeEvent(input$aplicar_filtro_gam, {
+      df <- datos_na_manejados(); req(df)
+      spec <- lapply(names(df), function(nm) {
+        val <- input[[paste0("filtro_", nm)]]
+        if (is.numeric(df[[nm]]))
+          list(var = nm, tipo = "rango", valor = val)
+        else
+          list(var = nm, tipo = "niveles", valor = val)
+      })
+      names(spec) <- names(df)
+      filtros_gam(spec)
+      showNotification("Filtros aplicados.", type = "message", duration = 2)
+    })
+
+    observeEvent(input$quitar_filtro_gam, {
+      filtros_gam(NULL)
+      showNotification("Filtros eliminados — usando todos los datos.",
+                       type = "message", duration = 2)
+    })
+
+    datos_finales <- reactive({
+      df <- datos_na_manejados()
+      req(df)
+      spec <- filtros_gam()
+      if (is.null(spec)) return(df)
+      for (nm in names(spec)) {
+        if (!nm %in% names(df)) next
+        s <- spec[[nm]]
+        if (is.null(s$valor)) next
+        if (s$tipo == "rango") {
+          df <- df[!is.na(df[[nm]]) & df[[nm]] >= s$valor[1] &
+                     df[[nm]] <= s$valor[2], , drop = FALSE]
+        } else {
+          df <- df[as.character(df[[nm]]) %in% s$valor, , drop = FALSE]
+        }
+      }
+      df
+    })
+
+    output$info_filtro_gam <- renderUI({
+      total    <- nrow(datos_na_manejados())
+      filtrado <- nrow(datos_finales())
+      if (is.null(filtros_gam()) || filtrado == total) return(
+        div(class = "alert alert-secondary small py-2 px-3 mb-3",
+            bs_icon("info-circle", class = "me-1"),
+            paste0("Sin filtros activos — usando las ", total, " filas."))
+      )
+      div(class = "alert alert-info small py-2 px-3 mb-3",
+          bs_icon("funnel-fill", class = "me-1"),
+          paste0("Mostrando ", filtrado, " de ", total, " filas ",
+                 "(", round(100 * filtrado / total, 0), "%)."))
+    })
+
+    output$tabla_preview_filtro_gam <- renderDT({
+      df <- datos_finales(); req(df)
+      datatable(df, options = list(pageLength = 5, scrollX = TRUE))
+    })
+
     output$na_info <- renderUI({
       df_orig  <- datos_mod()
-      df_final <- datos_finales()
+      df_final <- datos_na_manejados()
       req(df_orig)
       n_na <- sum(!stats::complete.cases(df_orig))
       if (n_na == 0) return(
@@ -1549,7 +1725,7 @@ mod_gam_server <- function(id) {
     })
 
     output$cards_correlacion <- renderUI({
-      df <- datos_activos(); req(df, input$var_x)
+      df <- datos_finales(); req(df, input$var_x)
       nums <- vars_numericas(); req(length(nums) >= 2)
       yvar <- nums[nums != input$var_x][1]; req(yvar)
       cor_val <- cor(df[[yvar]], df[[input$var_x]], use = "complete.obs")
@@ -1574,7 +1750,7 @@ mod_gam_server <- function(id) {
     })
 
     output$plot_scatter <- renderPlot(suppressWarnings({
-      df <- datos_activos(); req(df, input$var_x)
+      df <- datos_finales(); req(df, input$var_x)
       nums <- vars_numericas(); req(length(nums) >= 2)
       yvar <- nums[nums != input$var_x][1]; req(yvar)
       usar_color <- !is.null(input$var_color) &&
@@ -1611,7 +1787,7 @@ mod_gam_server <- function(id) {
     }), res = 96)
 
     output$insight_scatter <- renderUI({
-      df <- datos_activos(); req(df, input$var_x)
+      df <- datos_finales(); req(df, input$var_x)
       nums <- vars_numericas(); req(length(nums) >= 2)
       yvar <- nums[nums != input$var_x][1]; req(yvar)
       cor_val <- cor(df[[yvar]], df[[input$var_x]], use = "complete.obs")
@@ -1652,7 +1828,7 @@ mod_gam_server <- function(id) {
     })
 
     output$sel_preds_lineal <- renderUI({
-      df   <- datos_activos(); req(df, input$var_y)
+      df   <- datos_finales(); req(df, input$var_y)
       nums <- vars_numericas()
       cats <- vars_categoricas()
       spline_sel <- input$sel_preds_spline_input
@@ -1674,11 +1850,23 @@ mod_gam_server <- function(id) {
     # ── Modelo GAM ───────────────────────────────────────
 
     modelo_gam <- eventReactive(input$ajustar, {
-      df <- datos_activos(); req(df, input$var_y)
+      df <- datos_finales(); req(df, input$var_y)
+
+      if (isTRUE(input$modelo_nulo)) {
+        fm <- as.formula(paste(input$var_y, "~ 1"))
+        return(tryCatch({
+          mgcv::gam(fm, data = df, family = familia_mgcv(), method = input$metodo_gam)
+        }, error = function(e) {
+          showNotification(paste("Error al ajustar GAM:", conditionMessage(e)),
+                           type = "error", duration = 6)
+          NULL
+        }))
+      }
+
       splines <- input$sel_preds_spline_input
       lineales <- input$preds_lineal
       if (is.null(splines) || length(splines) == 0) {
-        showNotification("Selecciona al menos una variable con spline.",
+        showNotification("Selecciona al menos una variable con spline, o activa 'Modelo nulo'.",
                          type = "warning", duration = 4)
         return(NULL)
       }
@@ -1715,7 +1903,8 @@ mod_gam_server <- function(id) {
 
     # Modelo estandarizado (para importancia)
     modelo_gam_std <- eventReactive(input$ajustar, {
-      df <- datos_activos(); req(df, input$var_y)
+      if (isTRUE(input$modelo_nulo)) return(NULL)
+      df <- datos_finales(); req(df, input$var_y)
       splines  <- input$sel_preds_spline_input
       lineales <- input$preds_lineal
       req(!is.null(splines) && length(splines) > 0)
@@ -1807,6 +1996,284 @@ mod_gam_server <- function(id) {
       on.exit(par(old_par))
       mgcv::gam.check(fm, rep = 500)
     }, res = 96)
+
+    # ── Residuos simulados (DHARMa) — no aplica a quasipoisson ────────────
+    dharma_sim_gam <- reactive({
+      fm <- modelo_gam(); req(fm)
+      if (isTRUE(input$familia_gam == "quasipoisson")) return(NULL)
+      tryCatch(DHARMa::simulateResiduals(fm, n = 500, seed = 42),
+               error = function(e) NULL)
+    })
+
+    output$aviso_dharma_gam <- renderUI({
+      req(input$familia_gam)
+      if (input$familia_gam == "quasipoisson")
+        div(class = "alert alert-warning small py-2 px-3 mx-2 mb-2",
+            bs_icon("exclamation-triangle-fill", class = "me-1"),
+            "DHARMa no aplica a ", strong("quasipoisson"),
+            ": esta familia no tiene una distribuci\u00f3n de probabilidad ",
+            "completa de la cual simular datos nuevos. Usa ",
+            strong("gam.check()"), " o la m\u00e9trica de ",
+            strong("Sobredispersi\u00f3n"), " del sem\u00e1foro.")
+    })
+
+    output$plot_dharma_gam <- renderPlot({
+      fm <- modelo_gam(); req(fm)
+      req(input$familia_gam != "quasipoisson")
+      sim <- dharma_sim_gam()
+      if (is.null(sim)) return(
+        ggplot2::ggplot() +
+          ggplot2::annotate("text", x = 0.5, y = 0.5,
+                            label = "No se pudo simular residuos para este modelo.",
+                            color = colores$texto, size = 4.5, hjust = 0.5) +
+          ggplot2::theme_void()
+      )
+      plot(sim, quantreg = FALSE)
+    }, res = 96, height = 460)
+
+    # ── Semáforo de supuestos (adaptado a la familia) ──────────────────────
+    supuestos_data_gam <- reactive({
+      fm  <- modelo_gam(); req(fm)
+      fam <- input$familia_gam %||% "gaussian"
+
+      # Ajuste global — test de uniformidad de residuos simulados (DHARMa)
+      unif_p <- tryCatch({
+        sim <- dharma_sim_gam()
+        if (is.null(sim)) NA else
+          DHARMa::testUniformity(sim, plot = FALSE)$p.value
+      }, error = function(e) NA)
+
+      # Normalidad — solo gaussiana
+      res_raw <- tryCatch(resid(fm), error = function(e) NULL)
+      sw_p <- tryCatch({
+        if (fam != "gaussian" || is.null(res_raw)) NA else
+          shapiro.test(sample(res_raw, min(length(res_raw), 5000)))$p.value
+      }, error = function(e) NA)
+
+      # Homocedasticidad — Breusch-Pagan, solo gaussiana
+      bp <- tryCatch({
+        if (fam != "gaussian") list(chi = NA, p = NA) else {
+          t <- car::ncvTest(fm)
+          list(chi = round(t$ChiSquare, 2), p = round(t$p, 3))
+        }
+      }, error = function(e) list(chi = NA, p = NA))
+
+      # Independencia — Durbin-Watson sobre residuos de Pearson (aprox. asintótica)
+      dw <- tryCatch({
+        pres <- residuals(fm, type = "pearson")
+        n    <- length(pres)
+        stat <- sum(diff(pres)^2) / sum(pres^2)
+        z    <- (stat - 2) / sqrt(4 / n)
+        list(stat = round(stat, 2), p = round(2 * (1 - pnorm(abs(z))), 3))
+      }, error = function(e) list(stat = NA, p = NA))
+
+      # Sobredispersión — poisson / quasipoisson
+      disp <- tryCatch({
+        od <- performance::check_overdispersion(fm)
+        list(stat = round(od$dispersion_ratio, 2), p = od$p_value)
+      }, error = function(e) list(stat = NA, p = NA))
+
+      # Inflación de ceros — familias de conteo
+      zi <- tryCatch({
+        cz <- performance::check_zeroinflation(fm)
+        list(obs = cz$observed.zeros, pred = round(cz$predicted.zeros, 1),
+             ratio = round(cz$ratio, 2))
+      }, error = function(e) list(obs = NA, pred = NA, ratio = NA))
+
+      # Concurvidad — resumen del máximo (igual criterio que la tabla detallada)
+      conc_max <- tryCatch({
+        cv  <- mgcv::concurvity(fm, full = FALSE)
+        mat <- cv$worst
+        nms <- rownames(mat)
+        keep <- grepl("^s\\(|^te\\(|^ti\\(", nms)
+        mat <- mat[keep, , drop = FALSE]
+        if (nrow(mat) < 1) NA else {
+          vals <- sapply(seq_len(nrow(mat)), function(i) {
+            v <- unlist(mat[i, ]); v <- v[names(v) != rownames(mat)[i]]
+            max(v, na.rm = TRUE)
+          })
+          round(max(vals, na.rm = TRUE), 2)
+        }
+      }, error = function(e) NA)
+
+      # Separación perfecta — solo binomial
+      sep_st <- tryCatch({
+        if (fam != "binomial") "ok" else {
+          se_vals <- suppressWarnings(sqrt(diag(vcov(fm))))
+          if (any(se_vals > 100, na.rm = TRUE)) "bad"
+          else if (any(se_vals > 10, na.rm = TRUE)) "warn"
+          else "ok"
+        }
+      }, error = function(e) "ok")
+
+      list(
+        list(
+          nombre = "Distribuci\u00f3n de la familia",
+          def    = paste0("La familia elegida (", fam,
+                          ") debe corresponder al tipo de Y."),
+          st     = "ok",
+          ok     = paste0("Familia seleccionada: ", fam, "."),
+          warn   = "Verifica que la familia sea apropiada para tu Y.",
+          bad    = "Familia incorrecta — el modelo no es v\u00e1lido."
+        ),
+        list(
+          nombre = "Ajuste global (residuos simulados)",
+          def    = paste0("Los residuos cuant\u00edlicos simulados (DHARMa) deben ",
+                          "distribuirse uniforme(0,1) si la familia, el enlace y ",
+                          "los t\u00e9rminos suaves son correctos."),
+          st     = if (fam == "quasipoisson") "ok" else
+            if (is.na(unif_p)) "ok" else
+              if (unif_p > 0.05) "ok" else if (unif_p > 0.01) "warn" else "bad",
+          ok     = if (fam == "quasipoisson")
+            "No aplica para quasipoisson (sin distribuci\u00f3n de la cual simular)."
+          else if (is.na(unif_p)) "No se pudo calcular."
+          else paste0("Test de uniformidad (KS): p = ", round(unif_p, 3), "."),
+          warn   = paste0("Test de uniformidad (KS): p = ", round(unif_p, 3),
+                          ". Revisa la pesta\u00f1a DHARMa."),
+          bad    = paste0("Test de uniformidad (KS): p = ", round(unif_p, 3),
+                          ". Modelo mal especificado — revisa familia, k o ",
+                          "t\u00e9rminos faltantes en la pesta\u00f1a DHARMa.")
+        ),
+        list(
+          nombre = "Normalidad de los residuos",
+          def    = if (fam == "gaussian")
+            "Los errores deben seguir una distribuci\u00f3n normal."
+          else "No aplica — solo relevante para familia gaussiana.",
+          st     = if (fam != "gaussian") "ok" else
+            if (is.na(sw_p) || sw_p > 0.05) "ok" else "warn",
+          ok     = if (fam != "gaussian") "No aplica para esta familia."
+          else if (is.na(sw_p)) "No calculado (muestra muy grande)."
+          else paste0("Shapiro-Wilk: p = ", round(sw_p, 3), "."),
+          warn   = paste0("Shapiro-Wilk: p = ", round(sw_p, 3),
+                          ". Revisa el QQ-plot de gam.check()."),
+          bad    = "Desviaci\u00f3n severa. Los IC pueden ser incorrectos."
+        ),
+        list(
+          nombre = "Homocedasticidad",
+          def    = if (fam == "gaussian")
+            "La varianza de los errores debe ser constante."
+          else "No aplica — la relaci\u00f3n varianza-media la define la familia.",
+          st     = if (fam != "gaussian") "ok" else
+            if (is.na(bp$p) || bp$p > 0.05) "ok" else
+              if (bp$p > 0.01) "warn" else "bad",
+          ok     = if (fam != "gaussian") "No aplica para esta familia."
+          else if (is.na(bp$p)) "No se pudo calcular — revisa el panel 2 de gam.check()."
+          else paste0("Breusch-Pagan: \u03c7\u00b2 = ", bp$chi, ", p = ", bp$p, "."),
+          warn   = paste0("Breusch-Pagan: \u03c7\u00b2 = ", bp$chi, ", p = ", bp$p,
+                          ". Revisa el panel 2 de gam.check()."),
+          bad    = paste0("Breusch-Pagan: \u03c7\u00b2 = ", bp$chi, ", p = ", bp$p,
+                          ". Heterocedasticidad clara.")
+        ),
+        list(
+          nombre = "Independencia",
+          def    = paste0("Las observaciones no deben estar correlacionadas. ",
+                          "(Durbin-Watson sobre residuos de Pearson — ",
+                          "aproximaci\u00f3n asint\u00f3tica, solo informativa si el orden ",
+                          "de las filas refleja una secuencia temporal o espacial)."),
+          st     = if (is.na(dw$p) || dw$p > 0.05) "ok" else "warn",
+          ok     = if (is.na(dw$p)) "No se pudo calcular."
+          else paste0("Durbin-Watson: DW = ", dw$stat, ", p = ", dw$p,
+                     " — sin autocorrelaci\u00f3n detectable en el orden actual."),
+          warn   = paste0("Durbin-Watson: DW = ", dw$stat, ", p = ", dw$p,
+                          ". Posible dependencia — considera efectos aleatorios ",
+                          "(ver LMM/GLMM) si hay estructura temporal/espacial."),
+          bad    = "Dependencia clara. El GAM sin estructura de agrupamiento no es apropiado."
+        ),
+        list(
+          nombre = "Sobredispersi\u00f3n",
+          def    = if (fam %in% c("poisson", "quasipoisson"))
+            "Varianza/media debe ser \u2248 1 en Poisson."
+          else if (fam == "nb")
+            "La binomial negativa modela la sobredispersi\u00f3n expl\u00edcitamente."
+          else "No aplica para esta familia.",
+          st     = if (!fam %in% c("poisson", "quasipoisson")) "ok" else
+            if (is.na(disp$stat)) "ok" else
+              if (disp$stat < 1.5) "ok" else if (disp$stat < 3) "warn" else "bad",
+          ok     = if (fam == "nb")
+            "La NB ya estima el par\u00e1metro de dispersi\u00f3n \u03b8."
+          else if (!fam %in% c("poisson", "quasipoisson")) "No aplica para esta familia."
+          else if (is.na(disp$stat)) "No calculado."
+          else paste0("Ratio = ", disp$stat, " — sin sobredispersi\u00f3n."),
+          warn   = paste0("Ratio = ", disp$stat,
+                          " — sobredispersi\u00f3n moderada. Considera binomial negativa."),
+          bad    = paste0("Ratio = ", disp$stat,
+                          " — sobredispersi\u00f3n severa. Usa binomial negativa.")
+        ),
+        list(
+          nombre = "Inflaci\u00f3n de ceros",
+          def    = "No deben haber m\u00e1s ceros de los esperados.",
+          st     = if (!fam %in% c("poisson", "quasipoisson", "nb")) "ok" else
+            if (is.na(zi$ratio)) "ok" else
+              if (zi$ratio < 1.2) "ok" else if (zi$ratio < 1.5) "warn" else "bad",
+          ok     = if (!fam %in% c("poisson", "quasipoisson", "nb"))
+            "No aplica para esta familia."
+          else if (is.na(zi$ratio)) "No calculado."
+          else paste0("Ceros obs. = ", zi$obs, " \u00b7 predichos = ", zi$pred,
+                     " — sin inflaci\u00f3n."),
+          warn   = paste0("Ceros obs. = ", zi$obs, " \u00b7 predichos = ", zi$pred,
+                          " — posible inflaci\u00f3n. Considera ZIP/ZINB."),
+          bad    = paste0("Ceros obs. = ", zi$obs, " \u00b7 predichos = ", zi$pred,
+                          " — inflaci\u00f3n severa. Usa modelo zero-inflated.")
+        ),
+        list(
+          nombre = "Concurvidad",
+          def    = "Equivalente al VIF para t\u00e9rminos suaves (m\u00e1x. entre pares).",
+          st     = if (is.na(conc_max)) "ok" else
+            if (conc_max < 0.5) "ok" else if (conc_max < 0.8) "warn" else "bad",
+          ok     = if (is.na(conc_max)) "No aplica (sin t\u00e9rminos suaves que comparar)."
+          else paste0("Concurvidad m\u00e1x. = ", conc_max, " — baja."),
+          warn   = paste0("Concurvidad m\u00e1x. = ", conc_max,
+                          " — moderada. Ver tabla de Concurvidad."),
+          bad    = paste0("Concurvidad m\u00e1x. = ", conc_max,
+                          " — alta. Un t\u00e9rmino suave puede ser redundante.")
+        ),
+        list(
+          nombre = "Separaci\u00f3n perfecta",
+          def    = if (fam == "binomial")
+            "Una variable predice perfectamente el outcome en alguna categor\u00eda."
+          else "No aplica para esta familia.",
+          st     = sep_st,
+          ok     = if (fam == "binomial")
+            "No se detect\u00f3 separaci\u00f3n perfecta — coeficientes confiables."
+          else "No aplica para esta familia.",
+          warn   = "Posible cuasi-separaci\u00f3n: errores est\u00e1ndar grandes. Verifica con table(predictor, Y).",
+          bad    = "Separaci\u00f3n perfecta detectada. Coeficientes y EE de ese t\u00e9rmino no son confiables."
+        )
+      )
+    })
+
+    col_map_sem_gam   <- list(ok = colores$exito, warn = colores$acento, bad = colores$peligro)
+    icon_map_sem_gam  <- list(ok = "check-circle-fill", warn = "exclamation-triangle-fill",
+                              bad = "x-circle-fill")
+    label_map_sem_gam <- list(ok = "Cumplido", warn = "Atenci\u00f3n", bad = "Problema")
+    bg_map_sem_gam    <- list(ok = "#f0f9f5", warn = "#fffbf0", bad = "#fff0f2")
+
+    sem_item_gam <- function(s) {
+      col   <- col_map_sem_gam[[s$st]]
+      icono <- icon_map_sem_gam[[s$st]]
+      lbl   <- label_map_sem_gam[[s$st]]
+      bg    <- bg_map_sem_gam[[s$st]]
+      div(class = "d-flex align-items-start gap-2 p-2 rounded mb-2",
+          style = paste0("background:", bg, "; border-left: 4px solid ", col, ";"),
+          bs_icon(icono, size = "1.1em",
+                  style = paste0("color:", col, "; flex-shrink:0; margin-top:2px")),
+          div(p(class = "small mb-0",
+                strong(s$nombre), " ",
+                tags$span(class = "badge",
+                          style = paste0("background:", col, "; font-size:0.7rem;"), lbl), br(),
+                tags$span(class = "text-muted", style = "font-size:0.78rem;", s$def), br(),
+                tags$span(style = "font-size:0.82rem;", s[[s$st]]))))
+    }
+
+    output$semaforo_col1 <- renderUI({
+      sp <- supuestos_data_gam(); req(sp)
+      do.call(tagList, lapply(sp[1:5], sem_item_gam))
+    })
+
+    output$semaforo_col2 <- renderUI({
+      sp <- supuestos_data_gam(); req(sp)
+      do.call(tagList, lapply(sp[6:length(sp)], sem_item_gam))
+    })
 
     output$resumen_gamcheck <- renderUI({
       fm <- modelo_gam(); req(fm)
@@ -2306,7 +2773,7 @@ mod_gam_server <- function(id) {
       withProgress(message = "Corriendo validaci\u00f3n cruzada...",
                    value = 0.2, {
         tryCatch({
-          df_cv   <- datos_activos()
+          df_cv   <- datos_finales()
           splines <- input$sel_preds_spline_input
           lineal  <- input$preds_lineal
           req(length(splines) > 0, input$var_y)
@@ -2581,7 +3048,7 @@ mod_gam_server <- function(id) {
           rel <- modelbased::estimate_relation(fm, by = input$pred_efecto,
                                                verbose = FALSE)
           df_rel <- as.data.frame(rel)
-          df_dat <- datos_activos()
+          df_dat <- datos_finales()
 
           ggplot2::ggplot(df_rel,
                           ggplot2::aes(x = .data[[input$pred_efecto]],
@@ -2635,7 +3102,7 @@ mod_gam_server <- function(id) {
     # Predicción puntual
     output$inputs_prediccion <- renderUI({
       fm <- modelo_gam(); req(fm)
-      df <- datos_activos()
+      df <- datos_finales()
       preds <- c(input$sel_preds_spline_input, input$preds_lineal)
       req(length(preds) > 0)
       inputs <- lapply(preds, function(nm) {
@@ -2654,7 +3121,7 @@ mod_gam_server <- function(id) {
 
     resultado_pred_data <- eventReactive(input$calcular_prediccion, {
       fm <- modelo_gam(); req(fm)
-      df <- datos_activos()
+      df <- datos_finales()
       preds <- c(input$sel_preds_spline_input, input$preds_lineal)
       req(length(preds) > 0)
       tryCatch({
@@ -2908,45 +3375,121 @@ mod_gam_server <- function(id) {
         div(class = "text-muted small py-3",
             "Guarda al menos un modelo para ver la comparaci\u00f3n.")
       )
+
+      # Detectar modelos quasipoisson (sin verosimilitud real -> AIC no v\u00e1lido)
+      tiene_quasi <- any(sapply(mg, function(m) {
+        tryCatch(family(m$fit)$family == "quasipoisson", error = function(e) FALSE)
+      }))
+
       rows <- lapply(names(mg), function(nm) {
         fm  <- mg[[nm]]$fit
-        pm  <- tryCatch(
-          performance::model_performance(fm, verbose = FALSE),
-          error = function(e) NULL
-        )
-        if (is.null(pm)) return(NULL)
+        fam_actual <- tryCatch(family(fm)$family, error = function(e) NA)
+        es_quasi   <- isTRUE(fam_actual == "quasipoisson")
         s <- summary(fm)
-        list(nm   = nm,
-             aic  = round(pm$AIC, 1),
-             aicc = tryCatch(round(performance::performance_aicc(fm), 1),
-                             error = function(e) NA),
-             bic  = round(pm$BIC, 1),
-             r2   = round(pm$R2, 3),
-             dev  = round(s$dev.expl * 100, 1))
+
+        if (es_quasi) {
+          # QAIC v\u00eda AICcmodavg — igual tratamiento que en GLM
+          phi <- tryCatch(s$dispersion, error = function(e) 1)
+          fm_poisson <- tryCatch(update(fm, family = poisson(link = "log")),
+                                 error = function(e) NULL)
+          qaic <- tryCatch({
+            if (!is.null(fm_poisson)) AICcmodavg::AICc(fm_poisson, c.hat = phi)
+            else NA
+          }, error = function(e) NA)
+
+          list(nm = nm, fam = fam_actual,
+               aic  = "\u2014 (quasi)",
+               aicc = if (!is.na(qaic)) round(qaic, 1) else "\u2014",
+               bic  = "\u2014 (quasi)",
+               dev  = round(s$dev.expl * 100, 1),
+               phi  = round(phi, 3),
+               es_quasi = TRUE)
+        } else {
+          pm <- tryCatch(
+            performance::model_performance(fm, verbose = FALSE),
+            error = function(e) NULL
+          )
+          if (is.null(pm)) return(NULL)
+          list(nm   = nm, fam = fam_actual,
+               aic  = round(pm$AIC, 1),
+               aicc = tryCatch(round(performance::performance_aicc(fm), 1),
+                               error = function(e) NA),
+               bic  = round(pm$BIC, 1),
+               dev  = round(s$dev.expl * 100, 1),
+               phi  = NA,
+               es_quasi = FALSE)
+        }
       })
       rows <- rows[!sapply(rows, is.null)]
       if (length(rows) == 0) return(NULL)
-      best <- which.min(sapply(rows, function(r) r$aicc))
-      tags$table(
-        class = "table table-sm table-hover small mb-0",
-        tags$thead(
-          style = paste0("background:", colores$primario, "; color:#fff;"),
-          tags$tr(tags$th("Modelo"), tags$th("AIC"), tags$th("AICc"),
-                  tags$th("BIC"), tags$th("R\u00b2"), tags$th("Dev. exp. (%)"))
-        ),
-        tags$tbody(lapply(seq_along(rows), function(i) {
-          r  <- rows[[i]]
-          bg <- if (i == best) "background:#f0f9f5; font-weight:600;" else ""
-          tags$tr(style = bg,
-            tags$td(if (i == best)
-              tagList(bs_icon("trophy-fill",
-                              style = paste0("color:", colores$acento,
-                                             "; margin-right:4px")), r$nm)
-              else r$nm),
-            tags$td(r$aic), tags$td(r$aicc), tags$td(r$bic),
-            tags$td(r$r2),  tags$td(paste0(r$dev, "%"))
-          )
-        }))
+
+      criterio <- sapply(rows, function(r) {
+        v <- r$aicc
+        if (is.character(v)) Inf else as.numeric(v)
+      })
+      best <- which.min(criterio)
+
+      # ── Peso de Akaike (Burnham & Anderson, 2002) — por grupo comparable ──
+      grupo_quasi <- sapply(rows, function(r) isTRUE(r$es_quasi))
+      pesos_grupo <- function(idx) {
+        if (length(idx) == 0) return(NULL)
+        crit <- sapply(rows[idx], function(r) {
+          v <- r$aicc
+          if (is.character(v)) NA_real_ else as.numeric(v)
+        })
+        if (all(is.na(crit))) return(rep(NA_real_, length(idx)))
+        delta   <- crit - min(crit, na.rm = TRUE)
+        rel_lik <- exp(-0.5 * delta)
+        rel_lik / sum(rel_lik, na.rm = TRUE)
+      }
+      pesos <- rep(NA_real_, length(rows))
+      if (any(!grupo_quasi)) pesos[!grupo_quasi] <- pesos_grupo(which(!grupo_quasi))
+      if (any(grupo_quasi))  pesos[grupo_quasi]  <- pesos_grupo(which(grupo_quasi))
+      for (i in seq_along(rows)) rows[[i]]$peso_akaike <- pesos[i]
+
+      tagList(
+        if (tiene_quasi)
+          div(class = "alert alert-info small py-2 px-3 mb-2",
+              bs_icon("info-circle", class = "me-1"),
+              "Los modelos ", strong("quasipoisson"), " usan ",
+              strong("QAICc"), " (corregido por sobredispersi\u00f3n \u03c6) en ",
+              "lugar de AICc. No son directamente comparables con modelos de ",
+              "otras familias — el ", strong("peso de Akaike"),
+              " se calcula por separado dentro de cada grupo."),
+
+        tags$table(
+          class = "table table-sm table-hover small mb-0",
+          tags$thead(
+            style = paste0("background:", colores$primario, "; color:#fff;"),
+            tags$tr(
+              tags$th("Modelo"), tags$th("Familia"),
+              tags$th(if (tiene_quasi) "AICc / QAICc" else "AICc"),
+              tags$th("AIC / \u2014"), tags$th("BIC / \u2014"),
+              tags$th("Peso Akaike (w\u1d62)"),
+              tags$th("Dev. exp. (%)"),
+              if (tiene_quasi) tags$th("\u03c6 (dispersi\u00f3n)") else NULL
+            )
+          ),
+          tags$tbody(lapply(seq_along(rows), function(i) {
+            r  <- rows[[i]]
+            bg <- if (i == best) "background:#f0f9f5; font-weight:600;" else ""
+            tags$tr(style = bg,
+              tags$td(if (i == best)
+                tagList(bs_icon("trophy-fill",
+                                style = paste0("color:", colores$acento,
+                                               "; margin-right:4px")), r$nm)
+                else r$nm),
+              tags$td(r$fam),
+              tags$td(r$aicc), tags$td(r$aic), tags$td(r$bic),
+              tags$td(if (!is.na(r$peso_akaike))
+                scales::percent(r$peso_akaike, accuracy = 0.1) else "\u2014"),
+              tags$td(paste0(r$dev, "%")),
+              if (tiene_quasi)
+                tags$td(if (!is.na(r$phi)) r$phi else "\u2014")
+              else NULL
+            )
+          }))
+        )
       )
     })
 
@@ -2985,6 +3528,7 @@ mod_gam_server <- function(id) {
     codigo_generado <- reactive({
       req(modelo_gam())
       fm      <- modelo_gam()
+      es_nulo <- isTRUE(input$modelo_nulo)
       splines <- input$sel_preds_spline_input
       lineal  <- input$preds_lineal
       k       <- input$k_spline
@@ -3001,24 +3545,93 @@ mod_gam_server <- function(id) {
         paste0('load(system.file("app/data/birthwt_lm.rda",\n',
                '               package = "StatModels"))\n',
                'datos <- birthwt_lm\n')
+      else if (fuente == "mite_logistic")
+        paste0('load(system.file("app/data/mite_logistic.rda",\n',
+               '               package = "StatModels"))\n',
+               'datos <- mite_logistic\n')
+      else if (fuente == "mite_counts")
+        paste0('load(system.file("app/data/mite_counts.rda",\n',
+               '               package = "StatModels"))\n',
+               'datos <- mite_counts\n')
+      else if (fuente == "ants_glm")
+        paste0('load(system.file("app/data/ants_glm.rda",\n',
+               '               package = "StatModels"))\n',
+               'datos <- ants_glm\n')
+      else if (fuente == "hcrabs_glm")
+        paste0('load(system.file("app/data/hcrabs_glm.rda",\n',
+               '               package = "StatModels"))\n',
+               'datos <- hcrabs_glm\n')
       else 'datos <- read.csv("tu_archivo.csv")\n'
 
-      terminos_s <- paste0("s(", splines, ", k=", k, ", bs='", bs, "')")
-      terminos_l <- if (!is.null(lineal) && length(lineal) > 0) lineal else character(0)
-      formula_str <- paste(yvar, "~",
-                           paste(c(terminos_s, terminos_l), collapse = " + "))
+      # Filtros activos (pestaña "Filtrar datos")
+      spec <- filtros_gam()
+      filtro_txt <- ""
+      if (!is.null(spec)) {
+        condiciones <- Filter(Negate(is.null), lapply(spec, function(s) {
+          if (is.null(s$valor)) return(NULL)
+          if (s$tipo == "rango") {
+            paste0(s$var, " >= ", s$valor[1], " & ",
+                   s$var, " <= ", s$valor[2])
+          } else {
+            niveles_txt <- paste0("c(", paste0("\"", s$valor, "\"", collapse = ", "), ")")
+            paste0(s$var, " %in% ", niveles_txt)
+          }
+        }))
+        if (length(condiciones) > 0) {
+          filtro_txt <- paste0(
+            "\n# \u2500\u2500 Filtros aplicados en la app \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n",
+            "datos <- datos |>\n",
+            "  dplyr::filter(\n    ",
+            paste(condiciones, collapse = ",\n    "),
+            "\n  )\n"
+          )
+        }
+      }
+
+      # Fórmula — respeta modelo nulo y tensor te()
+      if (es_nulo) {
+        formula_str <- paste(yvar, "~ 1")
+      } else {
+        if (isTRUE(input$usar_tensor) && length(splines) >= 2) {
+          terminos_s <- paste0("te(", paste(splines[1:2], collapse = ", "), ", k=", k, ")")
+          if (length(splines) > 2)
+            terminos_s <- c(terminos_s,
+                            paste0("s(", splines[3:length(splines)],
+                                   ", k=", k, ", bs='", bs, "')"))
+        } else {
+          terminos_s <- paste0("s(", splines, ", k=", k, ", bs='", bs, "')")
+        }
+        terminos_l <- if (!is.null(lineal) && length(lineal) > 0) lineal else character(0)
+        formula_str <- paste(yvar, "~",
+                             paste(c(terminos_s, terminos_l), collapse = " + "))
+      }
+
+      # Familia — antes faltaba por completo en el código generado
+      fam_actual <- input$familia_gam %||% "gaussian"
+      fam_txt <- switch(fam_actual,
+                        gaussian     = "gaussian()",
+                        binomial     = "binomial()",
+                        poisson      = "poisson()",
+                        quasipoisson = "quasipoisson()",
+                        nb           = "nb()",
+                        "gaussian()"
+      )
 
       paste0(
-        "# ── GAM con mgcv ───────────────────────────────────────\n",
+        "# \u2500\u2500 GAM con mgcv \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n",
         "library(mgcv)\n",
         "library(gratia)\n",
         "library(parameters)  # easystats\n",
-        "library(performance) # easystats\n\n",
+        "library(performance) # easystats\n",
+        "library(DHARMa)      # residuos simulados\n\n",
         "# Cargar datos\n",
-        carga, "\n",
+        carga,
+        filtro_txt,
+        "\n",
         "# Ajustar modelo\n",
         "fm <- gam(\n",
         "  formula = ", formula_str, ",\n",
+        "  family  = ", fam_txt, ",\n",
         "  data    = datos,\n",
         "  method  = '", metodo, "'\n",
         ")\n\n",
@@ -3026,9 +3639,17 @@ mod_gam_server <- function(id) {
         "summary(fm)\n\n",
         "# Diagnóstico\n",
         "gam.check(fm)\n",
-        "concurvity(fm, full = FALSE)\n\n",
-        "# Visualizar efectos suaves\n",
-        "draw(fm)  # gratia\n\n",
+        if (!es_nulo) "concurvity(fm, full = FALSE)\n" else "",
+        if (fam_actual != "quasipoisson")
+          "simulateResiduals(fm, n = 500) |> plot()  # DHARMa\n"
+        else
+          "# DHARMa no aplica a quasipoisson (sin distribución para simular)\n",
+        "\n",
+        if (!es_nulo)
+          paste0("# Visualizar efectos suaves\n",
+                 "draw(fm)  # gratia\n\n")
+        else
+          "# El modelo nulo no tiene términos suaves que visualizar\n\n",
         "# Parámetros (easystats)\n",
         "model_parameters(fm)\n\n",
         "# Performance\n",

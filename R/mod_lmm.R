@@ -451,6 +451,46 @@ mod_lmm_ui <- function(id) {
                 ),
                 uiOutput(ns("na_info"))
               )
+            ),
+
+            nav_panel(
+              fillable = FALSE,
+              title = tagList(bs_icon("funnel", class = "me-1"),
+                              "Filtrar datos"),
+              br(),
+              p(class = "small text-muted mb-3",
+                "Filtra las filas que se usarán en el resto de la app ",
+                "(exploración, ajuste del modelo, diagnóstico, etc.). ",
+                "Para variables numéricas define un rango; para ",
+                "categóricas, marca los niveles a conservar."),
+              layout_columns(
+                col_widths = c(4, 8),
+                fill = FALSE,
+                div(
+                  uiOutput(ns("panel_filtros_lmm")),
+                  tags$hr(),
+                  actionButton(ns("aplicar_filtro_lmm"),
+                               "Aplicar filtros",
+                               class = "btn-primary w-100 mb-2",
+                               icon  = icon("filter")),
+                  actionButton(ns("quitar_filtro_lmm"),
+                               "Quitar filtros",
+                               class = "btn-outline-secondary w-100 btn-sm",
+                               icon  = icon("rotate-left"))
+                ),
+                div(
+                  uiOutput(ns("info_filtro_lmm")),
+                  card(
+                    fill = FALSE,
+                    card_header(bs_icon("eye", class = "me-1"),
+                                "Vista previa de los datos filtrados"),
+                    card_body(
+                      style = "overflow: auto;",
+                      DTOutput(ns("tabla_preview_filtro_lmm"))
+                    )
+                  )
+                )
+              )
             )
           )
         )
@@ -519,13 +559,34 @@ mod_lmm_ui <- function(id) {
                 uiOutput(ns("sel_familia")),
                 tags$hr(),
 
-                p(class = "small fw-bold text-muted mb-1",
-                  bs_icon("graph-up", class = "me-1"),
-                  "Efectos fijos"),
-                p(class = "small text-muted mb-2",
-                  "Predictores con efecto poblacional (\u03b2)."),
-                uiOutput(ns("sel_efectos_fijos")),
-                tags$hr(),
+                div(
+                  class = "mb-2",
+                  checkboxInput(
+                    ns("modelo_nulo"),
+                    label = tagList(
+                      "Modelo nulo (sin efectos fijos)",
+                      tags$small(class = "text-muted d-block mt-1",
+                                 "Ajusta Y ~ 1 + estructura aleatoria, sin ",
+                                 "predictores fijos. Es el ", strong("modelo nulo"),
+                                 " est\u00e1ndar en multinivel — conserva los efectos ",
+                                 "aleatorios (los grupos siguen contando) y sirve ",
+                                 "como l\u00ednea base en ", strong("Comparar modelos"),
+                                 " y para calcular el ICC de referencia.")
+                    ),
+                    value = FALSE
+                  )
+                ),
+
+                conditionalPanel(
+                  condition = paste0("!input['", ns("modelo_nulo"), "']"),
+                  p(class = "small fw-bold text-muted mb-1",
+                    bs_icon("graph-up", class = "me-1"),
+                    "Efectos fijos"),
+                  p(class = "small text-muted mb-2",
+                    "Predictores con efecto poblacional (\u03b2)."),
+                  uiOutput(ns("sel_efectos_fijos")),
+                  tags$hr()
+                ),
 
                 p(class = "small fw-bold text-muted mb-1",
                   bs_icon("diagram-3", class = "me-1"),
@@ -969,7 +1030,10 @@ mod_lmm_ui <- function(id) {
           class = "p-3",
           p(class = "small text-muted mb-3",
             "Ajusta distintos modelos en ", strong("Ajustar modelo"),
-            ", gu\u00e1rdalos con nombre y comp\u00e1ralos. ",
+            ", gu\u00e1rdalos con nombre y comp\u00e1ralos por AIC, BIC, ",
+            "R\u00b2 y el ", strong("peso de Akaike"), " (basado en AIC, no ",
+            "AICc \u2014 su correcci\u00f3n por muestra no tiene una definici\u00f3n ",
+            "\u00fanica para modelos mixtos). ",
             "Para comparar modelos con distintos efectos fijos usa ",
             strong("ML"), "; para distintos efectos aleatorios usa ",
             strong("REML"), "."),
@@ -1094,7 +1158,7 @@ mod_lmm_server <- function(id) {
     datos_mod <- reactiveVal(NULL)
 
     # ── Manejo de NAs ────────────────────────────────────────────────────────
-    datos_finales <- reactive({
+    datos_na_manejados <- reactive({
       df <- datos_mod()
       req(df)
       if (isTRUE(input$manejo_na == "eliminar")) {
@@ -1103,9 +1167,102 @@ mod_lmm_server <- function(id) {
       df
     })
 
+    # ── Filtrado de filas ───────────────────────────────────────────────────
+    filtros_lmm <- reactiveVal(NULL)
+
+    observeEvent(datos_na_manejados(), {
+      filtros_lmm(NULL)
+    }, ignoreInit = TRUE)
+
+    output$panel_filtros_lmm <- renderUI({
+      df <- datos_na_manejados(); req(df)
+      controles <- lapply(names(df), function(nm) {
+        col <- df[[nm]]
+        if (is.numeric(col)) {
+          rng <- range(col, na.rm = TRUE)
+          if (rng[1] == rng[2]) return(NULL)
+          paso <- signif((rng[2] - rng[1]) / 100, 2)
+          sliderInput(
+            ns(paste0("filtro_", nm)),
+            label = nm,
+            min   = rng[1], max = rng[2],
+            value = rng, step = paso
+          )
+        } else {
+          niveles <- levels(factor(col))
+          checkboxGroupInput(
+            ns(paste0("filtro_", nm)),
+            label    = nm,
+            choices  = niveles,
+            selected = niveles,
+            inline   = TRUE
+          )
+        }
+      })
+      tagList(controles)
+    })
+
+    observeEvent(input$aplicar_filtro_lmm, {
+      df <- datos_na_manejados(); req(df)
+      spec <- lapply(names(df), function(nm) {
+        val <- input[[paste0("filtro_", nm)]]
+        if (is.numeric(df[[nm]]))
+          list(var = nm, tipo = "rango", valor = val)
+        else
+          list(var = nm, tipo = "niveles", valor = val)
+      })
+      names(spec) <- names(df)
+      filtros_lmm(spec)
+      showNotification("Filtros aplicados.", type = "message", duration = 2)
+    })
+
+    observeEvent(input$quitar_filtro_lmm, {
+      filtros_lmm(NULL)
+      showNotification("Filtros eliminados — usando todos los datos.",
+                       type = "message", duration = 2)
+    })
+
+    datos_finales <- reactive({
+      df <- datos_na_manejados()
+      req(df)
+      spec <- filtros_lmm()
+      if (is.null(spec)) return(df)
+      for (nm in names(spec)) {
+        if (!nm %in% names(df)) next
+        s <- spec[[nm]]
+        if (is.null(s$valor)) next
+        if (s$tipo == "rango") {
+          df <- df[!is.na(df[[nm]]) & df[[nm]] >= s$valor[1] &
+                     df[[nm]] <= s$valor[2], , drop = FALSE]
+        } else {
+          df <- df[as.character(df[[nm]]) %in% s$valor, , drop = FALSE]
+        }
+      }
+      df
+    })
+
+    output$info_filtro_lmm <- renderUI({
+      total    <- nrow(datos_na_manejados())
+      filtrado <- nrow(datos_finales())
+      if (is.null(filtros_lmm()) || filtrado == total) return(
+        div(class = "alert alert-secondary small py-2 px-3 mb-3",
+            bs_icon("info-circle", class = "me-1"),
+            paste0("Sin filtros activos — usando las ", total, " filas."))
+      )
+      div(class = "alert alert-info small py-2 px-3 mb-3",
+          bs_icon("funnel-fill", class = "me-1"),
+          paste0("Mostrando ", filtrado, " de ", total, " filas ",
+                 "(", round(100 * filtrado / total, 0), "%)."))
+    })
+
+    output$tabla_preview_filtro_lmm <- renderDT({
+      df <- datos_finales(); req(df)
+      datatable(df, options = list(pageLength = 5, scrollX = TRUE))
+    })
+
     output$na_info <- renderUI({
       df_orig  <- datos_mod()
-      df_final <- datos_finales()
+      df_final <- datos_na_manejados()
       req(df_orig)
       n_na <- sum(!stats::complete.cases(df_orig))
       if (n_na == 0) return(
@@ -1555,16 +1712,25 @@ mod_lmm_server <- function(id) {
     # ── Ajuste del modelo ─────────────────────────────────
 
     modelo_lmm <- eventReactive(input$ajustar, {
-      df <- datos_finales(); req(df, input$var_y, input$efectos_fijos)
-      fijos <- input$efectos_fijos
-      re    <- tryCatch(formula_re(), error = function(e) NULL)
+      df <- datos_finales(); req(df, input$var_y)
+      re <- tryCatch(formula_re(), error = function(e) NULL)
       req(re)
 
-      fm_txt <- paste(
-        input$var_y, "~",
-        paste(fijos, collapse = " + "),
-        "+", re
-      )
+      if (isTRUE(input$modelo_nulo)) {
+        fm_txt <- paste(input$var_y, "~ 1 +", re)
+      } else {
+        fijos <- input$efectos_fijos
+        if (is.null(fijos) || length(fijos) == 0) {
+          showNotification("Selecciona al menos un efecto fijo, o activa 'Modelo nulo'.",
+                           type = "warning", duration = 4)
+          return(NULL)
+        }
+        fm_txt <- paste(
+          input$var_y, "~",
+          paste(fijos, collapse = " + "),
+          "+", re
+        )
+      }
       fm <- tryCatch(as.formula(fm_txt), error = function(e) NULL)
       req(fm)
 
@@ -1692,6 +1858,27 @@ mod_lmm_server <- function(id) {
         n_grps <- length(unique(lme4::getME(fm, "flist")[[1]]))
         pocos  <- n_grps < 10
 
+        # VIF de los efectos fijos — antes no se verificaba en ningún lado
+        # (check_model() lo excluye explícitamente de los 6 paneles mostrados)
+        vif_res <- tryCatch({
+          if (length(input$efectos_fijos) < 2) list(max = NA, ok = TRUE) else {
+            vv <- performance::check_collinearity(fm, verbose = FALSE)
+            list(max = round(max(vv$VIF, na.rm = TRUE), 1), ok = TRUE)
+          }
+        }, error = function(e) list(max = NA, ok = FALSE))
+        vif_max <- vif_res$max
+        vif_col <- if (is.na(vif_max)) colores$texto else
+          if (vif_max < 3) colores$exito else if (vif_max < 5) colores$acento else colores$peligro
+        vif_txt <- if (is.na(vif_max))
+          "No aplica (menos de 2 efectos fijos, o no se pudo calcular)."
+        else if (vif_max < 3)
+          tagList("VIF m\u00e1x. = ", strong(vif_max), " \u2014 sin problema de colinealidad entre efectos fijos.")
+        else if (vif_max < 5)
+          tagList("VIF m\u00e1x. = ", strong(vif_max), " \u2014 moderado, aceptable.")
+        else
+          tagList("VIF m\u00e1x. = ", strong(vif_max),
+                  " \u2014 alto. Elimina o combina predictores fijos redundantes.")
+
         tags$table(
           class = "table table-sm small mb-0",
           tags$tbody(
@@ -1726,6 +1913,13 @@ mod_lmm_server <- function(id) {
                         tagList(
                           strong(n_grps), " grupos \u2014 suficiente para estimar bien la varianza entre grupos."
                         ))
+            ),
+            # Multicolinealidad (VIF) de los efectos fijos
+            tags$tr(
+              tags$td(strong("Multicolinealidad (VIF)")),
+              tags$td(style = paste0("color:", vif_col, "; font-weight:600;"),
+                      if (is.na(vif_max)) "\u2014" else vif_max),
+              tags$td(class = "text-muted small", vif_txt)
             )
           )
         )
@@ -1898,6 +2092,14 @@ mod_lmm_server <- function(id) {
         ale_p  <- round(ale * 100, 1)
         res_p  <- round(res * 100, 1)
 
+        # Antes esta lista de predictores estaba hardcodeada (siempre mostraba
+        # "cobertura_dosel, pendiente, dist_agua" sin importar el modelo real).
+        fijos_txt <- if (isTRUE(input$modelo_nulo) ||
+                        is.null(input$efectos_fijos) ||
+                        length(input$efectos_fijos) == 0)
+          "ninguno \u2014 modelo nulo"
+        else paste(input$efectos_fijos, collapse = ", ")
+
         # ¿Justifica el modelo mixto?
         justifica <- ale_p >= 10
         # ¿Varianza residual alta?
@@ -1913,7 +2115,7 @@ mod_lmm_server <- function(id) {
             tags$ul(class = "small mb-2",
               tags$li(
                 strong(paste0(r2m_p, "% — efectos fijos: ")),
-                "lo que explican los predictores del modelo (cobertura_dosel, pendiente, dist_agua)"
+                "lo que explican los predictores del modelo (", fijos_txt, ")"
               ),
               tags$li(
                 strong(paste0(ale_p, "% — efectos aleatorios: ")),
@@ -2194,7 +2396,12 @@ mod_lmm_server <- function(id) {
     # ────────────────────────────────────────────────────
 
     output$sel_pred_efecto <- renderUI({
-      req(input$efectos_fijos)
+      if (isTRUE(input$modelo_nulo) || is.null(input$efectos_fijos) ||
+          length(input$efectos_fijos) == 0) return(
+        div(class = "alert alert-secondary small py-2 px-3 mb-0",
+            bs_icon("info-circle", class = "me-1"),
+            "El modelo nulo no tiene efectos fijos que explorar.")
+      )
       selectInput(ns("pred_efecto"),
                   "Predictor a visualizar:",
                   choices  = input$efectos_fijos,
@@ -2525,12 +2732,28 @@ mod_lmm_server <- function(id) {
       rows <- rows[!sapply(rows, is.null)]
       if (length(rows) == 0) return(NULL)
       best <- which.min(sapply(rows, function(r) r$aic))
+
+      # ── Peso de Akaike (Burnham & Anderson, 2002), basado en AIC ──────
+      # Nota: no usamos AICc aquí porque su corrección por tamaño de
+      # muestra no tiene una definición única y consensuada para modelos
+      # mixtos (¿n = observaciones o n = grupos? ¿k incluye componentes
+      # de varianza?) — usar AIC directo evita esa ambigüedad.
+      aics     <- sapply(rows, function(r) r$aic)
+      delta    <- aics - min(aics, na.rm = TRUE)
+      rel_lik  <- exp(-0.5 * delta)
+      pesos_ak <- rel_lik / sum(rel_lik, na.rm = TRUE)
+      for (i in seq_along(rows)) {
+        rows[[i]]$delta_aic  <- round(delta[i], 1)
+        rows[[i]]$peso_akaike <- round(pesos_ak[i], 3)
+      }
+
       tags$table(
         class = "table table-sm table-hover small mb-0",
         tags$thead(
           style = paste0("background:", colores$primario,
                          "; color:#fff;"),
-          tags$tr(tags$th("Modelo"), tags$th("AIC"), tags$th("BIC"),
+          tags$tr(tags$th("Modelo"), tags$th("AIC"), tags$th("\u0394AIC"),
+                  tags$th("Peso Akaike (w\u1d62)"), tags$th("BIC"),
                   tags$th("R\u00b2 marg."), tags$th("R\u00b2 cond."))
         ),
         tags$tbody(lapply(seq_along(rows), function(i) {
@@ -2542,7 +2765,10 @@ mod_lmm_server <- function(id) {
                               style = paste0("color:", colores$acento,
                                              "; margin-right:4px")), r$nm)
               else r$nm),
-            tags$td(r$aic), tags$td(r$bic),
+            tags$td(r$aic),
+            tags$td(r$delta_aic),
+            tags$td(scales::percent(r$peso_akaike, accuracy = 0.1)),
+            tags$td(r$bic),
             tags$td(r$r2m), tags$td(r$r2c))
         }))
       )
@@ -2586,8 +2812,13 @@ mod_lmm_server <- function(id) {
                "antes de descargar el código.\n")
       )
       fuente  <- input$fuente_datos
-      familia <- input$familia
       metodo  <- input$metodo_lmm
+
+      # Familia real del objeto ya ajustado — no del dropdown actual, que
+      # puede haber cambiado sin volver a ajustar (desincronización).
+      familia <- if (inherits(fm, "glmerMod")) {
+        tryCatch(family(fm)$family, error = function(e) input$familia)
+      } else "gaussian"
 
       carga <- if (fuente == "plantulas")
         paste0('load(system.file("app/data/plantulas_lmm.rda",\n',
@@ -2629,7 +2860,9 @@ mod_lmm_server <- function(id) {
         "# Efectos aleatorios\n",
         "lme4::ranef(fm)\n\n",
         "# Diagnóstico\n",
-        "performance::check_model(fm)\n"
+        "performance::check_model(fm)\n",
+        "performance::check_collinearity(fm)  # VIF de los efectos fijos\n",
+        "lme4::isSingular(fm)                 # sobreparametrización\n"
       )
     })
 

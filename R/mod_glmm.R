@@ -374,7 +374,6 @@ mod_glmm_ui <- function(id) {
                     choices = c(
                       "Binomial (log\u00edstica)" = "binomial",
                       "Poisson"                  = "poisson",
-                      "Quasipoisson"             = "quasipoisson",
                       "Binomial negativa"        = "nbinom2"
                     ),
                     selected = "binomial"
@@ -487,6 +486,46 @@ mod_glmm_ui <- function(id) {
                   selected = "conservar"
                 ),
                 uiOutput(ns("na_info"))
+              )
+            ),
+
+            nav_panel(
+              fillable = FALSE,
+              title = tagList(bs_icon("funnel", class = "me-1"),
+                              "Filtrar datos"),
+              br(),
+              p(class = "small text-muted mb-3",
+                "Filtra las filas que se usarán en el resto de la app ",
+                "(exploración, ajuste del modelo, diagnóstico, etc.). ",
+                "Para variables numéricas define un rango; para ",
+                "categóricas, marca los niveles a conservar."),
+              layout_columns(
+                col_widths = c(4, 8),
+                fill = FALSE,
+                div(
+                  uiOutput(ns("panel_filtros_glmm")),
+                  tags$hr(),
+                  actionButton(ns("aplicar_filtro_glmm"),
+                               "Aplicar filtros",
+                               class = "btn-primary w-100 mb-2",
+                               icon  = icon("filter")),
+                  actionButton(ns("quitar_filtro_glmm"),
+                               "Quitar filtros",
+                               class = "btn-outline-secondary w-100 btn-sm",
+                               icon  = icon("rotate-left"))
+                ),
+                div(
+                  uiOutput(ns("info_filtro_glmm")),
+                  card(
+                    fill = FALSE,
+                    card_header(bs_icon("eye", class = "me-1"),
+                                "Vista previa de los datos filtrados"),
+                    card_body(
+                      style = "overflow: auto;",
+                      DTOutput(ns("tabla_preview_filtro_glmm"))
+                    )
+                  )
+                )
               )
             )
 
@@ -1062,8 +1101,6 @@ mod_glmm_server <- function(id) {
                        "Aves en fragmentos \u2014 Poisson / BN (ecolog\u00eda)"    = "aves_glmm"),
       poisson      = c("Aves en fragmentos \u2014 Poisson / BN (ecolog\u00eda)"    = "aves_glmm",
                        "Ranas en charcas \u2014 binomial (ecolog\u00eda)"          = "ranas_glmm"),
-      quasipoisson = c("Aves en fragmentos \u2014 Poisson / BN (ecolog\u00eda)"    = "aves_glmm",
-                       "Ranas en charcas \u2014 binomial (ecolog\u00eda)"          = "ranas_glmm"),
       nbinom2      = c("Aves en fragmentos \u2014 Poisson / BN (ecolog\u00eda)"    = "aves_glmm",
                        "Ranas en charcas \u2014 binomial (ecolog\u00eda)"          = "ranas_glmm"),
       zip          = c("Aves en fragmentos \u2014 Poisson / BN (ecolog\u00eda)"    = "aves_glmm",
@@ -1084,11 +1121,6 @@ mod_glmm_server <- function(id) {
           bs_icon("info-circle", class = "me-1"),
           "Y = conteos (0, 1, 2\u2026). Enlace ", tags$code("log"), ". ",
           "exp(\u03b2) = raz\u00f3n de tasas (IRR). Asume varianza = media."),
-        quasipoisson = div(class = "alert alert-info small py-2 px-3 mt-2 mb-0",
-          bs_icon("info-circle", class = "me-1"),
-          "Conteos con sobredispersi\u00f3n. Estima \u03c6 (phi), el ",
-          strong("par\u00e1metro de dispersi\u00f3n"), ". ",
-          "Si \u03c6 > 1 hay sobredispersi\u00f3n. Usa QAIC para comparar modelos."),
         nbinom2 = div(class = "alert alert-info small py-2 px-3 mt-2 mb-0",
           bs_icon("info-circle", class = "me-1"),
           "Conteos sobredispersados. Enlace ", tags$code("log"), ". ",
@@ -1238,7 +1270,7 @@ mod_glmm_server <- function(id) {
     })
 
     # ── Manejo de NAs ────────────────────────────────────────────────────────
-    datos_finales <- reactive({
+    datos_na_manejados <- reactive({
       df <- datos_mod()
       req(df)
       if (isTRUE(input$manejo_na == "eliminar")) {
@@ -1247,9 +1279,102 @@ mod_glmm_server <- function(id) {
       df
     })
 
+    # ── Filtrado de filas ───────────────────────────────────────────────────
+    filtros_glmm <- reactiveVal(NULL)
+
+    observeEvent(datos_na_manejados(), {
+      filtros_glmm(NULL)
+    }, ignoreInit = TRUE)
+
+    output$panel_filtros_glmm <- renderUI({
+      df <- datos_na_manejados(); req(df)
+      controles <- lapply(names(df), function(nm) {
+        col <- df[[nm]]
+        if (is.numeric(col)) {
+          rng <- range(col, na.rm = TRUE)
+          if (rng[1] == rng[2]) return(NULL)
+          paso <- signif((rng[2] - rng[1]) / 100, 2)
+          sliderInput(
+            ns(paste0("filtro_", nm)),
+            label = nm,
+            min   = rng[1], max = rng[2],
+            value = rng, step = paso
+          )
+        } else {
+          niveles <- levels(factor(col))
+          checkboxGroupInput(
+            ns(paste0("filtro_", nm)),
+            label    = nm,
+            choices  = niveles,
+            selected = niveles,
+            inline   = TRUE
+          )
+        }
+      })
+      tagList(controles)
+    })
+
+    observeEvent(input$aplicar_filtro_glmm, {
+      df <- datos_na_manejados(); req(df)
+      spec <- lapply(names(df), function(nm) {
+        val <- input[[paste0("filtro_", nm)]]
+        if (is.numeric(df[[nm]]))
+          list(var = nm, tipo = "rango", valor = val)
+        else
+          list(var = nm, tipo = "niveles", valor = val)
+      })
+      names(spec) <- names(df)
+      filtros_glmm(spec)
+      showNotification("Filtros aplicados.", type = "message", duration = 2)
+    })
+
+    observeEvent(input$quitar_filtro_glmm, {
+      filtros_glmm(NULL)
+      showNotification("Filtros eliminados — usando todos los datos.",
+                       type = "message", duration = 2)
+    })
+
+    datos_finales <- reactive({
+      df <- datos_na_manejados()
+      req(df)
+      spec <- filtros_glmm()
+      if (is.null(spec)) return(df)
+      for (nm in names(spec)) {
+        if (!nm %in% names(df)) next
+        s <- spec[[nm]]
+        if (is.null(s$valor)) next
+        if (s$tipo == "rango") {
+          df <- df[!is.na(df[[nm]]) & df[[nm]] >= s$valor[1] &
+                     df[[nm]] <= s$valor[2], , drop = FALSE]
+        } else {
+          df <- df[as.character(df[[nm]]) %in% s$valor, , drop = FALSE]
+        }
+      }
+      df
+    })
+
+    output$info_filtro_glmm <- renderUI({
+      total    <- nrow(datos_na_manejados())
+      filtrado <- nrow(datos_finales())
+      if (is.null(filtros_glmm()) || filtrado == total) return(
+        div(class = "alert alert-secondary small py-2 px-3 mb-3",
+            bs_icon("info-circle", class = "me-1"),
+            paste0("Sin filtros activos — usando las ", total, " filas."))
+      )
+      div(class = "alert alert-info small py-2 px-3 mb-3",
+          bs_icon("funnel-fill", class = "me-1"),
+          paste0("Mostrando ", filtrado, " de ", total, " filas ",
+                 "(", round(100 * filtrado / total, 0), "%)."))
+    })
+
+    output$tabla_preview_filtro_glmm <- renderDT({
+      df <- datos_finales(); req(df)
+      datatable(df, options = list(pageLength = 5, scrollX = TRUE))
+    })
+
     output$na_info <- renderUI({
       df_orig  <- datos_mod()
-      df_final <- datos_finales()
+      df_final <- datos_na_manejados()
       req(df_orig)
       n_na <- sum(!stats::complete.cases(df_orig))
       if (n_na == 0) return(
@@ -1918,6 +2043,26 @@ mod_glmm_server <- function(id) {
         }, error = function(e) NA)
         pocos  <- !is.na(n_grps) && n_grps < 10
 
+        # VIF de los efectos fijos — no se verificaba en ningún lado
+        preds_actuales <- c(input$preds_num, input$preds_cat)
+        vif_res <- tryCatch({
+          if (length(preds_actuales) < 2) list(max = NA) else {
+            vv <- performance::check_collinearity(fm, verbose = FALSE)
+            list(max = round(max(vv$VIF, na.rm = TRUE), 1))
+          }
+        }, error = function(e) list(max = NA))
+        vif_max <- vif_res$max
+        vif_col <- if (is.na(vif_max)) colores$texto else
+          if (vif_max < 3) colores$exito else if (vif_max < 5) colores$acento else colores$peligro
+        vif_txt <- if (is.na(vif_max))
+          "No aplica (menos de 2 efectos fijos, o no se pudo calcular)."
+        else if (vif_max < 3)
+          paste0("VIF m\u00e1x. = ", vif_max, " \u2014 sin problema de colinealidad.")
+        else if (vif_max < 5)
+          paste0("VIF m\u00e1x. = ", vif_max, " \u2014 moderado, aceptable.")
+        else
+          paste0("VIF m\u00e1x. = ", vif_max, " \u2014 alto. Elimina o combina predictores fijos redundantes.")
+
         tags$table(
           class = "table table-sm small mb-0",
           tags$tbody(
@@ -1943,7 +2088,13 @@ mod_glmm_server <- function(id) {
                           paste0("Hay ", n_grps, " grupos \u2014 menos de los 10 recomendados. La estimaci\u00f3n de varianza puede ser imprecisa.")
                         else
                           paste0(n_grps, " grupos \u2014 suficiente para estimar bien la varianza entre grupos."))
-              )
+              ),
+            tags$tr(
+              tags$td(strong("Multicolinealidad (VIF)")),
+              tags$td(style = paste0("color:", vif_col, "; font-weight:600;"),
+                      if (is.na(vif_max)) "\u2014" else vif_max),
+              tags$td(class = "text-muted small", vif_txt)
+            )
           )
         )
       }, error = function(e) NULL)
@@ -2516,6 +2667,20 @@ mod_glmm_server <- function(id) {
         cols_show <- intersect(c("Name","AIC","AICc","BIC","R2_marginal",
                                   "R2_conditional","ICC","RMSE"), names(df))
         df_show <- df[, cols_show, drop = FALSE]
+
+        # ── Peso de Akaike (Burnham & Anderson, 2002) ──────────────────
+        # Basado en AICc si compare_performance() la calculó; si no, en AIC.
+        crit_col <- if ("AICc" %in% names(df_show)) "AICc" else
+          if ("AIC" %in% names(df_show)) "AIC" else NA
+        if (!is.na(crit_col)) {
+          crit    <- df_show[[crit_col]]
+          delta   <- crit - min(crit, na.rm = TRUE)
+          rel_lik <- exp(-0.5 * delta)
+          df_show$`Peso Akaike` <- scales::percent(
+            rel_lik / sum(rel_lik, na.rm = TRUE), accuracy = 0.1)
+          cols_show <- c(cols_show, "Peso Akaike")
+        }
+
         mejor_aic <- df_show$Name[which.min(df_show$AIC)]
         filas <- lapply(seq_len(nrow(df_show)), function(i) {
           es_mejor <- df_show$Name[i] == mejor_aic
@@ -2565,6 +2730,7 @@ mod_glmm_server <- function(id) {
       if (is.null(fm)) return(
         "# Ajusta el modelo en la pestaña 'Ajustar modelo' antes de generar el código.\n")
       fam      <- input$familia
+      fuente   <- input$fuente_datos
       re       <- tryCatch(formula_re(), error = function(e) "(1 | grupo)")
       preds    <- c(input$preds_num, input$preds_cat)
       parte_fija <- if (length(preds) > 0) paste(preds, collapse = " + ") else "1"
@@ -2583,12 +2749,18 @@ mod_glmm_server <- function(id) {
         "aves_glmm"  = paste0(
           "# Datos: aves_glmm (simulado, StatModels)\n",
           "# Variables: conteo, area_ha, cobertura_dosel, dist_borde, ndvi, fragmento\n",
-          "data(aves_glmm, package = \"StatModels\")"),
+          "e <- new.env()\n",
+          "load(system.file(\"app/data/aves_glmm.rda\", package = \"StatModels\"), envir = e)\n",
+          "datos <- e$aves_glmm\n",
+          "datos$fragmento <- factor(datos$fragmento)"),
         "ranas_glmm" = paste0(
           "# Datos: ranas_glmm (simulado, StatModels)\n",
           "# Variables: presencia, hidroperiodo, cobertura_vegetal, dist_bosque, ph, charca\n",
-          "data(ranas_glmm, package = \"StatModels\")"),
-        paste0("datos <- datos_activos  # dataset activo")
+          "e <- new.env()\n",
+          "load(system.file(\"app/data/ranas_glmm.rda\", package = \"StatModels\"), envir = e)\n",
+          "datos <- e$ranas_glmm\n",
+          "datos$charca <- factor(datos$charca)"),
+        "datos <- read.csv(\"tu_archivo.csv\")  # fuente no reconocida"
       )
       paste0(
         "# ── GLMM con glmmTMB ──────────────────────────────────────\n",
