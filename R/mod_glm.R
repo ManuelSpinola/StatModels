@@ -660,6 +660,7 @@ mod_glm_ui <- function(id) {
               card_header(bs_icon("sliders", class = "me-1"),
                           "Controles"),
               card_body(
+                uiOutput(ns("sel_var_y_exp")),
                 uiOutput(ns("sel_var_x")),
                 uiOutput(ns("sel_color")),
                 checkboxInput(ns("mostrar_suavizado"),
@@ -671,6 +672,7 @@ mod_glm_ui <- function(id) {
             ),
 
             div(
+              uiOutput(ns("aviso_sin_y_exp")),
               plotOutput(ns("plot_scatter"), height = "400px"),
               uiOutput(ns("insight_scatter"))
             )
@@ -1912,7 +1914,73 @@ mod_glm_server <- function(id) {
           "El modelo usará estos tipos.")
     })
 
-    # Explorar
+    # Explorar ──────────────────────────────────────────
+    # NOTA: la pestaña "Explorar" se visita ANTES que "Ajustar modelo",
+    # así que aquí NO existe todavía input$var_y. No podemos asumir que
+    # la respuesta es "la primera variable categórica" (como se hacía
+    # antes) porque en datos de presencia/ausencia lo habitual es que la
+    # respuesta binaria esté codificada como numérica 0/1, no como
+    # factor. Por eso el usuario elige explícitamente la Y a explorar,
+    # y detectamos candidatas válidas según la familia.
+
+    es_binaria <- function(x) {
+      if (is.factor(x) || is.character(x)) {
+        length(unique(stats::na.omit(x))) == 2
+      } else if (is.numeric(x)) {
+        vals <- unique(stats::na.omit(x))
+        length(vals) > 0 && all(vals %in% c(0, 1))
+      } else {
+        FALSE
+      }
+    }
+
+    # Convierte la Y elegida a numérico 0/1 sin importar si se guardó
+    # como numeric, factor de 2 niveles o character de 2 valores.
+    y_binaria_num <- function(x) {
+      if (is.numeric(x)) return(as.numeric(x))
+      f <- factor(x)
+      as.integer(f) - 1L
+    }
+
+    candidatas_y_exp <- reactive({
+      df  <- datos_finales(); req(df)
+      fam <- input$familia
+      if (is.null(fam)) fam <- "binomial"
+      if (fam == "binomial") {
+        names(df)[sapply(df, es_binaria)]
+      } else {
+        vars_numericas()
+      }
+    })
+
+    output$sel_var_y_exp <- renderUI({
+      cand <- candidatas_y_exp()
+      if (length(cand) == 0) return(NULL)
+      etiqueta <- if (identical(input$familia, "binomial"))
+        "Variable Y (respuesta binaria):" else
+        "Variable Y (respuesta):"
+      # Por defecto, si hay más de una candidata, no seleccionar la misma
+      # que suele quedar por defecto en "Variable X" (la primera numérica),
+      # para que el gráfico no empiece vacío por X == Y.
+      sel <- if (length(cand) >= 2) cand[2] else cand[1]
+      selectInput(ns("var_y_exp"), label = etiqueta,
+                  choices = cand, selected = sel)
+    })
+
+    output$aviso_sin_y_exp <- renderUI({
+      cand <- candidatas_y_exp()
+      if (length(cand) > 0) return(NULL)
+      msg <- if (identical(input$familia, "binomial"))
+        paste0("No se encontró ninguna variable con exactamente dos ",
+               "valores (0/1, o dos categorías) para usar como ",
+               "respuesta binomial. Revisa los tipos de variable en la ",
+               "pestaña «Los datos».") else
+        paste0("No hay variables numéricas disponibles para explorar ",
+               "como respuesta.")
+      div(class = "alert alert-warning small py-2 px-3 mb-2",
+          bs_icon("exclamation-triangle-fill", class = "me-1"), msg)
+    })
+
     output$sel_var_x <- renderUI({
       req(vars_numericas())
       selectInput(ns("var_x"), label = "Variable X (predictor):",
@@ -1931,16 +1999,14 @@ mod_glm_server <- function(id) {
     output$cards_correlacion <- renderUI({
       df  <- datos_finales(); req(df, input$var_x)
       fam <- input$familia
-      yv  <- if (fam == "binomial") vars_categoricas() else vars_numericas()
-      req(length(yv) >= 1)
-      yvar <- yv[yv != input$var_x][1]
-      if (is.null(yvar)) yvar <- yv[1]
-      req(yvar)
+      req(input$var_y_exp)
+      yvar <- input$var_y_exp
+      req(yvar %in% names(df))
 
       if (fam == "binomial") {
         # Para binomial: proporción de Y=1 por grupos de X
         tryCatch({
-          y_bin <- as.integer(as.character(df[[yvar]]))
+          y_bin <- y_binaria_num(df[[yvar]])
           prop  <- round(mean(y_bin, na.rm = TRUE), 3)
           n_pos <- sum(y_bin == 1, na.rm = TRUE)
           layout_columns(
@@ -1965,11 +2031,8 @@ mod_glm_server <- function(id) {
         }, error = function(e) NULL)
       } else {
         # Para Poisson/BN: correlación con la Y numérica
-        yv2  <- vars_numericas()
-        req(length(yv2) >= 2)
-        yvar2 <- yv2[yv2 != input$var_x][1]
-        req(yvar2)
-        cor_val <- cor(df[[yvar2]], df[[input$var_x]], use = "complete.obs")
+        req(yvar != input$var_x)
+        cor_val <- cor(df[[yvar]], df[[input$var_x]], use = "complete.obs")
         layout_columns(
           col_widths = c(6, 6),
           fill = FALSE,
@@ -1996,6 +2059,9 @@ mod_glm_server <- function(id) {
     output$plot_scatter <- renderPlot(suppressWarnings({
       df  <- datos_finales(); req(df, input$var_x)
       fam <- input$familia
+      req(input$var_y_exp)
+      yvar <- input$var_y_exp
+      req(yvar %in% names(df))
 
       usar_color <- !is.null(input$var_color) &&
         input$var_color != "ninguna" &&
@@ -2003,8 +2069,7 @@ mod_glm_server <- function(id) {
 
       if (fam == "binomial") {
         # ── Binomial: jitter + curva logística ────────────
-        yvar <- vars_categoricas()[1]; req(yvar)
-        df[[yvar]] <- as.integer(as.character(df[[yvar]]))
+        df[[yvar]] <- y_binaria_num(df[[yvar]])
 
         p <- ggplot(df, aes(x = .data[[input$var_x]],
                             y = .data[[yvar]]))
@@ -2034,8 +2099,7 @@ mod_glm_server <- function(id) {
 
       } else {
         # ── Poisson / BN: scatter en escala log ───────────
-        yv2  <- vars_numericas(); req(length(yv2) >= 2)
-        yvar <- yv2[yv2 != input$var_x][1]; req(yvar)
+        req(yvar != input$var_x)
 
         p <- ggplot(df, aes(x = .data[[input$var_x]],
                             y = .data[[yvar]]))
@@ -2068,11 +2132,13 @@ mod_glm_server <- function(id) {
     output$insight_scatter <- renderUI({
       df  <- datos_finales(); req(df, input$var_x)
       fam <- input$familia
+      req(input$var_y_exp)
+      yvar <- input$var_y_exp
+      req(yvar %in% names(df))
 
       if (fam == "binomial") {
-        yvar <- vars_categoricas()[1]; req(yvar)
         tryCatch({
-          y_bin   <- as.integer(as.character(df[[yvar]]))
+          y_bin   <- y_binaria_num(df[[yvar]])
           prop    <- round(mean(y_bin, na.rm = TRUE) * 100, 0)
           # Comparar medias de X entre grupos
           mu1 <- round(mean(df[[input$var_x]][y_bin == 1], na.rm = TRUE), 2)
@@ -2087,8 +2153,7 @@ mod_glm_server <- function(id) {
         }, error = function(e) NULL)
 
       } else {
-        yv2  <- vars_numericas(); req(length(yv2) >= 2)
-        yvar <- yv2[yv2 != input$var_x][1]; req(yvar)
+        req(yvar != input$var_x)
         cor_val <- cor(df[[yvar]], df[[input$var_x]], use = "complete.obs")
         dir <- if (cor_val > 0.5) "positiva y fuerte" else
           if (cor_val > 0.2) "positiva y moderada" else
