@@ -10,6 +10,26 @@
 # El código R es secundario (pestaña final, descargable)
 # ============================================================
 
+# ── Helper: badge con el modelo actualmente desplegado ─────
+# Se usa en las pestañas de Diagnóstico, Performance, Parámetros,
+# Efectos marginales y Contrastes, para que quede claro para
+# qué modelo se están mostrando los resultados (evita confusión
+# cuando el usuario cambia predictores pero no reajusta).
+badge_modelo_actual_lm <- function(fit) {
+  if (is.null(fit)) {
+    return(
+      div(class = "alert alert-secondary small py-1 px-2 mb-3",
+          bs_icon("exclamation-circle", class = "me-1"),
+          "Aún no se ha ajustado ningún modelo — ve a la pestaña ",
+          strong("Ajustar modelo"), ".")
+    )
+  }
+  div(class = "alert alert-info small py-1 px-2 mb-3",
+      bs_icon("diagram-2", class = "me-1"),
+      strong("Modelo actual: "),
+      code(paste(deparse(formula(fit)), collapse = " ")))
+}
+
 # ── UI ────────────────────────────────────────────────────
 mod_lm_ui <- function(id) {
   ns <- NS(id)
@@ -846,6 +866,8 @@ mod_lm_ui <- function(id) {
             " del ecosistema easystats."
           ),
 
+          uiOutput(ns("modelo_actual_diag_lm")),
+
           layout_columns(
             col_widths = c(4, 4, 4),
             fill = FALSE,
@@ -952,6 +974,8 @@ mod_lm_ui <- function(id) {
             " y ", strong("tidymodels (vfold_cv)"), "."
           ),
 
+          uiOutput(ns("modelo_actual_perf_lm")),
+
           layout_columns(
             col_widths = c(6, 6),
             fill = FALSE,
@@ -1039,6 +1063,7 @@ mod_lm_ui <- function(id) {
             " muestra el rango plausible del verdadero efecto — ",
             "si incluye el cero, el efecto no es significativo."
           ),
+          uiOutput(ns("modelo_actual_param_lm")),
           layout_columns(
             col_widths = c(6, 6),
             fill = FALSE,
@@ -1127,6 +1152,8 @@ mod_lm_ui <- function(id) {
             "Generados con ", strong("modelbased::estimate_relation()"),
             " de easystats."
           ),
+
+          uiOutput(ns("modelo_actual_ef_lm")),
 
           layout_columns(
             col_widths = c(4, 8),
@@ -1229,6 +1256,7 @@ mod_lm_ui <- function(id) {
             strong("modelbased::estimate_contrasts()"), " de easystats."
           ),
 
+          uiOutput(ns("modelo_actual_contraste_lm")),
           uiOutput(ns("contrasts_no_cat_msg_lm")),
 
           layout_columns(
@@ -2098,6 +2126,13 @@ mod_lm_server <- function(id) {
         lm(fm, data = df_std)
       }, error = function(e) NULL)
     }, ignoreNULL = FALSE)
+
+    # ── Badge: modelo actualmente desplegado ──────────────
+    output$modelo_actual_diag_lm      <- renderUI(badge_modelo_actual_lm(modelo_lm()))
+    output$modelo_actual_perf_lm      <- renderUI(badge_modelo_actual_lm(modelo_lm()))
+    output$modelo_actual_param_lm     <- renderUI(badge_modelo_actual_lm(modelo_lm()))
+    output$modelo_actual_ef_lm        <- renderUI(badge_modelo_actual_lm(modelo_lm()))
+    output$modelo_actual_contraste_lm <- renderUI(badge_modelo_actual_lm(modelo_lm()))
 
     # ── Métricas ─────────────────────────────────────────
 

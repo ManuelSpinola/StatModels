@@ -38,6 +38,7 @@ Imports:
     parameters,
     performance,
     modelbased,
+    marginaleffects,
     datawizard,
     see,
     AICcmodavg,
