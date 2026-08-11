@@ -770,26 +770,6 @@
         "RemoteSha": "1.84-2"
       }
     },
-    "StatModels": {
-      "Source": "github",
-      "Repository": null,
-      "description": {
-        "Package": "StatModels",
-        "Title": "Interactive Statistical Modeling Platform",
-        "Version": "1.0.0",
-        "Authors@R": "\n    person(\"Manuel\", \"Spínola\", \n           email = \"manuel.spinola@una.ac.cr\",\n           role  = c(\"aut\", \"cre\"),\n           comment = c(ORCID = \"\"))",
-        "Description": "A Shiny-based interactive platform for statistical modeling,\n    part of the StatSuite ecosystem. Includes modules for linear models (LM),\n    generalized linear models (GLM), generalized additive models (GAM), and\n    linear mixed models (LMM/GLMM). Designed for teaching and research in\n    ecology and biodiversity sciences.",
-        "License": "MIT + file LICENSE",
-        "Encoding": "UTF-8",
-        "Roxygen": "list(markdown = TRUE)",
-        "Imports": "shiny (>= 1.8.0),\nbslib (>= 0.7.0),\nbsicons,\nshinyjs,\nggplot2,\ndplyr,\ntidyr,\ntibble,\nreadr,\nreadxl,\npurrr,\nscales,\nDT,\ncar,\nMASS,\nmgcv,\ngratia,\nlme4,\nlmerTest,\nlattice,\nparameters,\nperformance,\nmodelbased,\nmarginaleffects,\ndatawizard,\nsee,\nAICcmodavg,\nrsample,\nrecipes,\nparsnip,\nworkflows,\ntune,\nyardstick,\ngolem,\npkgload,\nglmmTMB,\nDHARMa",
-        "Suggests": "testthat (>= 3.0.0)",
-        "Config/testthat/edition": "3",
-        "URL": "https://github.com/ManuelSpinola/StatModels",
-        "BugReports": "https://github.com/ManuelSpinola/StatModels/issues",
-        "Config/roxygen2/version": "8.0.0"
-      }
-    },
     "TMB": {
       "Source": "CRAN",
       "Repository": "https://packagemanager.posit.co/cran/latest",
@@ -7183,7 +7163,7 @@
       "checksum": "c9d08084ecf1f4be458eed72f5701dda"
     },
     ".Rprofile": {
-      "checksum": "e98df1fd29d79c6469ba0b6444affac1"
+      "checksum": "376568c77623ad7dd7a18a8bb58fb01a"
     },
     "app.R": {
       "checksum": "1eda131a0e82e416d5a4a2c814953675"
@@ -7276,19 +7256,19 @@
       "checksum": "e9e72a568c81e5ec743d9b8f58740cb5"
     },
     "R/mod_gam.R": {
-      "checksum": "6f2cc39d5d50c7f26837e2e242f57568"
+      "checksum": "9335f9dfdfb0dccb34de72b6d2cbeb93"
     },
     "R/mod_glm.R": {
-      "checksum": "8698fc93a132a229bdb6c7f0e4c6d58f"
+      "checksum": "36fb8752e119c7df82d346532074efdc"
     },
     "R/mod_glmm.R": {
-      "checksum": "1404b10a4bb38b21f1d5a9fec3d97915"
+      "checksum": "031ed375d8a21eeb010b04b03206531f"
     },
     "R/mod_lm.R": {
-      "checksum": "766556be6c52ce7fe99a48e25eec0ee9"
+      "checksum": "842e9671c3e3ea1cc72cf91cb2a556e8"
     },
     "R/mod_lmm.R": {
-      "checksum": "65164e84fc5fa5e6db0afe043a072c9c"
+      "checksum": "ab013e14bc43bb9a169be43063b898f0"
     },
     "R/run_app.R": {
       "checksum": "89936b4b30f6f2ec43d6f38e9047ef31"
@@ -7297,7 +7277,7 @@
       "checksum": "f8dc91735aea237bfbe9766b3da6d2ef"
     },
     "renv.lock": {
-      "checksum": "15ff6bf0527415da90915ef0fac01c3b"
+      "checksum": "88672f5b207e1ce0a1916ec679c7ba40"
     }
   },
   "users": null
