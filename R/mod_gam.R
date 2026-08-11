@@ -7,6 +7,22 @@
 # ============================================================
 
 # ── UI ──────────────────────────────────────────────────────
+# ── Helper: badge con el modelo actualmente desplegado ─────
+badge_modelo_actual_gam <- function(fit) {
+  if (is.null(fit)) {
+    return(
+      div(class = "alert alert-secondary small py-1 px-2 mb-3",
+          bs_icon("exclamation-circle", class = "me-1"),
+          "Aún no se ha ajustado ningún modelo — ve a la pestaña ",
+          strong("Ajustar modelo"), ".")
+    )
+  }
+  div(class = "alert alert-info small py-1 px-2 mb-3",
+      bs_icon("diagram-2", class = "me-1"),
+      strong("Modelo actual: "),
+      code(paste(deparse(formula(fit)), collapse = " ")))
+}
+
 mod_gam_ui <- function(id) {
   ns <- NS(id)
 
@@ -728,6 +744,7 @@ mod_gam_ui <- function(id) {
           "Generado con ", strong("mgcv::gam.check()"), " y ",
           strong("DHARMa"), "."
         ),
+        uiOutput(ns("modelo_actual_diag_gam")),
         layout_columns(
           col_widths = c(3, 4, 5),
           fill = FALSE,
@@ -883,6 +900,7 @@ mod_gam_ui <- function(id) {
           "M\u00e9tricas de rendimiento del GAM: devianza explicada, R\u00b2, RMSE, ",
           "y validaci\u00f3n cruzada para estimar el error de predicci\u00f3n en datos nuevos."
         ),
+        uiOutput(ns("modelo_actual_perf_gam")),
         layout_columns(
           col_widths = c(6, 6),
           fill = FALSE,
@@ -948,6 +966,7 @@ mod_gam_ui <- function(id) {
           strong("suaves"), " (caracterizados por sus EDF). Un EDF = 1 indica ",
           "efecto lineal; EDF > 1 indica no linealidad."
         ),
+        uiOutput(ns("modelo_actual_param_gam")),
         layout_columns(
           col_widths = c(6, 6),
           fill = FALSE,
@@ -1018,6 +1037,7 @@ mod_gam_ui <- function(id) {
           "ausencia de efecto. Generado con ",
           strong("gratia::draw()"), " y ", strong("modelbased::estimate_relation()"), "."
         ),
+        uiOutput(ns("modelo_actual_ef_gam")),
         layout_columns(
           col_widths = c(4, 8),
           fill = FALSE,
@@ -1098,6 +1118,7 @@ mod_gam_ui <- function(id) {
           "Generados con ",
           strong("modelbased::estimate_contrasts()"), " de easystats."
         ),
+        uiOutput(ns("modelo_actual_contraste_gam")),
         uiOutput(ns("contrasts_no_cat_msg_gam")),
         layout_columns(
           col_widths = c(4, 8),
@@ -1900,6 +1921,13 @@ mod_gam_server <- function(id) {
         NULL
       })
     }, ignoreNULL = TRUE)
+
+    # ── Badge: modelo actualmente desplegado ──────────────
+    output$modelo_actual_diag_gam      <- renderUI(badge_modelo_actual_gam(modelo_gam()))
+    output$modelo_actual_perf_gam      <- renderUI(badge_modelo_actual_gam(modelo_gam()))
+    output$modelo_actual_param_gam     <- renderUI(badge_modelo_actual_gam(modelo_gam()))
+    output$modelo_actual_ef_gam        <- renderUI(badge_modelo_actual_gam(modelo_gam()))
+    output$modelo_actual_contraste_gam <- renderUI(badge_modelo_actual_gam(modelo_gam()))
 
     # Modelo estandarizado (para importancia)
     modelo_gam_std <- eventReactive(input$ajustar, {
@@ -3500,6 +3528,10 @@ mod_gam_server <- function(id) {
       tryCatch({
         comp <- do.call(performance::compare_performance,
                         c(fits, list(rank = TRUE, verbose = FALSE)))
+        # compare_performance() no siempre respeta los nombres de la lista
+        # cuando se llama vía do.call(); forzamos aquí los nombres reales
+        # que el usuario le dio a cada modelo en "Guardar para comparar".
+        comp$Name <- names(mg)
         p <- plot(comp) +
           ggplot2::scale_color_manual(
             values = colores$tableau[seq_along(mg)]) +

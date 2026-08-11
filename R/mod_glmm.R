@@ -11,6 +11,22 @@
 # ============================================================
 
 # ── UI ────────────────────────────────────────────────────
+# ── Helper: badge con el modelo actualmente desplegado ─────
+badge_modelo_actual_glmm <- function(fit) {
+  if (is.null(fit)) {
+    return(
+      div(class = "alert alert-secondary small py-1 px-2 mb-3",
+          bs_icon("exclamation-circle", class = "me-1"),
+          "Aún no se ha ajustado ningún modelo — ve a la pestaña ",
+          strong("Ajustar modelo"), ".")
+    )
+  }
+  div(class = "alert alert-info small py-1 px-2 mb-3",
+      bs_icon("diagram-2", class = "me-1"),
+      strong("Modelo actual: "),
+      code(paste(deparse(formula(fit)), collapse = " ")))
+}
+
 mod_glmm_ui <- function(id) {
   ns <- NS(id)
 
@@ -729,6 +745,7 @@ mod_glmm_ui <- function(id) {
           p(class = "small text-muted mb-3",
             "Verificaci\u00f3n de supuestos espec\u00edficos del GLMM. ",
             "Generado con ", strong("performance"), " de easystats."),
+          uiOutput(ns("modelo_actual_diag_glmm")),
 
           # Fila 1: gráficos
           card(
@@ -815,6 +832,7 @@ mod_glmm_ui <- function(id) {
             "R\u00b2 Nakagawa para la partici\u00f3n de varianza, e ICC para cuantificar ",
             "la importancia de los efectos aleatorios. ",
             "Generadas con ", strong("performance::model_performance()"), "."),
+          uiOutput(ns("modelo_actual_perf_glmm")),
 
           layout_columns(
             col_widths = c(6, 6),
@@ -854,6 +872,7 @@ mod_glmm_ui <- function(id) {
         div(
           class = "p-3",
           uiOutput(ns("params_intro")),
+          uiOutput(ns("modelo_actual_param_glmm")),
           layout_columns(
             col_widths = c(6, 6),
             fill = FALSE,
@@ -924,6 +943,7 @@ mod_glmm_ui <- function(id) {
             "en la ", strong("escala original de Y"),
             " (probabilidades para binomial, conteo esperado para Poisson). ",
             "Generados con ", strong("modelbased::estimate_relation()"), "."),
+          uiOutput(ns("modelo_actual_ef_glmm")),
 
           layout_columns(
             col_widths = c(4, 8),
@@ -975,6 +995,7 @@ mod_glmm_ui <- function(id) {
             "categ\u00f3ricas. Se estiman en la escala del enlace y se pueden ",
             "transformar a la escala original (OR para binomial, IRR para conteos). ",
             "Generados con ", strong("modelbased::estimate_contrasts()"), "."),
+          uiOutput(ns("modelo_actual_contraste_glmm")),
           uiOutput(ns("contrasts_no_cat_msg")),
           layout_columns(
             col_widths = c(4, 8),
@@ -1792,6 +1813,13 @@ mod_glmm_server <- function(id) {
         NULL
       })
     })
+
+    # ── Badge: modelo actualmente desplegado ──────────────
+    output$modelo_actual_diag_glmm      <- renderUI(badge_modelo_actual_glmm(modelo_glmm()))
+    output$modelo_actual_perf_glmm      <- renderUI(badge_modelo_actual_glmm(modelo_glmm()))
+    output$modelo_actual_param_glmm     <- renderUI(badge_modelo_actual_glmm(modelo_glmm()))
+    output$modelo_actual_ef_glmm        <- renderUI(badge_modelo_actual_glmm(modelo_glmm()))
+    output$modelo_actual_contraste_glmm <- renderUI(badge_modelo_actual_glmm(modelo_glmm()))
 
     # Aviso singular fit
     output$aviso_singular <- renderUI({
@@ -2662,7 +2690,11 @@ mod_glmm_server <- function(id) {
         return(p(class = "small text-muted", "Guarda al menos 2 modelos para comparar."))
       tryCatch({
         comp <- do.call(performance::compare_performance,
-                        c(unname(lista), list(verbose = FALSE)))
+                        c(lista, list(verbose = FALSE)))
+        # compare_performance() no siempre respeta los nombres de la lista
+        # cuando se llama vía do.call(); forzamos aquí los nombres reales
+        # que el usuario le dio a cada modelo en "Guardar para comparar".
+        comp$Name <- names(lista)
         df   <- as.data.frame(comp)
         cols_show <- intersect(c("Name","AIC","AICc","BIC","R2_marginal",
                                   "R2_conditional","ICC","RMSE"), names(df))
@@ -2716,7 +2748,11 @@ mod_glmm_server <- function(id) {
       }
       tryCatch({
         comp <- do.call(performance::compare_performance,
-                        c(unname(lista), list(verbose = FALSE)))
+                        c(lista, list(verbose = FALSE)))
+        # compare_performance() no siempre respeta los nombres de la lista
+        # cuando se llama vía do.call(); forzamos aquí los nombres reales
+        # que el usuario le dio a cada modelo en "Guardar para comparar".
+        comp$Name <- names(lista)
         plot(comp)
       }, error = function(e) ggplot2::ggplot() + ggplot2::theme_void())
     }, res = 96)

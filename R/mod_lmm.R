@@ -7,6 +7,22 @@
 # ============================================================
 
 # ── UI ──────────────────────────────────────────────────────
+# ── Helper: badge con el modelo actualmente desplegado ─────
+badge_modelo_actual_lmm <- function(fit) {
+  if (is.null(fit)) {
+    return(
+      div(class = "alert alert-secondary small py-1 px-2 mb-3",
+          bs_icon("exclamation-circle", class = "me-1"),
+          "Aún no se ha ajustado ningún modelo — ve a la pestaña ",
+          strong("Ajustar modelo"), ".")
+    )
+  }
+  div(class = "alert alert-info small py-1 px-2 mb-3",
+      bs_icon("diagram-2", class = "me-1"),
+      strong("Modelo actual: "),
+      code(paste(deparse(formula(fit)), collapse = " ")))
+}
+
 mod_lmm_ui <- function(id) {
   ns <- NS(id)
 
@@ -689,6 +705,7 @@ mod_lmm_ui <- function(id) {
           p(class = "small text-muted mb-3",
             "Verificaci\u00f3n de supuestos del modelo mixto. ",
             "Generado con ", strong("performance::check_model()"), "."),
+          uiOutput(ns("modelo_actual_diag_lmm")),
 
           # Fila 1: gráficos (izq) | guía (der)
           layout_columns(
@@ -818,6 +835,7 @@ mod_lmm_ui <- function(id) {
                         "Performance"),
         div(
           class = "p-3",
+          uiOutput(ns("modelo_actual_perf_lmm")),
           layout_columns(
             col_widths = c(6, 6),
             fill = FALSE,
@@ -863,6 +881,7 @@ mod_lmm_ui <- function(id) {
                         "Par\u00e1metros"),
         div(
           class = "p-3",
+          uiOutput(ns("modelo_actual_param_lmm")),
           layout_columns(
             col_widths = c(6, 6),
             fill = FALSE,
@@ -925,6 +944,7 @@ mod_lmm_ui <- function(id) {
             "Las predicciones se muestran promediando sobre los efectos aleatorios ",
             "(efectos marginales poblacionales). ",
             "Generado con ", strong("modelbased::estimate_relation()"), "."),
+          uiOutput(ns("modelo_actual_ef_lmm")),
           layout_columns(
             col_widths = c(4, 8),
             fill = FALSE,
@@ -980,6 +1000,7 @@ mod_lmm_ui <- function(id) {
             "Comparaci\u00f3n entre niveles de predictores categ\u00f3ricos, ",
             "controlando por el resto del modelo. ",
             "Generado con ", strong("modelbased::estimate_contrasts()"), "."),
+          uiOutput(ns("modelo_actual_contraste_lmm")),
           uiOutput(ns("contrasts_no_cat_msg")),
           layout_columns(
             col_widths = c(4, 8),
@@ -1752,6 +1773,13 @@ mod_lmm_server <- function(id) {
         })
       })
     }, ignoreNULL = TRUE)
+
+    # ── Badge: modelo actualmente desplegado ──────────────
+    output$modelo_actual_diag_lmm      <- renderUI(badge_modelo_actual_lmm(modelo_lmm()))
+    output$modelo_actual_perf_lmm      <- renderUI(badge_modelo_actual_lmm(modelo_lmm()))
+    output$modelo_actual_param_lmm     <- renderUI(badge_modelo_actual_lmm(modelo_lmm()))
+    output$modelo_actual_ef_lmm        <- renderUI(badge_modelo_actual_lmm(modelo_lmm()))
+    output$modelo_actual_contraste_lmm <- renderUI(badge_modelo_actual_lmm(modelo_lmm()))
 
     # ── Aviso singular fit ────────────────────────────────
 
@@ -2780,6 +2808,10 @@ mod_lmm_server <- function(id) {
       tryCatch({
         comp <- do.call(performance::compare_performance,
                         c(fits, list(rank = TRUE, verbose = FALSE)))
+        # compare_performance() no siempre respeta los nombres de la lista
+        # cuando se llama vía do.call(); forzamos aquí los nombres reales
+        # que el usuario le dio a cada modelo en "Guardar para comparar".
+        comp$Name <- names(mg)
         p <- plot(comp) +
           ggplot2::scale_color_manual(
             values = colores$tableau[seq_along(mg)]) +

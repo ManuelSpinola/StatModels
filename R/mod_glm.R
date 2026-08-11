@@ -9,6 +9,22 @@
 # Filosofía: didáctico, sin conocimiento previo de programación
 # ============================================================
 
+# ── Helper: badge con el modelo actualmente desplegado ─────
+badge_modelo_actual_glm <- function(fit) {
+  if (is.null(fit)) {
+    return(
+      div(class = "alert alert-secondary small py-1 px-2 mb-3",
+          bs_icon("exclamation-circle", class = "me-1"),
+          "Aún no se ha ajustado ningún modelo — ve a la pestaña ",
+          strong("Ajustar modelo"), ".")
+    )
+  }
+  div(class = "alert alert-info small py-1 px-2 mb-3",
+      bs_icon("diagram-2", class = "me-1"),
+      strong("Modelo actual: "),
+      code(paste(deparse(formula(fit)), collapse = " ")))
+}
+
 # ── UI ────────────────────────────────────────────────────
 mod_glm_ui <- function(id) {
   ns <- NS(id)
@@ -850,6 +866,8 @@ mod_glm_ui <- function(id) {
             "Generado con ", strong("performance"), " de easystats."
           ),
 
+          uiOutput(ns("modelo_actual_diag_glm")),
+
           layout_columns(
             col_widths = c(3, 9),
             fill = FALSE,
@@ -965,6 +983,8 @@ mod_glm_ui <- function(id) {
             " de easystats."
           ),
 
+          uiOutput(ns("modelo_actual_perf_glm")),
+
           layout_columns(
             col_widths = c(6, 6),
             fill = FALSE,
@@ -1033,6 +1053,7 @@ mod_glm_ui <- function(id) {
           class = "p-3",
 
           uiOutput(ns("params_intro")),
+          uiOutput(ns("modelo_actual_param_glm")),
 
           layout_columns(
             col_widths = c(6, 6),
@@ -1139,6 +1160,8 @@ mod_glm_ui <- function(id) {
             strong("modelbased::estimate_relation()"), " de easystats."
           ),
 
+          uiOutput(ns("modelo_actual_ef_glm")),
+
           layout_columns(
             col_widths = c(4, 8),
             fill = FALSE,
@@ -1242,6 +1265,7 @@ mod_glm_ui <- function(id) {
             strong("modelbased::estimate_contrasts()"), " de easystats."
           ),
 
+          uiOutput(ns("modelo_actual_contraste_glm")),
           uiOutput(ns("contrasts_no_cat_msg")),
 
           layout_columns(
@@ -2352,6 +2376,13 @@ mod_glm_server <- function(id) {
         fit
       })
     }, ignoreNULL = FALSE)
+
+    # ── Badge: modelo actualmente desplegado ──────────────
+    output$modelo_actual_diag_glm      <- renderUI(badge_modelo_actual_glm(modelo_glm()))
+    output$modelo_actual_perf_glm      <- renderUI(badge_modelo_actual_glm(modelo_glm()))
+    output$modelo_actual_param_glm     <- renderUI(badge_modelo_actual_glm(modelo_glm()))
+    output$modelo_actual_ef_glm        <- renderUI(badge_modelo_actual_glm(modelo_glm()))
+    output$modelo_actual_contraste_glm <- renderUI(badge_modelo_actual_glm(modelo_glm()))
 
     # Métricas básicas
     # ── Modelo estandarizado (para importancia de variables) ──
@@ -4218,6 +4249,10 @@ mod_glm_server <- function(id) {
       tryCatch({
         comp <- do.call(performance::compare_performance,
                         c(fits, list(rank=TRUE, verbose=FALSE)))
+        # compare_performance() no siempre respeta los nombres de la lista
+        # cuando se llama vía do.call(); forzamos aquí los nombres reales
+        # que el usuario le dio a cada modelo en "Guardar para comparar".
+        comp$Name <- names(mg)
         p <- plot(comp) +
           ggplot2::scale_color_manual(
             values=colores$tableau[seq_along(mg)]) +

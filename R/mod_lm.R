@@ -2915,6 +2915,10 @@ mod_lm_server <- function(id) {
       tryCatch({
         comp <- do.call(performance::compare_performance,
                         c(fits, list(rank = TRUE, verbose = FALSE)))
+        # compare_performance() no siempre respeta los nombres de la lista
+        # cuando se llama vía do.call(); forzamos aquí los nombres reales
+        # que el usuario le dio a cada modelo en "Guardar para comparar".
+        comp$Name <- names(mg)
         p <- plot(comp) +
           ggplot2::scale_color_manual(
             values = colores$tableau[seq_along(mg)]) +
