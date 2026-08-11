@@ -874,7 +874,36 @@ mod_glm_ui <- function(id) {
                     title = "check_model (performance)",
                     p(class = "text-muted small mt-2 mb-1 px-2",
                       "— performance::check_model() · easystats"),
-                    plotOutput(ns("plot_check_model"), height = "620px")
+                    plotOutput(ns("plot_check_model"), height = "660px"),
+                    div(
+                      class = "small text-muted px-2 mt-3",
+                      style = "line-height:1.5; clear:both;",
+                      tags$ul(
+                        class = "mb-0 ps-3",
+                        tags$li(strong("Posterior Predictive Check:"),
+                                " compara los datos observados (puntos) ",
+                                "contra lo que el modelo predice ",
+                                "(intervalos). Deberían superponerse."),
+                        tags$li(strong("Binned Residuals:"),
+                                " agrupa las observaciones por probabilidad ",
+                                "estimada y verifica que el residuo promedio ",
+                                "de cada grupo caiga dentro de las bandas ",
+                                "de error."),
+                        tags$li(strong("Influential Observations:"),
+                                " identifica observaciones con leverage/",
+                                "influencia alta (fuera de las líneas ",
+                                "punteadas) que podrían estar distorsionando ",
+                                "el ajuste."),
+                        tags$li(strong("Distribution of Quantile Residuals:"),
+                                " también usa DHARMa por debajo (residuos ",
+                                "cuantílicos simulados), pero es una ",
+                                "simulación aparte de la que alimenta el ",
+                                "semáforo — no exactamente el mismo número, ",
+                                "aunque debería contar una historia similar ",
+                                "a \"Ajuste global\". Los puntos deben ",
+                                "seguir la línea diagonal.")
+                      )
+                    )
                   ),
                   nav_panel(
                     title = "Residuos simulados (DHARMa)",
@@ -884,7 +913,33 @@ mod_glm_ui <- function(id) {
                       "Válidos para cualquier familia (a diferencia de los ",
                       "residuos crudos)."),
                     uiOutput(ns("aviso_dharma")),
-                    plotOutput(ns("plot_dharma"), height = "560px")
+                    plotOutput(ns("plot_dharma"), height = "560px"),
+                    div(
+                      class = "small text-muted px-2 mt-2",
+                      style = "line-height:1.5;",
+                      tags$ul(
+                        class = "mb-0 ps-3",
+                        tags$li(strong("Panel izquierdo (QQ):"),
+                                " los puntos deben seguir la línea roja — ",
+                                "corresponde al chequeo \"Ajuste global\" ",
+                                "del semáforo."),
+                        tags$li(strong("Panel derecho:"),
+                                " residuos vs. predicción, con líneas de ",
+                                "cuantiles (0.25/0.5/0.75); patrones o ",
+                                "curvatura ahí señalan mala especificación. ",
+                                "Corresponde a \"Dispersión de residuos ",
+                                "simulados\" y \"Outliers en residuos ",
+                                "simulados\" del semáforo.")
+                      )
+                    )
+                  ),
+                  nav_panel(
+                    title = "VIF",
+                    p(class = "text-muted small mt-2 mb-1 px-2",
+                      "— car::vif() · mismo cálculo que el panel de la ",
+                      "izquierda (\"Multicolinealidad\")."),
+                    plotOutput(ns("plot_vif_glm"), height = "215px"),
+                    uiOutput(ns("nota_gvif_glm"))
                   )
                 )
               )
@@ -4220,10 +4275,27 @@ mod_glm_server <- function(id) {
       # Ajuste global — test de uniformidad de residuos simulados (DHARMa)
       # Generalización de "los residuos se ven bien" válida para cualquier
       # familia (a diferencia de Shapiro-Wilk, que asume errores Gaussianos).
+      # Corresponde al panel IZQUIERDO del gráfico DHARMa (tab "Residuos
+      # simulados").
       unif_p <- tryCatch({
         sim <- dharma_sim()
         if (is.null(sim)) NA else
           DHARMa::testUniformity(sim, plot = FALSE)$p.value
+      }, error = function(e) NA)
+
+      # Dispersión y outliers de residuos simulados (DHARMa) — cubren el
+      # panel DERECHO del gráfico DHARMa, que hasta ahora no tenía ningún
+      # chequeo ni número asociado en el semáforo.
+      disp_dharma_p <- tryCatch({
+        sim <- dharma_sim()
+        if (is.null(sim)) NA else
+          DHARMa::testDispersion(sim, plot = FALSE)$p.value
+      }, error = function(e) NA)
+
+      out_dharma_p <- tryCatch({
+        sim <- dharma_sim()
+        if (is.null(sim)) NA else
+          DHARMa::testOutliers(sim, plot = FALSE)$p.value
       }, error = function(e) NA)
 
       # Independencia — Durbin-Watson sobre residuos de Pearson.
@@ -4236,6 +4308,23 @@ mod_glm_server <- function(id) {
         z    <- (stat - 2) / sqrt(4 / n)
         list(stat = round(stat, 2), p = round(2 * (1 - pnorm(abs(z))), 3))
       }, error = function(e) list(stat = NA, p = NA))
+
+      # Multicolinealidad — VIF (o GVIF ajustado para categóricas con
+      # más de 2 niveles). Se usa car::vif() — el mismo método probado
+      # que mod_lm.R (vif_ajustado_lm), en vez de
+      # performance::check_collinearity(), para que el número mostrado
+      # aquí sea consistente entre todos los módulos de StatModels.
+      vif_res <- tryCatch({
+        n_preds <- length(c(input$preds_num, input$preds_cat))
+        if (n_preds < 2) {
+          list(max = NA, error = FALSE)
+        } else {
+          v <- car::vif(fit)
+          v_ajustado <- if (is.matrix(v)) v[, 3]^2 else v
+          vmax <- max(v_ajustado, na.rm = TRUE)
+          list(max = vmax, error = FALSE)
+        }
+      }, error = function(e) list(max = NA, error = TRUE))
 
       list(
         list(
@@ -4258,7 +4347,8 @@ mod_glm_server <- function(id) {
           ok     = if (fam == "quasipoisson")
             "No aplica para quasipoisson (sin distribución de la cual simular)."
           else if (is.na(unif_p)) "No se pudo calcular."
-          else paste0("Test de uniformidad (KS): p = ", round(unif_p, 3), "."),
+          else paste0("Test de uniformidad (KS): p = ", round(unif_p, 3),
+                      ". Ver panel izquierdo del gráfico DHARMa."),
           warn   = paste0("Test de uniformidad (KS): p = ", round(unif_p, 3),
                           ". Revisa el gráfico de residuos DHARMa."),
           bad    = paste0("Test de uniformidad (KS): p = ", round(unif_p, 3),
@@ -4315,18 +4405,73 @@ mod_glm_server <- function(id) {
                           " — inflación severa. Usa modelo zero-inflated.")
         ),
         list(
+          nombre = "Dispersión de residuos simulados (DHARMa)",
+          def    = paste0("Compara la varianza de los residuos simulados ",
+                          "con la observada. Es el complemento formal del ",
+                          "panel derecho del gráfico DHARMa (tab ",
+                          "\"Residuos simulados\")."),
+          st     = if (fam == "quasipoisson") "ok" else
+            if (is.na(disp_dharma_p)) "warn" else
+              if (disp_dharma_p > 0.05) "ok" else
+                if (disp_dharma_p > 0.01) "warn" else "bad",
+          ok     = if (fam == "quasipoisson")
+            "No aplica para quasipoisson (sin distribución de la cual simular)."
+          else if (is.na(disp_dharma_p))
+            "No se pudo calcular — revisa el gráfico DHARMa manualmente."
+          else paste0("Test de dispersión (DHARMa): p = ",
+                      round(disp_dharma_p, 3),
+                      ". Ver panel derecho del gráfico DHARMa."),
+          warn   = paste0("Test de dispersión (DHARMa): p = ",
+                          round(disp_dharma_p, 3),
+                          ". Revisa el panel derecho del gráfico DHARMa."),
+          bad    = paste0("Test de dispersión (DHARMa): p = ",
+                          round(disp_dharma_p, 3),
+                          ". La dispersión no coincide con la familia ",
+                          "elegida. Revisa el panel derecho del gráfico DHARMa.")
+        ),
+        list(
+          nombre = "Outliers en residuos simulados (DHARMa)",
+          def    = paste0("Detecta observaciones cuyo residuo simulado cae ",
+                          "muy fuera del rango esperado bajo el modelo. ",
+                          "Los puntos marcados en el panel derecho del ",
+                          "gráfico DHARMa son estos outliers."),
+          st     = if (fam == "quasipoisson") "ok" else
+            if (is.na(out_dharma_p)) "warn" else
+              if (out_dharma_p > 0.05) "ok" else "warn",
+          ok     = if (fam == "quasipoisson")
+            "No aplica para quasipoisson."
+          else if (is.na(out_dharma_p))
+            "No se pudo calcular — revisa el gráfico DHARMa manualmente."
+          else paste0("Test de outliers (DHARMa): p = ",
+                      round(out_dharma_p, 3),
+                      ". Ver panel derecho del gráfico DHARMa."),
+          warn   = paste0("Test de outliers (DHARMa): p = ",
+                          round(out_dharma_p, 3),
+                          ". Hay observaciones atípicas — revisa el panel ",
+                          "derecho del gráfico DHARMa e identifica cuáles ",
+                          "son."),
+          bad    = paste0("Test de outliers (DHARMa): p = ",
+                          round(out_dharma_p, 3),
+                          ". Revisa el panel derecho del gráfico DHARMa.")
+        ),
+        list(
           nombre = "Multicolinealidad (VIF)",
           def    = "Los predictores no deben estar muy correlacionados (VIF < 5).",
-          st     = tryCatch({
-            if (length(c(input$preds_num, input$preds_cat)) < 2) "ok" else {
-              vif_max <- max(performance::check_collinearity(fit)$VIF,
-                             na.rm=TRUE)
-              if (vif_max < 3) "ok" else if (vif_max < 5) "warn" else "bad"
-            }
-          }, error=function(e) "ok"),
-          ok     = "VIF < 3 — sin problema.",
-          warn   = "VIF 3–5 — moderado, aceptable.",
-          bad    = "VIF > 5 — problemático. Elimina predictores redundantes."
+          st     = if (vif_res$error) "warn" else
+            if (is.na(vif_res$max)) "ok" else
+              if (vif_res$max < 3) "ok" else
+                if (vif_res$max < 5) "warn" else "bad",
+          ok     = if (is.na(vif_res$max))
+            "No aplica (menos de dos predictores)." else
+              paste0("VIF máx. = ", round(vif_res$max, 1),
+                     " — sin problema. Ver tab \"VIF\"."),
+          warn   = if (vif_res$error)
+            "No se pudo calcular automáticamente. Revisa el tab \"VIF\"."
+          else paste0("VIF máx. = ", round(vif_res$max, 1),
+                      " — moderado, aceptable. Revisa el tab \"VIF\"."),
+          bad    = paste0("VIF máx. = ", round(vif_res$max, 1),
+                          " — problemático. Elimina predictores redundantes. ",
+                          "Revisa el tab \"VIF\".")
         ),
 
         # Separación perfecta (solo logística)
@@ -4409,11 +4554,85 @@ mod_glm_server <- function(id) {
       do.call(tagList, lapply(sp[idx], sem_item_glm))
     })
 
+    output$plot_vif_glm <- renderPlot({
+      fit <- modelo_glm(); req(fit)
+      if (length(coef(fit)) <= 2) {
+        return(
+          ggplot() +
+            annotate("text", x = 0.5, y = 0.5,
+                     label = "VIF requiere\nmás de un predictor",
+                     color = colores$texto, size = 4) +
+            theme_void()
+        )
+      }
+      vif_vals <- tryCatch({
+        v <- car::vif(fit)
+        if (is.matrix(v)) {
+          out <- v[, 3]^2
+          names(out) <- rownames(v)
+          out
+        } else {
+          v
+        }
+      }, error = function(e) NULL)
+      if (is.null(vif_vals)) return(invisible(NULL))
+
+      tibble::tibble(
+        term = names(vif_vals),
+        vif  = as.numeric(vif_vals)
+      ) |>
+        dplyr::mutate(
+          term  = factor(term, levels = rev(term)),
+          nivel = dplyr::case_when(
+            vif < 3 ~ "Bajo (< 3)",
+            vif < 5 ~ "Moderado (3–5)",
+            TRUE    ~ "Alto (> 5)"
+          )
+        ) |>
+        ggplot(aes(x = vif, y = term, fill = nivel)) +
+        geom_col(width = 0.6) +
+        geom_vline(xintercept = 5, linetype = "dashed",
+                   color = colores$peligro, linewidth = 0.8) +
+        scale_fill_manual(
+          values = c("Bajo (< 3)"      = colores$exito,
+                     "Moderado (3–5)" = colores$acento,
+                     "Alto (> 5)"      = colores$peligro),
+          name = NULL
+        ) +
+        labs(x = "VIF", y = NULL) +
+        theme_minimal(base_size = 13) +
+        theme(
+          panel.grid.minor   = element_blank(),
+          panel.grid.major.y = element_blank(),
+          legend.position    = "bottom",
+          legend.text        = element_text(size = 9),
+          plot.margin        = margin(10, 15, 10, 10)
+        )
+    }, res = 110)
+
+    output$nota_gvif_glm <- renderUI({
+      fit <- modelo_glm(); req(fit)
+      v <- tryCatch(car::vif(fit), error = function(e) NULL)
+      if (is.null(v) || !is.matrix(v)) return(NULL)
+      p(class = "text-muted mb-0", style = "font-size:0.7rem;",
+        bs_icon("info-circle", class = "me-1"),
+        "Categóricas con >2 niveles: GVIF ajustado (mismos umbrales).")
+    })
+
     output$plot_check_model <- renderPlot({
       fit <- modelo_glm(); req(fit)
       tryCatch({
+        # Se excluye el check "vif": su panel "Collinearity" usa el
+        # cálculo interno de performance/see, que puede no coincidir
+        # con el VIF mostrado en el semáforo y en el tab "VIF" (ambos
+        # calculados con car::vif()). Para no mostrar dos números de
+        # VIF potencialmente distintos, la única fuente de VIF visible
+        # es el semáforo + el tab "VIF".
         cm <- suppressMessages(suppressWarnings(
-          performance::check_model(fit, verbose=FALSE)
+          performance::check_model(
+            fit, verbose = FALSE,
+            check = c("pp_check", "binned_residuals", "outliers", "qq")
+          )
         ))
         suppressMessages(suppressWarnings(
           plot(cm, panel=TRUE, base_size=11, dot_size=1.5,
