@@ -3932,13 +3932,20 @@ mod_glm_server <- function(id) {
                        req(length(preds) > 0, input$var_y)
                        fam   <- input$familia
 
-                       # Para binomial: convertir Y a factor (requerido por parsnip)
+                       # Para binomial: asegurar factor de 2 niveles (requerido por parsnip)
                        if (fam == "binomial") {
-                         df_cv[[input$var_y]] <- factor(
-                           df_cv[[input$var_y]],
-                           levels = c(0, 1),
-                           labels = c("ausente", "presente")
-                         )
+                         y_raw <- df_cv[[input$var_y]]
+                         if (is.factor(y_raw) || is.character(y_raw)) {
+                           # Ya viene como factor/character (p. ej. "neg"/"pos") — no recodificar
+                           df_cv[[input$var_y]] <- droplevels(as.factor(y_raw))
+                         } else {
+                           # Numérica 0/1 — convertir a factor con etiquetas
+                           df_cv[[input$var_y]] <- factor(
+                             y_raw,
+                             levels = c(0, 1),
+                             labels = c("ausente", "presente")
+                           )
+                         }
                        }
 
                        folds <- rsample::vfold_cv(
