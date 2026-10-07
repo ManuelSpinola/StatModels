@@ -549,14 +549,27 @@ mod_gam_ui <- function(id) {
             card_header(bs_icon("sliders", class = "me-1"), "Controles"),
             card_body(
               style = "overflow: visible; height: auto;",
+              uiOutput(ns("sel_var_y_exp")),
               uiOutput(ns("sel_var_x")),
               uiOutput(ns("sel_color")),
-              checkboxInput(ns("mostrar_suavizado"),
-                            "Mostrar curva LOESS",
-                            value = TRUE),
-              checkboxInput(ns("linea_lm"),
-                            "Superponer l\u00ednea LM (comparar)",
-                            value = FALSE),
+              # Curvas solo con X numérica (con X categórica: boxplot)
+              conditionalPanel(
+                condition = paste0("!output['", ns("x_es_cat"), "']"),
+                checkboxInput(ns("mostrar_suavizado"),
+                              "Mostrar curva LOESS",
+                              value = TRUE),
+                checkboxInput(ns("linea_lm"),
+                              "Superponer l\u00ednea LM (comparar)",
+                              value = FALSE)
+              ),
+              conditionalPanel(
+                condition = paste0("output['", ns("x_es_cat"), "']"),
+                radioButtons(ns("tipo_grafico_cat"),
+                             label    = "Gr\u00e1fico por grupo:",
+                             choices  = c("Boxplot" = "box",
+                                          "Viol\u00edn"  = "violin"),
+                             selected = "box", inline = TRUE)
+              ),
               tags$hr(),
               uiOutput(ns("cards_correlacion"))
             )
@@ -591,6 +604,7 @@ mod_gam_ui <- function(id) {
                 label = "Familia de distribuci\u00f3n:",
                 choices = c(
                   "Gaussian (continua)"      = "gaussian",
+                  "Gamma (continua positiva)" = "gamma",
                   "Binomial (log\u00edstica)" = "binomial",
                   "Poisson"                  = "poisson",
                   "Quasipoisson"             = "quasipoisson",
@@ -1542,6 +1556,15 @@ mod_gam_server <- function(id) {
                           bs_icon("info-circle", class = "me-1"),
                           "Y continua. Los splines modelan relaciones no lineales ",
                           "en la escala original."),
+        gamma       = div(class = "alert alert-info small py-2 px-3 mt-2 mb-0",
+                          bs_icon("info-circle", class = "me-1"),
+                          "Y continua y ", strong("estrictamente positiva"),
+                          " (biomasa, densidad, tiempos). La varianza crece con la ",
+                          "media (DE proporcional a la media), as\u00ed que modela ",
+                          "la heterocedasticidad t\u00edpica en forma de embudo sin ",
+                          "transformar Y. Enlace log: los splines operan en escala log ",
+                          "y exp(\u03b2) = cambio multiplicativo en la media. ",
+                          "No admite ceros ni valores negativos."),
         binomial    = div(class = "alert alert-info small py-2 px-3 mt-2 mb-0",
                           bs_icon("info-circle", class = "me-1"),
                           "Y binaria (0/1). Los splines operan en escala logit. ",
@@ -1574,6 +1597,7 @@ mod_gam_server <- function(id) {
     familia_mgcv <- reactive({
       switch(input$familia_gam %||% "gaussian",
         gaussian     = gaussian(),
+        gamma        = Gamma(link = "log"),
         binomial     = binomial(),
         poisson      = poisson(),
         quasipoisson = quasipoisson(),
@@ -1730,76 +1754,233 @@ mod_gam_server <- function(id) {
     # PESTAÑA 4: Explorar
     # ────────────────────────────────────────────────────
 
-    output$sel_var_x <- renderUI({
+    # Y se elige explícitamente (antes era "la primera numérica distinta
+    # de X", lo que invertía el gráfico según el orden de las columnas).
+    # X puede ser numérica (LOESS vs LM) o categórica (boxplot/violín):
+    # un factor entra al GAM como término paramétrico, sin s().
+
+    output$sel_var_y_exp <- renderUI({
       req(vars_numericas())
-      selectInput(ns("var_x"), "Variable X:",
-                  choices  = vars_numericas(),
-                  selected = vars_numericas()[1])
+      prev <- isolate(input$var_y_exp)
+      sel  <- if (!is.null(prev) && prev %in% vars_numericas()) prev
+              else vars_numericas()[1]
+      selectInput(ns("var_y_exp"), "Variable Y (respuesta):",
+                  choices = vars_numericas(), selected = sel)
+    })
+
+    output$sel_var_x <- renderUI({
+      req(input$var_y_exp)
+      nums <- setdiff(vars_numericas(), input$var_y_exp)
+      cats <- vars_categoricas()
+      # as.list(): un grupo con una sola opción no debe confundirse
+      # con una opción llamada "Numéricas"
+      opciones <- Filter(length, list(`Numéricas`   = as.list(nums),
+                                      `Categóricas` = as.list(cats)))
+      req(length(opciones) > 0)
+      prev <- isolate(input$var_x)
+      sel  <- if (!is.null(prev) && prev %in% c(nums, cats)) prev
+              else c(nums, cats)[1]
+      selectInput(ns("var_x"), "Variable X (predictor):",
+                  choices = opciones, selected = sel)
     })
 
     output$sel_color <- renderUI({
-      cats <- vars_categoricas()
+      cats <- setdiff(vars_categoricas(), input$var_x)
       if (length(cats) == 0) return(NULL)
+      prev <- isolate(input$var_color)
+      sel  <- if (!is.null(prev) && prev %in% cats) prev else "ninguna"
       selectInput(ns("var_color"), "Colorear por (opcional):",
-                  choices  = c("Ninguna" = "ninguna", cats),
-                  selected = "ninguna")
+                  choices = c("Ninguna" = "ninguna", cats), selected = sel)
+    })
+
+    # Datos usados en Explorar: solo filas completas en X e Y
+    datos_exp <- reactive({
+      df <- datos_finales()
+      x  <- input$var_x
+      y  <- input$var_y_exp
+      req(df, x, y, x != y, all(c(x, y) %in% names(df)))
+      col_color <- input$var_color
+      cols <- unique(c(x, y,
+                       if (!is.null(col_color) && col_color != "ninguna" &&
+                           col_color %in% names(df)) col_color))
+      df[stats::complete.cases(df[, c(x, y)]), cols, drop = FALSE]
+    })
+
+    x_es_cat <- reactive({
+      d <- datos_exp()
+      !is.numeric(d[[input$var_x]])
+    })
+    output$x_es_cat <- reactive(x_es_cat())
+    outputOptions(output, "x_es_cat", suspendWhenHidden = FALSE)
+
+    stats_exp <- reactive({
+      d <- datos_exp()
+      x <- input$var_x
+      y <- input$var_y_exp
+      req(nrow(d) >= 3)
+      if (!x_es_cat()) {
+        req(stats::sd(d[[x]]) > 0, stats::sd(d[[y]]) > 0)
+        r <- stats::cor(d[[x]], d[[y]])
+        list(tipo = "num", r = r, r2 = r^2, n = nrow(d))
+      } else {
+        g <- droplevels(factor(d[[x]]))
+        req(nlevels(g) >= 2)
+        eta2 <- summary(stats::lm(d[[y]] ~ g))$r.squared
+        list(tipo = "cat", eta2 = eta2, k = nlevels(g), n = nrow(d),
+             n_min = min(table(g)))
+      }
     })
 
     output$cards_correlacion <- renderUI({
-      df <- datos_finales(); req(df, input$var_x)
-      nums <- vars_numericas(); req(length(nums) >= 2)
-      yvar <- nums[nums != input$var_x][1]; req(yvar)
-      cor_val <- cor(df[[yvar]], df[[input$var_x]], use = "complete.obs")
-      layout_columns(
-        col_widths = c(6, 6),
-        fill = FALSE,
-        card(class = "text-center border-0",
-             style = paste0("background:", colores$fondo),
-             card_body(class = "p-2",
-               h4(style = paste0("color:", colores$primario, "; font-weight:700;"),
-                  round(cor_val, 2)),
-               p(class = "small text-muted mb-0", "Correlaci\u00f3n (r)")
-             )),
-        card(class = "text-center border-0",
-             style = paste0("background:", colores$fondo),
-             card_body(class = "p-2",
-               h4(style = paste0("color:", colores$acento, "; font-weight:700;"),
-                  paste0(round(cor_val^2 * 100, 0), "%")),
-               p(class = "small text-muted mb-0", "R\u00b2 simple")
-             ))
+      s <- stats_exp()
+      tarjeta <- function(valor, etiqueta, col) card(
+        fill  = FALSE,
+        class = "text-center border-0",
+        style = paste0("background:", colores$fondo),
+        card_body(class = "p-2",
+                  h4(style = paste0("color:", col, "; font-weight:700;"),
+                     valor),
+                  p(class = "small text-muted mb-0", etiqueta))
       )
+      if (s$tipo == "num") {
+        layout_columns(
+          col_widths = c(6, 6), fill = FALSE,
+          tarjeta(round(s$r, 2), "Correlación (r)", colores$primario),
+          tarjeta(paste0(round(s$r2 * 100, 0), "%"), "R² simple",
+                  colores$acento)
+        )
+      } else {
+        layout_columns(
+          col_widths = c(6, 6), fill = FALSE,
+          tarjeta(s$k, "Grupos", colores$primario),
+          tarjeta(paste0(round(s$eta2 * 100, 0), "%"),
+                  "η² (R² del ANOVA)", colores$acento)
+        )
+      }
     })
 
     output$plot_scatter <- renderPlot(suppressWarnings({
-      df <- datos_finales(); req(df, input$var_x)
-      nums <- vars_numericas(); req(length(nums) >= 2)
-      yvar <- nums[nums != input$var_x][1]; req(yvar)
+      d <- datos_exp()
+      x <- input$var_x
+      y <- input$var_y_exp
+
       usar_color <- !is.null(input$var_color) &&
         input$var_color != "ninguna" &&
-        input$var_color %in% names(df)
+        input$var_color != x &&
+        input$var_color %in% names(d)
 
-      p <- ggplot2::ggplot(df, ggplot2::aes(x = .data[[input$var_x]],
-                                             y = .data[[yvar]]))
-      if (usar_color)
-        p <- p + ggplot2::aes(color = .data[[input$var_color]]) +
-          ggplot2::scale_color_manual(values = colores$tableau,
-                                      name = input$var_color)
-      p <- p + ggplot2::geom_point(alpha = 0.5, size = 2)
+      if (x_es_cat()) {
+        # ── X categórica: boxplot o violín + puntos ─────────────
+        # El boxplot no dibuja sus outliers (los puntos ya están todos);
+        # los atípicos (> 1.5×IQR en su grupo) se marcan con triángulos.
+        grupos <- if (usar_color) interaction(d[[x]], d[[input$var_color]],
+                                              drop = TRUE)
+                  else factor(d[[x]])
+        d$.atipico <- stats::ave(d[[y]], grupos, FUN = function(v) {
+          q   <- stats::quantile(v, c(0.25, 0.75), na.rm = TRUE)
+          iqr <- q[2] - q[1]
+          as.numeric(v < q[1] - 1.5 * iqr | v > q[2] + 1.5 * iqr)
+        })
+        niv_atip <- c("Observación", "Atípico (> 1.5 IQR)")
+        d$.atipico <- factor(niv_atip[d$.atipico + 1], levels = niv_atip)
+        hay_atip  <- any(d$.atipico == niv_atip[2])
+        guia_atip <- if (hay_atip) "legend" else "none"
+        violin    <- identical(input$tipo_grafico_cat, "violin")
 
-      if (isTRUE(input$mostrar_suavizado))
-        p <- p + ggplot2::geom_smooth(method = "loess", formula = y ~ x,
-                                       se = TRUE, color = colores$primario,
-                                       fill = colores$secundario,
-                                       alpha = 0.15, linewidth = 1.2,
-                                       show.legend = FALSE)
-      if (isTRUE(input$linea_lm))
-        p <- p + ggplot2::geom_smooth(method = "lm", formula = y ~ x,
-                                       se = FALSE, color = colores$peligro,
-                                       linetype = "dashed", linewidth = 0.8,
-                                       show.legend = FALSE)
-      p + ggplot2::labs(x = input$var_x, y = yvar,
-                        subtitle = paste0("n = ", nrow(df),
-                                          " observaciones \u00b7 curva LOESS vs l\u00ednea LM")) +
+        forma_atip <- ggplot2::scale_shape_manual(
+          values = stats::setNames(c(16, 17), niv_atip),
+          name = NULL, drop = FALSE, guide = guia_atip)
+        tam_atip <- ggplot2::scale_size_manual(
+          values = stats::setNames(c(2, 3), niv_atip),
+          guide = "none", drop = FALSE)
+
+        p <- ggplot2::ggplot(d, ggplot2::aes(x = .data[[x]], y = .data[[y]]))
+
+        if (usar_color) {
+          dodge <- ggplot2::position_dodge(width = 0.75)
+          if (violin) {
+            p <- p +
+              ggplot2::geom_violin(ggplot2::aes(fill = .data[[input$var_color]]),
+                                   alpha = 0.2, trim = TRUE, scale = "width",
+                                   position = dodge) +
+              ggplot2::geom_boxplot(
+                ggplot2::aes(group = interaction(.data[[x]],
+                                                 .data[[input$var_color]])),
+                width = 0.12, outlier.shape = NA, fill = "white",
+                position = dodge)
+          } else {
+            p <- p +
+              ggplot2::geom_boxplot(ggplot2::aes(fill = .data[[input$var_color]]),
+                                    outlier.shape = NA, alpha = 0.25)
+          }
+          p <- p +
+            ggplot2::geom_point(
+              ggplot2::aes(color = .data[[input$var_color]],
+                           fill  = .data[[input$var_color]],
+                           shape = .atipico, size = .atipico),
+              alpha = 0.7,
+              position = ggplot2::position_jitterdodge(jitter.width = 0.15,
+                                                       dodge.width  = 0.75,
+                                                       seed = 42)) +
+            ggplot2::scale_fill_manual(values  = colores$tableau,
+                                       name    = input$var_color) +
+            ggplot2::scale_color_manual(values = colores$tableau,
+                                        name   = input$var_color) +
+            forma_atip + tam_atip
+        } else {
+          if (violin) {
+            p <- p +
+              ggplot2::geom_violin(fill = colores$secundario, alpha = 0.2,
+                                   trim = TRUE, scale = "width") +
+              ggplot2::geom_boxplot(width = 0.12, outlier.shape = NA,
+                                    fill = "white")
+          } else {
+            p <- p +
+              ggplot2::geom_boxplot(outlier.shape = NA,
+                                    fill = colores$secundario, alpha = 0.2)
+          }
+          p <- p +
+            ggplot2::geom_point(
+              ggplot2::aes(color = .atipico, shape = .atipico,
+                           size  = .atipico),
+              position = ggplot2::position_jitter(width = 0.15, seed = 42),
+              alpha = 0.7) +
+            ggplot2::scale_color_manual(
+              values = stats::setNames(c(colores$primario, colores$peligro),
+                                       niv_atip),
+              name = NULL, drop = FALSE, guide = guia_atip) +
+            forma_atip + tam_atip +
+            ggplot2::stat_summary(fun = mean, geom = "point", shape = 23,
+                                  size = 3.5, fill = colores$acento,
+                                  color = "white")
+        }
+        subtitulo <- paste0("n = ", nrow(d), " observaciones completas")
+
+      } else {
+        # ── X numérica: LOESS vs LM ─────────────────────────────
+        p <- ggplot2::ggplot(d, ggplot2::aes(x = .data[[x]], y = .data[[y]]))
+        if (usar_color)
+          p <- p + ggplot2::aes(color = .data[[input$var_color]]) +
+            ggplot2::scale_color_manual(values = colores$tableau,
+                                        name = input$var_color)
+        p <- p + ggplot2::geom_point(alpha = 0.5, size = 2)
+
+        if (isTRUE(input$mostrar_suavizado))
+          p <- p + ggplot2::geom_smooth(method = "loess", formula = y ~ x,
+                                        se = TRUE, color = colores$primario,
+                                        fill = colores$secundario,
+                                        alpha = 0.15, linewidth = 1.2,
+                                        show.legend = FALSE)
+        if (isTRUE(input$linea_lm))
+          p <- p + ggplot2::geom_smooth(method = "lm", formula = y ~ x,
+                                        se = FALSE, color = colores$peligro,
+                                        linetype = "dashed", linewidth = 0.8,
+                                        show.legend = FALSE)
+        subtitulo <- paste0("n = ", nrow(d),
+                            " observaciones completas · curva LOESS vs línea LM")
+      }
+
+      p + ggplot2::labs(x = x, y = y, subtitle = subtitulo) +
         ggplot2::theme_minimal(base_size = 13) +
         ggplot2::theme(panel.grid.minor = ggplot2::element_blank(),
                        legend.position  = "bottom",
@@ -1808,19 +1989,41 @@ mod_gam_server <- function(id) {
     }), res = 96)
 
     output$insight_scatter <- renderUI({
-      df <- datos_finales(); req(df, input$var_x)
-      nums <- vars_numericas(); req(length(nums) >= 2)
-      yvar <- nums[nums != input$var_x][1]; req(yvar)
-      cor_val <- cor(df[[yvar]], df[[input$var_x]], use = "complete.obs")
-      dir <- if (cor_val > 0.5) "positiva y fuerte" else
-        if (cor_val > 0.2) "positiva y moderada" else
-          if (cor_val < -0.5) "negativa y fuerte" else "d\u00e9bil"
+      s <- stats_exp()
+      x <- input$var_x
+      y <- input$var_y_exp
+      contenido <- if (s$tipo == "num") {
+        fuerza <- if (abs(s$r) >= 0.7) "fuerte" else
+          if (abs(s$r) >= 0.4) "moderada" else
+            if (abs(s$r) >= 0.2) "débil" else "muy débil o nula"
+        signo <- if (s$r >= 0) "positiva" else "negativa"
+        tagList(
+          "La relación lineal entre ", x, " y ", y, " es ", signo,
+          " y ", fuerza, " (r = ", round(s$r, 2), "). ",
+          "r solo mide la parte lineal: si la curva LOESS se aleja de la ",
+          "línea LM, considera usar ", code(paste0("s(", x, ")")),
+          " en el GAM."
+        )
+      } else {
+        tagList(
+          "Las diferencias entre los ", s$k, " grupos de ", x,
+          " explican el ", round(s$eta2 * 100, 0), "% de la variación en ",
+          y, " (η²). Un factor entra al GAM como término ",
+          "paramétrico (sin ", code("s()"), "). ",
+          if (is.null(input$var_color) || input$var_color == "ninguna")
+            "El rombo naranja marca la media de cada grupo; la línea dentro de la caja, la mediana. "
+          else
+            "La línea dentro de cada caja marca la mediana. ",
+          "Los triángulos marcan valores atípicos (a más de 1.5 veces ",
+          "el rango intercuartílico de su grupo), si los hay.",
+          if (identical(input$tipo_grafico_cat, "violin") && s$n_min < 15)
+            paste0(" Ojo: el grupo más pequeño tiene solo ", s$n_min,
+                   " observaciones; con tan pocos datos la forma del ",
+                   "violín es poco confiable — fíjate más en los puntos.")
+        )
+      }
       div(class = "alert alert-info small py-2 px-3 mt-2 mb-0",
-          bs_icon("lightbulb-fill", class = "me-1"),
-          paste0("La relaci\u00f3n entre ", input$var_x, " y ", yvar,
-                 " es ", dir, " (r = ", round(cor_val, 2), "). ",
-                 "Si la curva LOESS se aleja de la l\u00ednea LM, considera usar ",
-                 code("s("), input$var_x, code(")"), " en el GAM."))
+          bs_icon("lightbulb-fill", class = "me-1"), contenido)
     })
 
     # ────────────────────────────────────────────────────
@@ -1872,6 +2075,16 @@ mod_gam_server <- function(id) {
 
     modelo_gam <- eventReactive(input$ajustar, {
       df <- datos_finales(); req(df, input$var_y)
+
+      # Gamma exige Y > 0: mensaje claro en vez del error interno de mgcv
+      if (identical(input$familia_gam, "gamma") &&
+          any(df[[input$var_y]] <= 0, na.rm = TRUE)) {
+        showNotification(
+          paste0("La familia Gamma requiere que ", input$var_y,
+                 " sea estrictamente positiva (hay ceros o negativos)."),
+          type = "error", duration = 6)
+        return(NULL)
+      }
 
       if (isTRUE(input$modelo_nulo)) {
         fm <- as.formula(paste(input$var_y, "~ 1"))
@@ -2078,13 +2291,34 @@ mod_gam_server <- function(id) {
           shapiro.test(sample(res_raw, min(length(res_raw), 5000)))$p.value
       }, error = function(e) NA)
 
-      # Homocedasticidad — Breusch-Pagan, solo gaussiana
+      # Homocedasticidad — Breusch-Pagan / Cook-Weisberg, solo gaussiana.
+      # car::ncvTest() NO sirve aquí: exige un objeto "lm" puro y con un
+      # "gam" falla ("requires lm object"), por lo que el semáforo nunca
+      # calculaba este supuesto. Se calcula el mismo estadístico de forma
+      # explícita (reproduce exactamente ncvTest() en un lm): residuos al
+      # cuadrado escalados regresados sobre los valores ajustados.
       bp <- tryCatch({
         if (fam != "gaussian") list(chi = NA, p = NA) else {
-          t <- car::ncvTest(fm)
-          list(chi = round(t$ChiSquare, 2), p = round(t$p, 3))
+          e   <- stats::residuals(fm, type = "response")
+          U   <- e^2 / mean(e^2)
+          f   <- stats::fitted(fm)
+          aux <- stats::lm(U ~ f)
+          chi <- sum((stats::fitted(aux) - mean(U))^2) / 2
+          list(chi = round(chi, 2),
+               p   = round(stats::pchisq(chi, df = 1, lower.tail = FALSE), 3))
         }
       }, error = function(e) list(chi = NA, p = NA))
+
+      # Salida sugerida si falla la homocedasticidad (depende de si Y > 0)
+      y_pos  <- tryCatch(all(fm$y > 0), error = function(e) FALSE)
+      sug_bp <- if (y_pos)
+        paste0(" Si la dispersi\u00f3n crece con los valores ajustados (embudo), ",
+               "prueba la familia Gamma: modela esa varianza sin transformar Y. ",
+               "Transformar Y es otra opci\u00f3n si lo prefieres.")
+      else
+        paste0(" Y tiene ceros o negativos, as\u00ed que Gamma no aplica. ",
+               "Revisa si falta un predictor o un t\u00e9rmino s(); transformar ",
+               "Y es otra opci\u00f3n.")
 
       # Independencia — Durbin-Watson sobre residuos de Pearson (aprox. asintótica)
       dw <- tryCatch({
@@ -2188,9 +2422,9 @@ mod_gam_server <- function(id) {
           else if (is.na(bp$p)) "No se pudo calcular — revisa el panel 2 de gam.check()."
           else paste0("Breusch-Pagan: \u03c7\u00b2 = ", bp$chi, ", p = ", bp$p, "."),
           warn   = paste0("Breusch-Pagan: \u03c7\u00b2 = ", bp$chi, ", p = ", bp$p,
-                          ". Revisa el panel 2 de gam.check()."),
+                          ". Revisa el panel 2 de gam.check().", sug_bp),
           bad    = paste0("Breusch-Pagan: \u03c7\u00b2 = ", bp$chi, ", p = ", bp$p,
-                          ". Heterocedasticidad clara.")
+                          ". Heterocedasticidad clara.", sug_bp)
         ),
         list(
           nombre = "Independencia",
@@ -3642,6 +3876,7 @@ mod_gam_server <- function(id) {
       fam_actual <- input$familia_gam %||% "gaussian"
       fam_txt <- switch(fam_actual,
                         gaussian     = "gaussian()",
+                        gamma        = "Gamma(link = \"log\")",
                         binomial     = "binomial()",
                         poisson      = "poisson()",
                         quasipoisson = "quasipoisson()",

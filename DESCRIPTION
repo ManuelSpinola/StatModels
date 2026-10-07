@@ -51,7 +51,9 @@ Imports:
     golem,
     pkgload,
     glmmTMB,
-    DHARMa
+    DHARMa,
+    clubSandwich,
+    sandwich
 Suggests:
     testthat (>= 3.0.0)
 Config/testthat/edition: 3

@@ -8,7 +8,7 @@
 
 # ── UI ──────────────────────────────────────────────────────
 # ── Helper: badge con el modelo actualmente desplegado ─────
-badge_modelo_actual_lmm <- function(fit) {
+badge_modelo_actual_lmm <- function(fit, vcov = NULL) {
   if (is.null(fit)) {
     return(
       div(class = "alert alert-secondary small py-1 px-2 mb-3",
@@ -20,7 +20,12 @@ badge_modelo_actual_lmm <- function(fit) {
   div(class = "alert alert-info small py-1 px-2 mb-3",
       bs_icon("diagram-2", class = "me-1"),
       strong("Modelo actual: "),
-      code(paste(deparse(formula(fit)), collapse = " ")))
+      code(paste(deparse(formula(fit)), collapse = " ")),
+      if (!is.null(vcov))
+        tags$span(class = "badge ms-2",
+                  style = paste0("background:", colores$exito, ";"),
+                  bs_icon("shield-check", class = "me-1"),
+                  paste0("EE robustos ", vcov, " (en Par\u00e1metros)")))
 }
 
 mod_lmm_ui <- function(id) {
@@ -653,6 +658,23 @@ mod_lmm_ui <- function(id) {
                     "ML (comparar modelos)"    = "ML"
                   ),
                   selected = "REML"
+                ),
+
+                conditionalPanel(
+                  condition = paste0("input['", ns("familia"), "'] == 'gaussian'"),
+                  checkboxInput(
+                    ns("se_robustos_lmm"),
+                    label = tagList(
+                      "Errores est\u00e1ndar robustos por conglomerado (CR2)",
+                      tags$small(class = "text-muted d-block mt-1",
+                                 "Corrigen EE, IC y p-valores de los efectos fijos ",
+                                 "ante heterocedasticidad o una estructura aleatoria ",
+                                 "incompleta. Los grados de libertad se basan en el ",
+                                 "n\u00famero de grupos (Satterthwaite). Los ",
+                                 "coeficientes no cambian.")
+                    ),
+                    value = FALSE
+                  )
                 ),
 
                 actionButton(
@@ -1774,12 +1796,53 @@ mod_lmm_server <- function(id) {
       })
     }, ignoreNULL = TRUE)
 
+    # ── EE robustos por conglomerado (CR2) ────────────────
+    # Se captura al pulsar "Ajustar", igual que el modelo. Solo para lmer
+    # (gaussiana). HC3 no sirve en un LMM porque supone observaciones
+    # independientes; CR2 (clubSandwich) usa el factor de agrupamiento
+    # como conglomerado y Satterthwaite para los grados de libertad.
+    vcov_lmm <- eventReactive(input$ajustar, {
+      if (isTRUE(input$se_robustos_lmm) &&
+          identical(input$familia, "gaussian")) "CR2" else NULL
+    }, ignoreNULL = TRUE)
+
+    # Efectos fijos con EE clásicos. Para lmer: grados de libertad de
+    # Satterthwaite (requiere lmerTest instalado). Para glmer: Wald z.
+    efectos_fijos_clasicos <- reactive({
+      fm <- modelo_lmm(); req(fm)
+      metodo_ci <- if (inherits(fm, "lmerMod")) "satterthwaite" else "wald"
+      df <- as.data.frame(parameters::model_parameters(
+        fm, effects = "fixed", ci_method = metodo_ci, verbose = FALSE))
+      df[, intersect(c("Parameter", "Coefficient", "SE", "CI_low",
+                       "CI_high", "df_error", "p"), names(df)), drop = FALSE]
+    })
+
+    # Efectos fijos con EE robustos CR2 (misma estructura de columnas)
+    efectos_fijos_cr2 <- reactive({
+      fm <- modelo_lmm(); req(fm, vcov_lmm())
+      ct <- as.data.frame(clubSandwich::coef_test(fm, vcov = "CR2"))
+      ci <- as.data.frame(clubSandwich::conf_int(fm, vcov = "CR2",
+                                                 level = 0.95))
+      col_df <- grep("^df", names(ct), value = TRUE)[1]
+      col_p  <- grep("^p_", names(ct), value = TRUE)[1]
+      data.frame(
+        Parameter   = as.character(ct$Coef),
+        Coefficient = ct$beta,
+        SE          = ct$SE,
+        CI_low      = ci$CI_L,
+        CI_high     = ci$CI_U,
+        df_error    = ct[[col_df]],
+        p           = ct[[col_p]],
+        stringsAsFactors = FALSE
+      )
+    })
+
     # ── Badge: modelo actualmente desplegado ──────────────
-    output$modelo_actual_diag_lmm      <- renderUI(badge_modelo_actual_lmm(modelo_lmm()))
-    output$modelo_actual_perf_lmm      <- renderUI(badge_modelo_actual_lmm(modelo_lmm()))
-    output$modelo_actual_param_lmm     <- renderUI(badge_modelo_actual_lmm(modelo_lmm()))
-    output$modelo_actual_ef_lmm        <- renderUI(badge_modelo_actual_lmm(modelo_lmm()))
-    output$modelo_actual_contraste_lmm <- renderUI(badge_modelo_actual_lmm(modelo_lmm()))
+    output$modelo_actual_diag_lmm      <- renderUI(badge_modelo_actual_lmm(modelo_lmm(), vcov_lmm()))
+    output$modelo_actual_perf_lmm      <- renderUI(badge_modelo_actual_lmm(modelo_lmm(), vcov_lmm()))
+    output$modelo_actual_param_lmm     <- renderUI(badge_modelo_actual_lmm(modelo_lmm(), vcov_lmm()))
+    output$modelo_actual_ef_lmm        <- renderUI(badge_modelo_actual_lmm(modelo_lmm(), vcov_lmm()))
+    output$modelo_actual_contraste_lmm <- renderUI(badge_modelo_actual_lmm(modelo_lmm(), vcov_lmm()))
 
     # ── Aviso singular fit ────────────────────────────────
 
@@ -1907,6 +1970,43 @@ mod_lmm_server <- function(id) {
           tagList("VIF m\u00e1x. = ", strong(vif_max),
                   " \u2014 alto. Elimina o combina predictores fijos redundantes.")
 
+        # Homocedasticidad (solo lmer). Breusch-Pagan / Cook-Weisberg sobre
+        # los residuos condicionales vs. los valores ajustados. Es una
+        # aproximación: los residuos de un LMM no son independientes, así
+        # que se usa como señal de alerta junto al panel "homogeneity".
+        es_lmer <- inherits(fm, "lmerMod")
+        bp <- if (!es_lmer) NULL else tryCatch({
+          e   <- stats::residuals(fm)
+          U   <- e^2 / mean(e^2)
+          f   <- stats::fitted(fm)
+          aux <- stats::lm(U ~ f)
+          chi <- sum((stats::fitted(aux) - mean(U))^2) / 2
+          list(chi = round(chi, 2),
+               p   = stats::pchisq(chi, df = 1, lower.tail = FALSE))
+        }, error = function(e) NULL)
+        rob     <- !is.null(vcov_lmm())
+        bp_mal  <- !is.null(bp) && bp$p < 0.05
+        bp_col  <- if (is.null(bp)) colores$texto else
+          if (!bp_mal) colores$exito else if (rob) colores$acento else colores$peligro
+        bp_val  <- if (is.null(bp)) "\u2014" else
+          paste0("p = ", if (bp$p < 0.001) "< 0.001" else round(bp$p, 3))
+        bp_txt  <- if (!es_lmer)
+          "No aplica: en Poisson y binomial la varianza la define la familia (revisa la sobredispersi\u00f3n)."
+        else if (is.null(bp))
+          "No se pudo calcular \u2014 revisa el panel de homogeneidad."
+        else if (!bp_mal)
+          tagList("Breusch-Pagan: \u03c7\u00b2 = ", bp$chi,
+                  " \u2014 sin evidencia de varianza no constante.")
+        else if (rob)
+          tagList("Breusch-Pagan: \u03c7\u00b2 = ", bp$chi,
+                  ". EE robustos CR2 activos: la inferencia de los efectos ",
+                  "fijos ya est\u00e1 corregida.")
+        else
+          tagList("Breusch-Pagan: \u03c7\u00b2 = ", bp$chi,
+                  ". Activa ", strong("EE robustos por conglomerado (CR2)"),
+                  " en Ajustar modelo y reajusta. Revisa tambi\u00e9n si falta ",
+                  "una pendiente aleatoria o un predictor.")
+
         tags$table(
           class = "table table-sm small mb-0",
           tags$tbody(
@@ -1948,6 +2048,13 @@ mod_lmm_server <- function(id) {
               tags$td(style = paste0("color:", vif_col, "; font-weight:600;"),
                       if (is.na(vif_max)) "\u2014" else vif_max),
               tags$td(class = "text-muted small", vif_txt)
+            ),
+            # Homocedasticidad de los residuos (lmer)
+            tags$tr(
+              tags$td(strong("Homocedasticidad")),
+              tags$td(style = paste0("color:", bp_col, "; font-weight:600;"),
+                      bp_val),
+              tags$td(class = "text-muted small", bp_txt)
             )
           )
         )
@@ -2241,13 +2348,22 @@ mod_lmm_server <- function(id) {
     output$tabla_efectos_fijos <- renderUI({
       fm <- modelo_lmm(); req(fm)
       tryCatch({
-        mp  <- parameters::model_parameters(fm, verbose = FALSE)
-        df  <- as.data.frame(mp)
-        # Conservar solo efectos fijos: filas con p-valor o con Coefficient no NA
-        # model_parameters mezcla fijos y componentes de varianza — filtrar por
-        # presencia de SE (los componentes de varianza tienen SE = NA)
-        df <- df[!is.na(df$SE) | !is.na(df$p), , drop = FALSE]
-        if (nrow(df) == 0) stop("sin_fijos")
+        usa_cr2 <- !is.null(vcov_lmm())
+        clasico <- efectos_fijos_clasicos()
+        df <- if (usa_cr2)
+          tryCatch(efectos_fijos_cr2(), error = function(e) NULL) else clasico
+        fallo_cr2 <- usa_cr2 && is.null(df)
+        if (fallo_cr2) df <- clasico
+        if (is.null(df) || nrow(df) == 0) stop("sin_fijos")
+
+        # ¿Difieren mucho los EE robustos de los clásicos? Suele indicar
+        # una estructura aleatoria incompleta o varianza no constante.
+        ratio_ee <- if (usa_cr2 && !fallo_cr2) {
+          r <- df$SE / clasico$SE[match(df$Parameter, clasico$Parameter)]
+          r[is.finite(r)]
+        } else numeric(0)
+        difieren <- length(ratio_ee) > 0 &&
+          any(ratio_ee > 1.5 | ratio_ee < 1 / 1.5)
 
         filas <- lapply(seq_len(nrow(df)), function(i) {
           pval  <- if ("p" %in% names(df)) df$p[i] else NA
@@ -2298,9 +2414,36 @@ mod_lmm_server <- function(id) {
               "Signif. codes: 0 \u2018***\u2019 0.001 \u2018**\u2019 0.01 \u2018*\u2019 0.05 \u2018.\u2019 0.1 \u2018 \u2019 1"),
           div(class = "alert alert-info small py-2 px-3 mt-2 mb-0",
               bs_icon("info-circle", class = "me-1"),
-              "EE y p-valores v\u00eda ", strong("lmerTest"),
-              " (aproximaci\u00f3n de Satterthwaite). ",
-              "Los componentes de varianza (\u03c3\u00b2) se muestran en la tabla de efectos aleatorios.")
+              if (usa_cr2 && !fallo_cr2)
+                tagList(strong("EE robustos por conglomerado (CR2)"),
+                        " v\u00eda ", strong("clubSandwich"),
+                        ". Grados de libertad de Satterthwaite (g.l. = ",
+                        paste(unique(round(df$df_error, 1)), collapse = ", "),
+                        "), basados en el n\u00famero de grupos. ")
+              else if (inherits(fm, "lmerMod"))
+                tagList("EE cl\u00e1sicos; IC y p-valores con grados de libertad de ",
+                        strong("Satterthwaite"), " (g.l. = ",
+                        paste(unique(round(df$df_error, 1)), collapse = ", "), "). ")
+              else
+                tagList("EE cl\u00e1sicos; IC y p-valores con aproximaci\u00f3n de ",
+                        strong("Wald (z)"), ". "),
+              "Los componentes de varianza (\u03c3\u00b2) se muestran en la tabla de efectos aleatorios."),
+          if (fallo_cr2)
+            div(class = "alert alert-warning small py-2 px-3 mt-2 mb-0",
+                bs_icon("exclamation-triangle", class = "me-1"),
+                "No se pudieron calcular los EE robustos CR2 ",
+                "(\u00bfest\u00e1 instalado clubSandwich?). ",
+                "La tabla muestra EE cl\u00e1sicos."),
+          if (difieren)
+            div(class = "alert alert-warning small py-2 px-3 mt-2 mb-0",
+                bs_icon("exclamation-triangle", class = "me-1"),
+                strong("Los EE robustos difieren mucho de los cl\u00e1sicos"),
+                " (raz\u00f3n entre ", round(min(ratio_ee), 2), " y ",
+                round(max(ratio_ee), 2), "). Suele indicar que al modelo le ",
+                "falta estructura: por ejemplo, ", strong("pendientes aleatorias"),
+                " si el efecto de un predictor var\u00eda entre grupos, o ",
+                "varianza no constante. Los EE robustos protegen la inferencia, ",
+                "pero conviene revisar la especificaci\u00f3n.")
         )
       }, error = function(e) {
         msg <- conditionMessage(e)
@@ -2884,7 +3027,16 @@ mod_lmm_server <- function(id) {
         "# Resumen\n",
         "summary(fm)\n\n",
         "# Parámetros (easystats)\n",
-        "model_parameters(fm)\n\n",
+        if (familia == "gaussian")
+          "model_parameters(fm, ci_method = \"satterthwaite\")\n"
+        else "model_parameters(fm)\n",
+        if (!is.null(vcov_lmm()))
+          paste0(
+            "\n# EE robustos por conglomerado (CR2) + g.l. de Satterthwaite\n",
+            "clubSandwich::coef_test(fm, vcov = \"CR2\")\n",
+            "clubSandwich::conf_int(fm, vcov = \"CR2\")\n"
+          ) else "",
+        "\n",
         "# R² Nakagawa\n",
         "performance::r2_nakagawa(fm)\n\n",
         "# ICC\n",

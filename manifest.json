@@ -308,8 +308,8 @@
       "description": {
         "Package": "KernSmooth",
         "Priority": "recommended",
-        "Version": "2.23-26",
-        "Date": "2024-12-10",
+        "Version": "2.23-27",
+        "Date": "2026-08-11",
         "Title": "Functions for Kernel Smoothing Supporting Wand & Jones (1995)",
         "Authors@R": "c(person(\"Matt\", \"Wand\", role = \"aut\",\n\t             email = \"Matt.Wand@uts.edu.au\"),\n\t     person(\"Cleve\", \"Moler\", role = \"ctb\",\n\t            comment = \"LINPACK routines in src/d*\"),\n             person(\"Brian\", \"Ripley\", role = c(\"trl\", \"cre\", \"ctb\"),\n                    email = \"Brian.Ripley@R-project.org\",\n\t\t    comment = \"R port and updates\"))",
         "Note": "Maintainers are not available to give advice on using a package\nthey did not author.",
@@ -319,12 +319,13 @@
         "License": "Unlimited",
         "ByteCompile": "yes",
         "NeedsCompilation": "yes",
-        "Packaged": "2024-12-10 15:33:25 UTC; ripley",
+        "Packaged": "2026-08-11 18:25:17 UTC; ripley",
         "Author": "Matt Wand [aut],\n  Cleve Moler [ctb] (LINPACK routines in src/d*),\n  Brian Ripley [trl, cre, ctb] (R port and updates)",
         "Maintainer": "Brian Ripley <Brian.Ripley@R-project.org>",
         "Repository": "CRAN",
-        "Date/Publication": "2025-01-01 10:25:36 UTC",
-        "Built": "R 4.6.1; aarch64-apple-darwin23; 2026-06-25 21:54:07 UTC; unix"
+        "Date/Publication": "2026-08-12 06:40:09 UTC",
+        "Built": "R 4.6.1; aarch64-apple-darwin23; 2026-08-12 07:00:40 UTC; unix",
+        "Archs": "KernSmooth.so.dSYM"
       }
     },
     "MASS": {
@@ -362,15 +363,15 @@
       "Repository": "https://packagemanager.posit.co/cran/latest",
       "description": {
         "Package": "Matrix",
-        "Version": "1.7-5",
+        "Version": "1.7-6",
         "VersionNote": "do also bump src/version.h, inst/include/Matrix/version.h",
-        "Date": "2026-03-20",
+        "Date": "2026-07-24",
         "Priority": "recommended",
         "Title": "Sparse and Dense Matrix Classes and Methods",
         "Description": "A rich hierarchy of sparse and dense matrix classes,\n\tincluding general, symmetric, triangular, and diagonal matrices\n\twith numeric, logical, or pattern entries.  Efficient methods for\n\toperating on such matrices, often wrapping the 'BLAS', 'LAPACK',\n\tand 'SuiteSparse' libraries.",
         "License": "GPL (>= 2) | file LICENCE",
-        "URL": "https://Matrix.R-forge.R-project.org",
-        "BugReports": "https://R-forge.R-project.org/tracker/?atid=294&group_id=61",
+        "URL": "https://codeberg.org/jaganmn/Matrix",
+        "BugReports": "https://codeberg.org/jaganmn/Matrix/issues",
         "Contact": "Matrix-authors@R-project.org",
         "Authors@R": "\n\tc(person(\"Douglas\", \"Bates\", role = \"aut\",\n\t         comment = c(ORCID = \"0000-0001-8316-9503\")),\n\t  person(\"Martin\", \"Maechler\", role = c(\"aut\", \"cre\"),\n\t         email = \"mmaechler+Matrix@gmail.com\",\n\t         comment = c(ORCID = \"0000-0002-8685-9910\")),\n\t  person(\"Mikael\", \"Jagan\", role = \"aut\",\n\t         comment = c(ORCID = \"0000-0002-3542-2938\")),\n\t  person(\"Timothy A.\", \"Davis\", role = \"ctb\",\n\t         comment = c(ORCID = \"0000-0001-7614-6899\",\n\t                     \"SuiteSparse libraries\",\n\t                     \"collaborators listed in dir(system.file(\\\"doc\\\", \\\"SuiteSparse\\\", package=\\\"Matrix\\\"), pattern=\\\"License\\\", full.names=TRUE, recursive=TRUE)\")),\n\t  person(\"George\", \"Karypis\", role = \"ctb\",\n\t         comment = c(ORCID = \"0000-0003-2753-1437\",\n\t                     \"METIS library\",\n\t                     \"Copyright: Regents of the University of Minnesota\")),\n\t  person(\"Jason\", \"Riedy\", role = \"ctb\",\n\t         comment = c(ORCID = \"0000-0002-4345-4200\",\n\t                     \"GNU Octave's condest() and onenormest()\",\n\t                     \"Copyright: Regents of the University of California\")),\n\t  person(\"Jens\", \"Oehlschlägel\", role = \"ctb\",\n\t         comment = \"initial nearPD()\"),\n\t  person(\"R Core Team\", role = \"ctb\",\n\t         comment = c(ROR = \"02zz1nj61\", \"base R's matrix implementation\")))",
         "Depends": "R (>= 4.4), methods",
@@ -382,12 +383,13 @@
         "BuildResaveData": "no",
         "Encoding": "UTF-8",
         "NeedsCompilation": "yes",
-        "Packaged": "2026-03-20 19:40:14 UTC; maechler",
+        "Packaged": "2026-07-24 11:40:35 UTC; maechler",
         "Author": "Douglas Bates [aut] (ORCID: <https://orcid.org/0000-0001-8316-9503>),\n  Martin Maechler [aut, cre] (ORCID:\n    <https://orcid.org/0000-0002-8685-9910>),\n  Mikael Jagan [aut] (ORCID: <https://orcid.org/0000-0002-3542-2938>),\n  Timothy A. Davis [ctb] (ORCID: <https://orcid.org/0000-0001-7614-6899>,\n    SuiteSparse libraries, collaborators listed in\n    dir(system.file(\"doc\", \"SuiteSparse\", package=\"Matrix\"),\n    pattern=\"License\", full.names=TRUE, recursive=TRUE)),\n  George Karypis [ctb] (ORCID: <https://orcid.org/0000-0003-2753-1437>,\n    METIS library, Copyright: Regents of the University of Minnesota),\n  Jason Riedy [ctb] (ORCID: <https://orcid.org/0000-0002-4345-4200>, GNU\n    Octave's condest() and onenormest(), Copyright: Regents of the\n    University of California),\n  Jens Oehlschlägel [ctb] (initial nearPD()),\n  R Core Team [ctb] (ROR: <https://ror.org/02zz1nj61>, base R's matrix\n    implementation)",
         "Maintainer": "Martin Maechler <mmaechler+Matrix@gmail.com>",
         "Repository": "CRAN",
-        "Date/Publication": "2026-03-21 14:40:03 UTC",
-        "Built": "R 4.6.1; aarch64-apple-darwin23; 2026-06-25 21:54:11 UTC; unix"
+        "Date/Publication": "2026-07-25 02:50:02 UTC",
+        "Built": "R 4.6.1; aarch64-apple-darwin23; 2026-07-25 05:57:30 UTC; unix",
+        "Archs": "Matrix.so.dSYM"
       }
     },
     "MatrixModels": {
@@ -1463,10 +1465,10 @@
       "description": {
         "Package": "class",
         "Priority": "recommended",
-        "Version": "7.3-23",
-        "Date": "2025-01-01",
+        "Version": "7.3-24",
+        "Date": "2026-08-01",
         "Depends": "R (>= 3.0.0), stats, utils",
-        "Imports": "MASS",
+        "Suggests": "MASS",
         "Authors@R": "c(person(\"Brian\", \"Ripley\", role = c(\"aut\", \"cre\", \"cph\"),\n                    email = \"Brian.Ripley@R-project.org\"),\n             person(\"William\", \"Venables\", role = \"cph\"))",
         "Description": "Various functions for classification, including k-nearest\n  neighbour, Learning Vector Quantization and Self-Organizing Maps.",
         "Title": "Functions for Classification",
@@ -1474,12 +1476,13 @@
         "License": "GPL-2 | GPL-3",
         "URL": "http://www.stats.ox.ac.uk/pub/MASS4/",
         "NeedsCompilation": "yes",
-        "Packaged": "2025-01-01 07:07:13 UTC; ripley",
+        "Packaged": "2026-08-03 06:32:26 UTC; ripley",
         "Author": "Brian Ripley [aut, cre, cph],\n  William Venables [cph]",
         "Maintainer": "Brian Ripley <Brian.Ripley@R-project.org>",
         "Repository": "CRAN",
-        "Date/Publication": "2025-01-01 10:25:33 UTC",
-        "Built": "R 4.6.1; aarch64-apple-darwin23; 2026-06-25 21:54:10 UTC; unix"
+        "Date/Publication": "2026-08-03 09:45:09 UTC",
+        "Built": "R 4.6.1; aarch64-apple-darwin23; 2026-08-03 13:53:56 UTC; unix",
+        "Archs": "class.so.dSYM"
       }
     },
     "cli": {
@@ -1583,6 +1586,42 @@
         "RemoteRepos": "https://packagemanager.posit.co/cran/latest",
         "RemotePkgPlatform": "aarch64-apple-darwin23",
         "RemoteSha": "0.7.4"
+      }
+    },
+    "clubSandwich": {
+      "Source": "CRAN",
+      "Repository": "https://packagemanager.posit.co/cran/latest",
+      "description": {
+        "Package": "clubSandwich",
+        "Title": "Cluster-Robust (Sandwich) Variance Estimators with Small-Sample\nCorrections",
+        "Version": "0.7.0",
+        "Authors@R": "c(\n  person(c(\"James\",\"E.\"), \"Pustejovsky\", email = \"jepusto@gmail.com\", role = c(\"aut\", \"cre\"), comment = c(ORCID = \"0000-0003-0591-9465\")),\n  person(\"Hazim\", \"Izani\", email = \"hazimizani@gmail.com\", role = \"ctb\"),\n  person(\"Samuel\", \"Pekofsky\", email = \"sampekofsky@gmail.com\", role = \"ctb\"),\n  person(\"Jingru\", \"Zhang\", email = \"jz26372022@hotmail.com\", role = \"ctb\")\n  )",
+        "Description": "Provides several cluster-robust variance estimators (i.e.,\n    sandwich estimators) for ordinary and weighted least squares linear regression\n    models, including the bias-reduced linearization estimator introduced by Bell\n    and McCaffrey (2002) \n    <https://www150.statcan.gc.ca/n1/pub/12-001-x/2002002/article/9058-eng.pdf> and \n    developed further by Pustejovsky and Tipton (2017) \n    <DOI:10.1080/07350015.2016.1247004>. The package includes functions for estimating\n    the variance- covariance matrix and for testing single- and multiple-\n    contrast hypotheses based on Wald test statistics. Tests of single regression\n    coefficients use Satterthwaite or saddle-point corrections. Tests of multiple-\n    contrast hypotheses use an approximation to Hotelling's T-squared distribution.\n    Methods are provided for a variety of fitted models, including lm() and mlm\n    objects; glm(); geeglm() (from package 'geepack'); lm_robust(), lm_lin(), and \n    iv_robust() (from package 'estimatr'); ivreg() (from package 'AER'); ivreg() \n    (from package 'ivreg' when estimated by ordinary least squares); plm() (from \n    package 'plm'); gls() and lme() (from 'nlme'); lmer() (from `lme4`); robu() (from \n    'robumeta'); rma.uni() and rma.mv() (from 'metafor'); and mmrm() (from 'mmrm').",
+        "URL": "http://jepusto.github.io/clubSandwich/",
+        "BugReports": "https://github.com/jepusto/clubSandwich/issues",
+        "Depends": "R (>= 3.0.0)",
+        "License": "GPL-3",
+        "VignetteBuilder": "knitr",
+        "LazyData": "true",
+        "Imports": "stats, sandwich, lifecycle",
+        "Suggests": "Formula, knitr, testthat, rmarkdown, covr, AER, carData,\nestimatr, fixest, geepack, ivreg, Matrix, lme4, metafor,\nmetadat, mlmRev, mmrm, nlme, plm (>= 1.6-4), robumeta, zoo",
+        "RoxygenNote": "7.3.3",
+        "Encoding": "UTF-8",
+        "Language": "en-US",
+        "NeedsCompilation": "no",
+        "Packaged": "2026-05-01 14:23:22 UTC; jamespustejovsky",
+        "Author": "James E. Pustejovsky [aut, cre] (ORCID:\n    <https://orcid.org/0000-0003-0591-9465>),\n  Hazim Izani [ctb],\n  Samuel Pekofsky [ctb],\n  Jingru Zhang [ctb]",
+        "Maintainer": "James E. Pustejovsky <jepusto@gmail.com>",
+        "Repository": "RSPM",
+        "Date/Publication": "2026-05-04 05:41:13 UTC",
+        "Built": "R 4.6.0; ; 2026-05-05 05:59:38 UTC; unix",
+        "RemoteType": "standard",
+        "RemoteRef": "clubSandwich",
+        "RemotePkgRef": "clubSandwich",
+        "RemoteRepos": "https://packagemanager.posit.co/cran/latest",
+        "RemoteReposName": "CRAN",
+        "RemotePkgPlatform": "aarch64-apple-darwin23",
+        "RemoteSha": "0.7.0"
       }
     },
     "codetools": {
@@ -3602,11 +3641,11 @@
       "Repository": "https://packagemanager.posit.co/cran/latest",
       "description": {
         "Package": "lattice",
-        "Version": "0.22-9",
-        "Date": "2026-02-03",
+        "Version": "0.23-1",
+        "Date": "2026-08-08",
         "Priority": "recommended",
         "Title": "Trellis Graphics for R",
-        "Authors@R": "c(person(\"Deepayan\", \"Sarkar\", role = c(\"aut\", \"cre\"),\n\t            email = \"deepayan.sarkar@r-project.org\",\n\t\t    comment = c(ORCID = \"0000-0003-4107-1553\")),\n              person(\"Felix\", \"Andrews\", role = \"ctb\"),\n\t      person(\"Kevin\", \"Wright\", role = \"ctb\", comment = \"documentation\"),\n\t      person(\"Neil\", \"Klepeis\", role = \"ctb\"),\n\t      person(\"Johan\", \"Larsson\", role = \"ctb\", comment = \"miscellaneous improvements\"),\n              person(\"Zhijian (Jason)\", \"Wen\", role = \"cph\", comment = \"filled contour code\"),\n              person(\"Paul\", \"Murrell\", role = \"ctb\", email = \"paul@stat.auckland.ac.nz\"),\n\t      person(\"Stefan\", \"Eng\", role = \"ctb\", comment = \"violin plot improvements\"),\n\t      person(\"Achim\", \"Zeileis\", role = \"ctb\", comment = \"modern colors\"),\n              person(\"Alexandre\", \"Courtiol\", role = \"ctb\", comment = \"generics for larrows, lpolygon, lrect and lsegments\")\n\t      )",
+        "Authors@R": "c(person(\"Deepayan\", \"Sarkar\", role = c(\"aut\", \"cre\"),\n\t            email = \"deepayan.sarkar@r-project.org\",\n\t\t    comment = c(ORCID = \"0000-0003-4107-1553\")),\n              person(\"Felix\", \"Andrews\", role = \"ctb\"),\n\t      person(\"Kevin\", \"Wright\", role = \"ctb\", comment = \"documentation\"),\n\t      person(\"Neil\", \"Klepeis\", role = \"ctb\"),\n\t      person(\"Johan\", \"Larsson\", role = \"ctb\", comment = \"miscellaneous improvements\"),\n              person(\"Zhijian (Jason)\", \"Wen\", role = \"cph\", comment = \"filled contour code\"),\n              person(\"Paul\", \"Murrell\", role = \"ctb\", email = \"paul@stat.auckland.ac.nz\"),\n\t      person(\"Stefan\", \"Eng\", role = \"ctb\", comment = \"violin plot improvements\"),\n\t      person(\"Achim\", \"Zeileis\", role = \"ctb\", comment = \"modern colors\"),\n              person(\"Alexandre\", \"Courtiol\", role = \"ctb\",\n                     comment = \"generics for larrows, lpolygon, lrect and lsegments\")\n\t      )",
         "Description": "A powerful and elegant high-level data visualization\n  system inspired by Trellis graphics, with an emphasis on\n  multivariate data. Lattice is sufficient for typical graphics needs,\n  and is also flexible enough to handle most nonstandard requirements.\n  See ?Lattice for an introduction.",
         "Depends": "R (>= 4.0.0)",
         "Suggests": "KernSmooth, MASS, latticeExtra, colorspace",
@@ -3618,12 +3657,13 @@
         "URL": "https://lattice.r-forge.r-project.org/",
         "BugReports": "https://github.com/deepayan/lattice/issues",
         "NeedsCompilation": "yes",
-        "Packaged": "2026-02-08 19:21:28 UTC; deepayan",
+        "Packaged": "2026-08-12 08:02:41 UTC; deepayan",
         "Author": "Deepayan Sarkar [aut, cre] (ORCID:\n    <https://orcid.org/0000-0003-4107-1553>),\n  Felix Andrews [ctb],\n  Kevin Wright [ctb] (documentation),\n  Neil Klepeis [ctb],\n  Johan Larsson [ctb] (miscellaneous improvements),\n  Zhijian (Jason) Wen [cph] (filled contour code),\n  Paul Murrell [ctb],\n  Stefan Eng [ctb] (violin plot improvements),\n  Achim Zeileis [ctb] (modern colors),\n  Alexandre Courtiol [ctb] (generics for larrows, lpolygon, lrect and\n    lsegments)",
         "Maintainer": "Deepayan Sarkar <deepayan.sarkar@r-project.org>",
         "Repository": "CRAN",
-        "Date/Publication": "2026-02-09 06:10:13 UTC",
-        "Built": "R 4.6.1; aarch64-apple-darwin23; 2026-06-25 21:54:07 UTC; unix"
+        "Date/Publication": "2026-08-12 14:43:29 UTC",
+        "Built": "R 4.6.1; aarch64-apple-darwin23; 2026-08-12 16:37:13 UTC; unix",
+        "Archs": "lattice.so.dSYM"
       }
     },
     "lava": {
@@ -4437,8 +4477,8 @@
       "description": {
         "Package": "nnet",
         "Priority": "recommended",
-        "Version": "7.3-20",
-        "Date": "2025-01-01",
+        "Version": "7.3-21",
+        "Date": "2026-08-01",
         "Depends": "R (>= 3.0.0), stats, utils",
         "Suggests": "MASS",
         "Authors@R": "c(person(\"Brian\", \"Ripley\", role = c(\"aut\", \"cre\", \"cph\"),\n                    email = \"Brian.Ripley@R-project.org\"),\n             person(\"William\", \"Venables\", role = \"cph\"))",
@@ -4448,12 +4488,13 @@
         "License": "GPL-2 | GPL-3",
         "URL": "http://www.stats.ox.ac.uk/pub/MASS4/",
         "NeedsCompilation": "yes",
-        "Packaged": "2025-01-01 07:07:13 UTC; ripley",
+        "Packaged": "2026-08-03 06:32:27 UTC; ripley",
         "Author": "Brian Ripley [aut, cre, cph],\n  William Venables [cph]",
         "Maintainer": "Brian Ripley <Brian.Ripley@R-project.org>",
         "Repository": "CRAN",
-        "Date/Publication": "2025-01-01 10:25:43 UTC",
-        "Built": "R 4.6.1; aarch64-apple-darwin23; 2026-06-25 21:54:07 UTC; unix"
+        "Date/Publication": "2026-08-03 09:45:14 UTC",
+        "Built": "R 4.6.1; aarch64-apple-darwin23; 2026-08-03 13:53:56 UTC; unix",
+        "Archs": "nnet.so.dSYM"
       }
     },
     "numDeriv": {
@@ -6298,8 +6339,8 @@
         "Title": "Survival Analysis",
         "Priority": "recommended",
         "Package": "survival",
-        "Version": "3.8-9",
-        "Date": "2026-07-07",
+        "Version": "3.8-11",
+        "Date": "2026-08-15",
         "Depends": "R (>= 4.1.0)",
         "Imports": "graphics, Matrix, methods, splines, stats, utils",
         "LazyData": "Yes",
@@ -6310,12 +6351,12 @@
         "License": "LGPL (>= 2)",
         "URL": "https://github.com/therneau/survival",
         "NeedsCompilation": "yes",
-        "Packaged": "2026-07-07 19:34:25 UTC; therneau",
+        "Packaged": "2026-08-16 11:47:23 UTC; therneau",
         "Author": "Terry M Therneau [aut, cre],\n  Thomas Lumley [ctb, trl] (original S->R port and R maintainer until\n    2009),\n  Atkinson Elizabeth [ctb],\n  Crowson Cynthia [ctb]",
         "Maintainer": "Terry M Therneau <terry.therneau@proton.me>",
         "Repository": "CRAN",
-        "Date/Publication": "2026-07-08 14:20:02 UTC",
-        "Built": "R 4.6.1; aarch64-apple-darwin23; 2026-07-08 15:29:47 UTC; unix",
+        "Date/Publication": "2026-08-21 13:10:11 UTC",
+        "Built": "R 4.6.1; aarch64-apple-darwin23; 2026-08-21 14:37:40 UTC; unix",
         "Archs": "survival.so.dSYM"
       }
     },
@@ -7163,13 +7204,13 @@
       "checksum": "c9d08084ecf1f4be458eed72f5701dda"
     },
     ".Rprofile": {
-      "checksum": "376568c77623ad7dd7a18a8bb58fb01a"
+      "checksum": "cdaeb2fd46a6a15d13e3c218a995a748"
     },
     "app.R": {
       "checksum": "1eda131a0e82e416d5a4a2c814953675"
     },
     "DESCRIPTION": {
-      "checksum": "1a447d42fa0db8ffd890ec58aa621b48"
+      "checksum": "f4cfcc561bf80dbb12bc28f2c419a4d5"
     },
     "dev/run_dev.R": {
       "checksum": "9c7a9fb0ac13b62f8d22de9bded1eef5"
@@ -7238,7 +7279,7 @@
       "checksum": "3673b74dc4461a7453759530ed7553f2"
     },
     "R/app_server.R": {
-      "checksum": "e22f42de0537272e0850754039ff261d"
+      "checksum": "962583928db9edb9b522a05108ea27ae"
     },
     "R/app_ui.R": {
       "checksum": "3b8006c98883ee6444a10e26b4f4cbb8"
@@ -7256,19 +7297,19 @@
       "checksum": "e9e72a568c81e5ec743d9b8f58740cb5"
     },
     "R/mod_gam.R": {
-      "checksum": "9335f9dfdfb0dccb34de72b6d2cbeb93"
+      "checksum": "7570e8a50d146753c38835720dd073e1"
     },
     "R/mod_glm.R": {
-      "checksum": "36fb8752e119c7df82d346532074efdc"
+      "checksum": "c4aa15c3923c3c4618d0e4613aebabc5"
     },
     "R/mod_glmm.R": {
       "checksum": "031ed375d8a21eeb010b04b03206531f"
     },
     "R/mod_lm.R": {
-      "checksum": "842e9671c3e3ea1cc72cf91cb2a556e8"
+      "checksum": "575256db93c01dce08ff68b922a2def1"
     },
     "R/mod_lmm.R": {
-      "checksum": "ab013e14bc43bb9a169be43063b898f0"
+      "checksum": "20595b67c5fcb656b2f1211474ccb06e"
     },
     "R/run_app.R": {
       "checksum": "89936b4b30f6f2ec43d6f38e9047ef31"
@@ -7277,7 +7318,7 @@
       "checksum": "f8dc91735aea237bfbe9766b3da6d2ef"
     },
     "renv.lock": {
-      "checksum": "88672f5b207e1ce0a1916ec679c7ba40"
+      "checksum": "40ea6a266d8ac723a029550fd79a3ab6"
     }
   },
   "users": null

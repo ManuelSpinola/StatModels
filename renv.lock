@@ -345,10 +345,10 @@
     },
     "KernSmooth": {
       "Package": "KernSmooth",
-      "Version": "2.23-26",
+      "Version": "2.23-27",
       "Source": "Repository",
       "Priority": "recommended",
-      "Date": "2024-12-10",
+      "Date": "2026-08-11",
       "Title": "Functions for Kernel Smoothing Supporting Wand & Jones (1995)",
       "Authors@R": "c(person(\"Matt\", \"Wand\", role = \"aut\", email = \"Matt.Wand@uts.edu.au\"), person(\"Cleve\", \"Moler\", role = \"ctb\", comment = \"LINPACK routines in src/d*\"), person(\"Brian\", \"Ripley\", role = c(\"trl\", \"cre\", \"ctb\"), email = \"Brian.Ripley@R-project.org\", comment = \"R port and updates\"))",
       "Note": "Maintainers are not available to give advice on using a package they did not author.",
@@ -406,16 +406,16 @@
     },
     "Matrix": {
       "Package": "Matrix",
-      "Version": "1.7-5",
+      "Version": "1.7-6",
       "Source": "Repository",
       "VersionNote": "do also bump src/version.h, inst/include/Matrix/version.h",
-      "Date": "2026-03-20",
+      "Date": "2026-07-24",
       "Priority": "recommended",
       "Title": "Sparse and Dense Matrix Classes and Methods",
       "Description": "A rich hierarchy of sparse and dense matrix classes, including general, symmetric, triangular, and diagonal matrices with numeric, logical, or pattern entries.  Efficient methods for operating on such matrices, often wrapping the 'BLAS', 'LAPACK', and 'SuiteSparse' libraries.",
       "License": "GPL (>= 2) | file LICENCE",
-      "URL": "https://Matrix.R-forge.R-project.org",
-      "BugReports": "https://R-forge.R-project.org/tracker/?atid=294&group_id=61",
+      "URL": "https://codeberg.org/jaganmn/Matrix",
+      "BugReports": "https://codeberg.org/jaganmn/Matrix/issues",
       "Contact": "Matrix-authors@R-project.org",
       "Authors@R": "c(person(\"Douglas\", \"Bates\", role = \"aut\", comment = c(ORCID = \"0000-0001-8316-9503\")), person(\"Martin\", \"Maechler\", role = c(\"aut\", \"cre\"), email = \"mmaechler+Matrix@gmail.com\", comment = c(ORCID = \"0000-0002-8685-9910\")), person(\"Mikael\", \"Jagan\", role = \"aut\", comment = c(ORCID = \"0000-0002-3542-2938\")), person(\"Timothy A.\", \"Davis\", role = \"ctb\", comment = c(ORCID = \"0000-0001-7614-6899\", \"SuiteSparse libraries\", \"collaborators listed in dir(system.file(\\\"doc\\\", \\\"SuiteSparse\\\", package=\\\"Matrix\\\"), pattern=\\\"License\\\", full.names=TRUE, recursive=TRUE)\")), person(\"George\", \"Karypis\", role = \"ctb\", comment = c(ORCID = \"0000-0003-2753-1437\", \"METIS library\", \"Copyright: Regents of the University of Minnesota\")), person(\"Jason\", \"Riedy\", role = \"ctb\", comment = c(ORCID = \"0000-0002-4345-4200\", \"GNU Octave's condest() and onenormest()\", \"Copyright: Regents of the University of California\")), person(\"Jens\", \"Oehlschlägel\", role = \"ctb\", comment = \"initial nearPD()\"), person(\"R Core Team\", role = \"ctb\", comment = c(ROR = \"02zz1nj61\", \"base R's matrix implementation\")))",
       "Depends": [
@@ -1653,16 +1653,16 @@
     },
     "class": {
       "Package": "class",
-      "Version": "7.3-23",
+      "Version": "7.3-24",
       "Source": "Repository",
       "Priority": "recommended",
-      "Date": "2025-01-01",
+      "Date": "2026-08-01",
       "Depends": [
         "R (>= 3.0.0)",
         "stats",
         "utils"
       ],
-      "Imports": [
+      "Suggests": [
         "MASS"
       ],
       "Authors@R": "c(person(\"Brian\", \"Ripley\", role = c(\"aut\", \"cre\", \"cph\"), email = \"Brian.Ripley@R-project.org\"), person(\"William\", \"Venables\", role = \"cph\"))",
@@ -1800,6 +1800,57 @@
       "Author": "Davis Vaughan [aut, cre], Posit Software, PBC [cph, fnd]",
       "Maintainer": "Davis Vaughan <davis@posit.co>",
       "Repository": "RSPM"
+    },
+    "clubSandwich": {
+      "Package": "clubSandwich",
+      "Version": "0.7.0",
+      "Source": "Repository",
+      "Title": "Cluster-Robust (Sandwich) Variance Estimators with Small-Sample Corrections",
+      "Authors@R": "c( person(c(\"James\",\"E.\"), \"Pustejovsky\", email = \"jepusto@gmail.com\", role = c(\"aut\", \"cre\"), comment = c(ORCID = \"0000-0003-0591-9465\")), person(\"Hazim\", \"Izani\", email = \"hazimizani@gmail.com\", role = \"ctb\"), person(\"Samuel\", \"Pekofsky\", email = \"sampekofsky@gmail.com\", role = \"ctb\"), person(\"Jingru\", \"Zhang\", email = \"jz26372022@hotmail.com\", role = \"ctb\") )",
+      "Description": "Provides several cluster-robust variance estimators (i.e., sandwich estimators) for ordinary and weighted least squares linear regression models, including the bias-reduced linearization estimator introduced by Bell and McCaffrey (2002)  <https://www150.statcan.gc.ca/n1/pub/12-001-x/2002002/article/9058-eng.pdf> and  developed further by Pustejovsky and Tipton (2017)  <DOI:10.1080/07350015.2016.1247004>. The package includes functions for estimating the variance- covariance matrix and for testing single- and multiple- contrast hypotheses based on Wald test statistics. Tests of single regression coefficients use Satterthwaite or saddle-point corrections. Tests of multiple- contrast hypotheses use an approximation to Hotelling's T-squared distribution. Methods are provided for a variety of fitted models, including lm() and mlm objects; glm(); geeglm() (from package 'geepack'); lm_robust(), lm_lin(), and  iv_robust() (from package 'estimatr'); ivreg() (from package 'AER'); ivreg()  (from package 'ivreg' when estimated by ordinary least squares); plm() (from  package 'plm'); gls() and lme() (from 'nlme'); lmer() (from `lme4`); robu() (from  'robumeta'); rma.uni() and rma.mv() (from 'metafor'); and mmrm() (from 'mmrm').",
+      "URL": "http://jepusto.github.io/clubSandwich/",
+      "BugReports": "https://github.com/jepusto/clubSandwich/issues",
+      "Depends": [
+        "R (>= 3.0.0)"
+      ],
+      "License": "GPL-3",
+      "VignetteBuilder": "knitr",
+      "LazyData": "true",
+      "Imports": [
+        "stats",
+        "sandwich",
+        "lifecycle"
+      ],
+      "Suggests": [
+        "Formula",
+        "knitr",
+        "testthat",
+        "rmarkdown",
+        "covr",
+        "AER",
+        "carData",
+        "estimatr",
+        "fixest",
+        "geepack",
+        "ivreg",
+        "Matrix",
+        "lme4",
+        "metafor",
+        "metadat",
+        "mlmRev",
+        "mmrm",
+        "nlme",
+        "plm (>= 1.6-4)",
+        "robumeta",
+        "zoo"
+      ],
+      "RoxygenNote": "7.3.3",
+      "Encoding": "UTF-8",
+      "Language": "en-US",
+      "NeedsCompilation": "no",
+      "Author": "James E. Pustejovsky [aut, cre] (ORCID: <https://orcid.org/0000-0003-0591-9465>), Hazim Izani [ctb], Samuel Pekofsky [ctb], Jingru Zhang [ctb]",
+      "Maintainer": "James E. Pustejovsky <jepusto@gmail.com>",
+      "Repository": "CRAN"
     },
     "codetools": {
       "Package": "codetools",
@@ -4445,9 +4496,9 @@
     },
     "lattice": {
       "Package": "lattice",
-      "Version": "0.22-9",
+      "Version": "0.23-1",
       "Source": "Repository",
-      "Date": "2026-02-03",
+      "Date": "2026-08-08",
       "Priority": "recommended",
       "Title": "Trellis Graphics for R",
       "Authors@R": "c(person(\"Deepayan\", \"Sarkar\", role = c(\"aut\", \"cre\"), email = \"deepayan.sarkar@r-project.org\", comment = c(ORCID = \"0000-0003-4107-1553\")), person(\"Felix\", \"Andrews\", role = \"ctb\"), person(\"Kevin\", \"Wright\", role = \"ctb\", comment = \"documentation\"), person(\"Neil\", \"Klepeis\", role = \"ctb\"), person(\"Johan\", \"Larsson\", role = \"ctb\", comment = \"miscellaneous improvements\"), person(\"Zhijian (Jason)\", \"Wen\", role = \"cph\", comment = \"filled contour code\"), person(\"Paul\", \"Murrell\", role = \"ctb\", email = \"paul@stat.auckland.ac.nz\"), person(\"Stefan\", \"Eng\", role = \"ctb\", comment = \"violin plot improvements\"), person(\"Achim\", \"Zeileis\", role = \"ctb\", comment = \"modern colors\"), person(\"Alexandre\", \"Courtiol\", role = \"ctb\", comment = \"generics for larrows, lpolygon, lrect and lsegments\") )",
@@ -5581,10 +5632,10 @@
     },
     "nnet": {
       "Package": "nnet",
-      "Version": "7.3-20",
+      "Version": "7.3-21",
       "Source": "Repository",
       "Priority": "recommended",
-      "Date": "2025-01-01",
+      "Date": "2026-08-01",
       "Depends": [
         "R (>= 3.0.0)",
         "stats",
@@ -8166,11 +8217,11 @@
     },
     "survival": {
       "Package": "survival",
-      "Version": "3.8-9",
+      "Version": "3.8-11",
       "Source": "Repository",
       "Title": "Survival Analysis",
       "Priority": "recommended",
-      "Date": "2026-07-07",
+      "Date": "2026-08-15",
       "Depends": [
         "R (>= 4.1.0)"
       ],

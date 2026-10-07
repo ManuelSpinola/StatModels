@@ -15,7 +15,7 @@
 # Efectos marginales y Contrastes, para que quede claro para
 # qué modelo se están mostrando los resultados (evita confusión
 # cuando el usuario cambia predictores pero no reajusta).
-badge_modelo_actual_lm <- function(fit) {
+badge_modelo_actual_lm <- function(fit, vcov = NULL) {
   if (is.null(fit)) {
     return(
       div(class = "alert alert-secondary small py-1 px-2 mb-3",
@@ -27,7 +27,12 @@ badge_modelo_actual_lm <- function(fit) {
   div(class = "alert alert-info small py-1 px-2 mb-3",
       bs_icon("diagram-2", class = "me-1"),
       strong("Modelo actual: "),
-      code(paste(deparse(formula(fit)), collapse = " ")))
+      code(paste(deparse(formula(fit)), collapse = " ")),
+      if (!is.null(vcov))
+        tags$span(class = "badge ms-2",
+                  style = paste0("background:", colores$exito, ";"),
+                  bs_icon("shield-check", class = "me-1"),
+                  paste0("EE robustos (", vcov, ")")))
 }
 
 # ── UI ────────────────────────────────────────────────────
@@ -378,8 +383,11 @@ mod_lm_ui <- function(id) {
                   class = "alert alert-warning small py-1 px-2 mb-0",
                   bs_icon("exclamation-triangle", class = "me-1"),
                   strong("Si falla:"),
-                  " transforma Y con log() o raíz cuadrada, ",
-                  "o usa errores estándar robustos.")
+                  " activa ", strong("errores estándar robustos (HC3)"),
+                  " en ", strong("Ajustar modelo"), ". Los coeficientes ",
+                  "no cambian; se corrigen los EE, IC y p-valores. ",
+                  "Transformar Y (log, raíz) es una alternativa si ",
+                  "prefieres cambiar la escala de análisis.")
               )
             )
           ),
@@ -691,14 +699,28 @@ mod_lm_ui <- function(id) {
               card_header(bs_icon("sliders", class = "me-1"),
                           "Controles"),
               card_body(
+                uiOutput(ns("sel_var_y_exp")),
                 uiOutput(ns("sel_var_x")),
                 uiOutput(ns("sel_color")),
-                checkboxInput(ns("mostrar_linea"),
-                              "Mostrar línea de regresión",
-                              value = TRUE),
-                checkboxInput(ns("linea_por_grupo"),
-                              "Línea por grupo (si hay color)",
-                              value = FALSE),
+                # Solo tiene sentido con X numérica (con X categórica
+                # se dibuja un boxplot por grupo)
+                conditionalPanel(
+                  condition = paste0("!output['", ns("x_es_cat"), "']"),
+                  checkboxInput(ns("mostrar_linea"),
+                                "Mostrar línea de regresión",
+                                value = TRUE),
+                  checkboxInput(ns("linea_por_grupo"),
+                                "Línea por grupo (si hay color)",
+                                value = FALSE)
+                ),
+                conditionalPanel(
+                  condition = paste0("output['", ns("x_es_cat"), "']"),
+                  radioButtons(ns("tipo_grafico_cat"),
+                               label    = "Gráfico por grupo:",
+                               choices  = c("Boxplot" = "box",
+                                            "Violín"  = "violin"),
+                               selected = "box", inline = TRUE)
+                ),
                 tags$hr(),
                 uiOutput(ns("cards_correlacion"))
               )
@@ -789,6 +811,25 @@ mod_lm_ui <- function(id) {
                                    "(β en unidades de SD). El modelo se ajusta en ",
                                    "escala original — los efectos marginales y ",
                                    "predicciones siempre en unidades reales.")
+                      ),
+                      value = FALSE
+                    )
+                  ),
+                  div(
+                    class = "mb-3",
+                    p(class = "small fw-bold text-muted mb-1",
+                      bs_icon("shield-check", class = "me-1"),
+                      "Errores estándar"),
+                    checkboxInput(
+                      ns("se_robustos"),
+                      label = tagList(
+                        "Errores estándar robustos (HC3)",
+                        tags$small(class = "text-muted d-block mt-1",
+                                   "Corrigen EE, IC y p-valores cuando la varianza ",
+                                   "de los residuos no es constante ",
+                                   "(heterocedasticidad). Los coeficientes no cambian. ",
+                                   "Se aplican en Parámetros, Efectos marginales ",
+                                   "y Contrastes.")
                       ),
                       value = FALSE
                     )
@@ -1869,109 +1910,252 @@ mod_lm_server <- function(id) {
     })
 
     # ── Explorar: controles dinámicos ────────────────────
+    # Y se elige explícitamente (antes era "la primera numérica distinta
+    # de X", lo que invertía el gráfico según el orden de las columnas).
+    # X puede ser numérica (dispersión + recta) o categórica (boxplot).
+
+    output$sel_var_y_exp <- renderUI({
+      req(vars_numericas())
+      prev <- isolate(input$var_y_exp)
+      sel  <- if (!is.null(prev) && prev %in% vars_numericas()) prev
+              else vars_numericas()[1]
+      selectInput(
+        ns("var_y_exp"),
+        label    = "Variable Y (respuesta numérica):",
+        choices  = vars_numericas(),
+        selected = sel
+      )
+    })
 
     output$sel_var_x <- renderUI({
-      req(vars_numericas())
+      req(input$var_y_exp)
+      nums <- setdiff(vars_numericas(), input$var_y_exp)
+      cats <- vars_categoricas()
+      # as.list(): si un grupo tiene una sola opción, Shiny lo trataría
+      # como una opción llamada "Numéricas" en lugar de como un grupo
+      opciones <- Filter(length, list(`Numéricas`   = as.list(nums),
+                                      `Categóricas` = as.list(cats)))
+      req(length(opciones) > 0)
+      prev <- isolate(input$var_x)
+      sel  <- if (!is.null(prev) && prev %in% c(nums, cats)) prev
+              else c(nums, cats)[1]
       selectInput(
         ns("var_x"),
-        label   = "Variable X (predictor numérico):",
-        choices = vars_numericas(),
-        selected = vars_numericas()[1]
+        label    = "Variable X (predictor):",
+        choices  = opciones,
+        selected = sel
       )
     })
 
     output$sel_color <- renderUI({
-      cats <- vars_categoricas()
+      cats <- setdiff(vars_categoricas(), input$var_x)
       if (length(cats) == 0) return(NULL)
+      prev <- isolate(input$var_color)
+      sel  <- if (!is.null(prev) && prev %in% cats) prev else "ninguna"
       selectInput(
         ns("var_color"),
-        label   = "Colorear por (opcional):",
-        choices = c("Ninguna" = "ninguna", cats),
-        selected = "ninguna"
+        label    = "Colorear por (opcional):",
+        choices  = c("Ninguna" = "ninguna", cats),
+        selected = sel
       )
+    })
+
+    # Datos usados en Explorar: solo filas completas en X e Y
+    datos_exp <- reactive({
+      df <- datos_finales()
+      x  <- input$var_x
+      y  <- input$var_y_exp
+      req(df, x, y, x != y, all(c(x, y) %in% names(df)))
+      col_color <- input$var_color
+      cols <- unique(c(x, y,
+                       if (!is.null(col_color) && col_color != "ninguna" &&
+                           col_color %in% names(df)) col_color))
+      df[stats::complete.cases(df[, c(x, y)]), cols, drop = FALSE]
+    })
+
+    x_es_cat <- reactive({
+      d <- datos_exp()
+      !is.numeric(d[[input$var_x]])
+    })
+    output$x_es_cat <- reactive(x_es_cat())
+    outputOptions(output, "x_es_cat", suspendWhenHidden = FALSE)
+
+    # Métricas de la relación Y ~ X (una sola fuente para tarjetas e insight)
+    stats_exp <- reactive({
+      d <- datos_exp()
+      x <- input$var_x
+      y <- input$var_y_exp
+      req(nrow(d) >= 3)
+      if (!x_es_cat()) {
+        req(stats::sd(d[[x]]) > 0, stats::sd(d[[y]]) > 0)
+        r <- stats::cor(d[[x]], d[[y]])
+        list(tipo = "num", r = r, r2 = r^2, n = nrow(d))
+      } else {
+        g <- droplevels(factor(d[[x]]))
+        req(nlevels(g) >= 2)
+        # η² del ANOVA de una vía = R² de lm(Y ~ X)
+        eta2 <- summary(stats::lm(d[[y]] ~ g))$r.squared
+        list(tipo = "cat", eta2 = eta2, k = nlevels(g), n = nrow(d),
+             n_min = min(table(g)))
+      }
     })
 
     output$cards_correlacion <- renderUI({
-      df  <- datos_finales()
-      req(df, input$var_x)
-      yv  <- vars_numericas()
-      req(length(yv) >= 2)
-      # usar primera numérica distinta de X como Y provisional
-      yvar <- yv[yv != input$var_x][1]
-      req(yvar)
-      cor_val <- cor(df[[yvar]], df[[input$var_x]],
-                     use = "complete.obs")
-      r2_val  <- cor_val^2
-      layout_columns(
-        col_widths = c(6, 6),
-        fill = FALSE,
-        card(
-          fill = FALSE,
-          class = "text-center border-0",
-          style = paste0("background:", colores$fondo),
-          card_body(class = "p-2",
-                    h4(style = paste0("color:", colores$primario,
-                                      "; font-weight:700;"),
-                       round(cor_val, 2)),
-                    p(class = "small text-muted mb-0", "Correlación (r)")
-          )
-        ),
-        card(
-          fill = FALSE,
-          class = "text-center border-0",
-          style = paste0("background:", colores$fondo),
-          card_body(class = "p-2",
-                    h4(style = paste0("color:", colores$acento,
-                                      "; font-weight:700;"),
-                       paste0(round(r2_val * 100, 0), "%")),
-                    p(class = "small text-muted mb-0", "R² simple")
-          )
-        )
+      s <- stats_exp()
+      tarjeta <- function(valor, etiqueta, col) card(
+        fill  = FALSE,
+        class = "text-center border-0",
+        style = paste0("background:", colores$fondo),
+        card_body(class = "p-2",
+                  h4(style = paste0("color:", col, "; font-weight:700;"),
+                     valor),
+                  p(class = "small text-muted mb-0", etiqueta))
       )
+      if (s$tipo == "num") {
+        layout_columns(
+          col_widths = c(6, 6), fill = FALSE,
+          tarjeta(round(s$r, 2), "Correlación (r)", colores$primario),
+          tarjeta(paste0(round(s$r2 * 100, 0), "%"), "R² simple",
+                  colores$acento)
+        )
+      } else {
+        layout_columns(
+          col_widths = c(6, 6), fill = FALSE,
+          tarjeta(s$k, "Grupos", colores$primario),
+          tarjeta(paste0(round(s$eta2 * 100, 0), "%"),
+                  "η² (R² del ANOVA)", colores$acento)
+        )
+      }
     })
 
     output$plot_scatter <- renderPlot(suppressWarnings({
-      df   <- datos_finales()
-      req(df, input$var_x)
-      yv   <- vars_numericas()
-      req(length(yv) >= 2)
-      yvar <- yv[yv != input$var_x][1]
-      req(yvar)
-
-      p <- ggplot(df, aes(x = .data[[input$var_x]],
-                          y = .data[[yvar]]))
+      d <- datos_exp()
+      x <- input$var_x
+      y <- input$var_y_exp
 
       usar_color <- !is.null(input$var_color) &&
         input$var_color != "ninguna" &&
-        input$var_color %in% names(df)
+        input$var_color != x &&
+        input$var_color %in% names(d)
 
-      if (usar_color) {
-        p <- p +
-          aes(color = .data[[input$var_color]]) +
-          scale_color_manual(values = colores$tableau,
-                             name   = input$var_color)
-      }
+      p <- ggplot(d, aes(x = .data[[x]], y = .data[[y]]))
 
-      p <- p + geom_point(alpha = 0.6, size = 2)
+      if (x_es_cat()) {
+        # ── X categórica: boxplot o violín + puntos individuales ──
+        # Los puntos ya muestran todas las observaciones, así que el
+        # boxplot no dibuja sus outliers (se duplicarían). En su lugar se
+        # marcan los atípicos (fuera de 1.5×IQR dentro de su grupo) con
+        # otra forma y color en la capa de puntos.
+        grupos <- if (usar_color) interaction(d[[x]], d[[input$var_color]],
+                                              drop = TRUE)
+                  else factor(d[[x]])
+        d$.atipico <- stats::ave(d[[y]], grupos, FUN = function(v) {
+          q   <- stats::quantile(v, c(0.25, 0.75), na.rm = TRUE)
+          iqr <- q[2] - q[1]
+          as.numeric(v < q[1] - 1.5 * iqr | v > q[2] + 1.5 * iqr)
+        })
+        d$.atipico <- factor(ifelse(d$.atipico == 1, "Atípico (> 1.5 IQR)",
+                                    "Observación"),
+                             levels = c("Observación", "Atípico (> 1.5 IQR)"))
+        p <- ggplot(d, aes(x = .data[[x]], y = .data[[y]]))
+        violin <- identical(input$tipo_grafico_cat, "violin")
 
-      if (isTRUE(input$mostrar_linea)) {
-        if (usar_color && isTRUE(input$linea_por_grupo)) {
-          p <- p + geom_smooth(aes(group = .data[[input$var_color]]),
-                               method = "lm", formula = y ~ x, se = TRUE,
-                               alpha = 0.15, linewidth = 1)
+        hay_atip  <- any(d$.atipico == "Atípico (> 1.5 IQR)")
+        guia_atip <- if (hay_atip) "legend" else "none"
+        forma_atip <- scale_shape_manual(
+          values = c("Observación" = 16, "Atípico (> 1.5 IQR)" = 17),
+          name = NULL, drop = FALSE, guide = guia_atip)
+
+        if (usar_color) {
+          dodge <- position_dodge(width = 0.75)
+          if (violin) {
+            p <- p +
+              geom_violin(aes(fill = .data[[input$var_color]]),
+                          alpha = 0.2, trim = TRUE, scale = "width",
+                          position = dodge) +
+              geom_boxplot(aes(group = interaction(.data[[x]],
+                                                   .data[[input$var_color]])),
+                           width = 0.12, outlier.shape = NA,
+                           fill = "white", position = dodge)
+          } else {
+            p <- p +
+              geom_boxplot(aes(fill = .data[[input$var_color]]),
+                           outlier.shape = NA, alpha = 0.25)
+          }
+          p <- p +
+            geom_point(aes(color = .data[[input$var_color]],
+                           fill  = .data[[input$var_color]],
+                           shape = .atipico,
+                           size  = .atipico),
+                       alpha = 0.7,
+                       position = position_jitterdodge(jitter.width = 0.15,
+                                                       dodge.width  = 0.75,
+                                                       seed = 42)) +
+            scale_fill_manual(values  = colores$tableau,
+                              name    = input$var_color) +
+            scale_color_manual(values = colores$tableau,
+                               name   = input$var_color) +
+            forma_atip +
+            scale_size_manual(values = c("Observación" = 2,
+                                         "Atípico (> 1.5 IQR)" = 3),
+                              guide = "none", drop = FALSE)
         } else {
-          p <- p + geom_smooth(method = "lm", formula = y ~ x, se = TRUE,
-                               color = colores$primario,
-                               fill  = colores$secundario,
-                               alpha = 0.15, linewidth = 1.2,
-                               show.legend = FALSE)
+          if (violin) {
+            p <- p +
+              geom_violin(fill = colores$secundario, alpha = 0.2,
+                          trim = TRUE, scale = "width") +
+              geom_boxplot(width = 0.12, outlier.shape = NA, fill = "white")
+          } else {
+            p <- p +
+              geom_boxplot(outlier.shape = NA,
+                           fill = colores$secundario, alpha = 0.2)
+          }
+          p <- p +
+            geom_point(aes(color = .atipico, shape = .atipico,
+                           size  = .atipico),
+                       position = position_jitter(width = 0.15, seed = 42),
+                       alpha = 0.7) +
+            scale_color_manual(
+              values = c("Observación"         = colores$primario,
+                         "Atípico (> 1.5 IQR)" = colores$peligro),
+              name = NULL, drop = FALSE, guide = guia_atip) +
+            forma_atip +
+            scale_size_manual(values = c("Observación" = 2,
+                                         "Atípico (> 1.5 IQR)" = 3),
+                              guide = "none", drop = FALSE) +
+            stat_summary(fun = mean, geom = "point", shape = 23,
+                         size = 3.5, fill = colores$acento, color = "white")
+        }
+      } else {
+        # ── X numérica: dispersión + recta de regresión ──
+        if (usar_color) {
+          p <- p +
+            aes(color = .data[[input$var_color]]) +
+            scale_color_manual(values = colores$tableau,
+                               name   = input$var_color)
+        }
+
+        p <- p + geom_point(alpha = 0.6, size = 2)
+
+        if (isTRUE(input$mostrar_linea)) {
+          if (usar_color && isTRUE(input$linea_por_grupo)) {
+            p <- p + geom_smooth(aes(group = .data[[input$var_color]]),
+                                 method = "lm", formula = y ~ x, se = TRUE,
+                                 alpha = 0.15, linewidth = 1)
+          } else {
+            p <- p + geom_smooth(method = "lm", formula = y ~ x, se = TRUE,
+                                 color = colores$primario,
+                                 fill  = colores$secundario,
+                                 alpha = 0.15, linewidth = 1.2,
+                                 show.legend = FALSE)
+          }
         }
       }
 
       p + labs(
-        x        = input$var_x,
-        y        = yvar,
-        subtitle = paste0("n = ", nrow(df), " observaciones")
+        x        = x,
+        y        = y,
+        subtitle = paste0("n = ", nrow(d), " observaciones completas")
       ) +
         theme_minimal(base_size = 13) +
         theme(
@@ -1983,28 +2167,42 @@ mod_lm_server <- function(id) {
     }), res = 110)
 
     output$insight_scatter <- renderUI({
-      df   <- datos_finales()
-      req(df, input$var_x)
-      yv   <- vars_numericas()
-      req(length(yv) >= 2)
-      yvar <- yv[yv != input$var_x][1]
-      req(yvar)
-      cor_val <- cor(df[[yvar]], df[[input$var_x]],
-                     use = "complete.obs")
-      r2_pct  <- round(cor_val^2 * 100, 0)
-      dir <- if (cor_val >  0.5) "positiva y fuerte" else
-        if (cor_val >  0.2) "positiva y moderada" else
-          if (cor_val < -0.5) "negativa y fuerte"  else
-            "débil o negativa"
+      s <- stats_exp()
+      x <- input$var_x
+      y <- input$var_y_exp
+      texto <- if (s$tipo == "num") {
+        fuerza <- if (abs(s$r) >= 0.7) "fuerte" else
+          if (abs(s$r) >= 0.4) "moderada" else
+            if (abs(s$r) >= 0.2) "débil" else "muy débil o nula"
+        signo <- if (s$r >= 0) "positiva" else "negativa"
+        paste0(
+          "La relación lineal entre ", x, " y ", y, " es ", signo,
+          " y ", fuerza, " (r = ", round(s$r, 2), "). ",
+          x, " por sí sola explica el ", round(s$r2 * 100, 0),
+          "% de la variación en ", y, ". ",
+          "Ojo: r solo mide relación lineal — revisa si el patrón es curvo."
+        )
+      } else {
+        paste0(
+          "Las diferencias entre los ", s$k, " grupos de ", x,
+          " explican el ", round(s$eta2 * 100, 0),
+          "% de la variación en ", y, " (η²). ",
+          if (is.null(input$var_color) || input$var_color == "ninguna")
+            "El rombo naranja marca la media de cada grupo; la línea dentro de la caja, la mediana. "
+          else
+            "La línea dentro de cada caja marca la mediana. ",
+          "Los triángulos marcan valores atípicos (a más de 1.5 veces ",
+          "el rango intercuartílico de su grupo), si los hay.",
+          if (identical(input$tipo_grafico_cat, "violin") && s$n_min < 15)
+            paste0(" Ojo: el grupo más pequeño tiene solo ", s$n_min,
+                   " observaciones; con tan pocos datos la forma del ",
+                   "violín es poco confiable — fíjate más en los puntos.")
+        )
+      }
       div(
         class = "alert alert-info small py-2 px-3 mt-2 mb-0",
         bs_icon("lightbulb-fill", class = "me-1"),
-        paste0(
-          "La relación entre ", input$var_x, " y ", yvar,
-          " es ", dir, " (r = ", round(cor_val, 2), "). ",
-          "Esta variable sola explica el ", r2_pct,
-          "% de la variación en ", yvar, "."
-        )
+        texto
       )
     })
 
@@ -2127,12 +2325,34 @@ mod_lm_server <- function(id) {
       }, error = function(e) NULL)
     }, ignoreNULL = FALSE)
 
+    # ── Errores estándar robustos ─────────────────────────
+    # Se captura al pulsar "Ajustar" (igual que el modelo), para que lo
+    # que muestran Parámetros/Efectos/Contrastes coincida con el badge.
+    # NULL = EE clásicos de OLS; "HC3" = sandwich::vcovHC(type = "HC3"),
+    # recomendado para n < 250 (Long & Ervin, 2000).
+    vcov_lm <- eventReactive(input$ajustar, {
+      if (isTRUE(input$se_robustos) && !isTRUE(input$modelo_nulo)) "HC3"
+      else NULL
+    }, ignoreNULL = FALSE)
+
+    # Tabla de parámetros única (crudos, respetando vcov) para las
+    # interpretaciones textuales — evita usar confint()/summary(),
+    # que siempre dan EE clásicos.
+    params_lm <- reactive({
+      fit <- modelo_lm(); req(fit)
+      tryCatch(
+        as.data.frame(parameters::model_parameters(
+          fit, ci = 0.95, vcov = vcov_lm(), verbose = FALSE)),
+        error = function(e) NULL
+      )
+    })
+
     # ── Badge: modelo actualmente desplegado ──────────────
-    output$modelo_actual_diag_lm      <- renderUI(badge_modelo_actual_lm(modelo_lm()))
-    output$modelo_actual_perf_lm      <- renderUI(badge_modelo_actual_lm(modelo_lm()))
-    output$modelo_actual_param_lm     <- renderUI(badge_modelo_actual_lm(modelo_lm()))
-    output$modelo_actual_ef_lm        <- renderUI(badge_modelo_actual_lm(modelo_lm()))
-    output$modelo_actual_contraste_lm <- renderUI(badge_modelo_actual_lm(modelo_lm()))
+    output$modelo_actual_diag_lm      <- renderUI(badge_modelo_actual_lm(modelo_lm(), vcov_lm()))
+    output$modelo_actual_perf_lm      <- renderUI(badge_modelo_actual_lm(modelo_lm(), vcov_lm()))
+    output$modelo_actual_param_lm     <- renderUI(badge_modelo_actual_lm(modelo_lm(), vcov_lm()))
+    output$modelo_actual_ef_lm        <- renderUI(badge_modelo_actual_lm(modelo_lm(), vcov_lm()))
+    output$modelo_actual_contraste_lm <- renderUI(badge_modelo_actual_lm(modelo_lm(), vcov_lm()))
 
     # ── Métricas ─────────────────────────────────────────
 
@@ -2322,6 +2542,15 @@ mod_lm_server <- function(id) {
       dw_stat <- if (!is.null(dw_test)) dw_test$dw else NA
       dw_p    <- if (!is.null(dw_test)) dw_test$p  else NA
 
+      # Sugerencia según si ya se usan EE robustos
+      sug_hc <- if (!is.null(vcov_lm()))
+        paste0(" EE robustos (", vcov_lm(), ") activos: los EE, IC y ",
+               "p-valores de Parámetros, Efectos marginales y Contrastes ",
+               "ya están corregidos.")
+      else
+        paste0(" Activa 'Errores estándar robustos (HC3)' en Ajustar modelo ",
+               "y reajusta. Transformar Y es otra opción si lo prefieres.")
+
       list(
         list(
           nombre = "Linealidad",
@@ -2351,10 +2580,11 @@ mod_lm_server <- function(id) {
               paste0("Breusch-Pagan: \u03c7\u00b2 = ", round(bp_chi, 2),
                      ", p = ", round(bp_p, 3), "."),
           warn   = paste0("Breusch-Pagan: \u03c7\u00b2 = ", round(bp_chi, 2),
-                          ", p = ", round(bp_p, 3), ". Revisa scale-location."),
+                          ", p = ", round(bp_p, 3),
+                          ". Revisa scale-location.", sug_hc),
           bad    = paste0("Breusch-Pagan: \u03c7\u00b2 = ", round(bp_chi, 2),
                           ", p = ", round(bp_p, 3),
-                          ". Heterocedasticidad clara — transforma Y o usa errores robustos.")
+                          ". Heterocedasticidad clara.", sug_hc)
         ),
         list(
           nombre = "Independencia",
@@ -2961,13 +3191,16 @@ mod_lm_server <- function(id) {
         parameters::model_parameters(
           fit, ci = 0.95,
           standardize = if (std) "refit" else NULL,
+          vcov    = vcov_lm(),
           verbose = FALSE
         ),
         error = function(e) NULL
       )
 
+      aviso_fallback <- FALSE
       if (is.null(mp)) {
-        # Fallback to base R
+        # Fallback a base R (EE clásicos: no aplica HC3)
+        aviso_fallback <- !is.null(vcov_lm())
         s        <- summary(fit)
         coef_mat <- coef(s)
         ci_mat   <- confint(fit, level = 0.95)
@@ -3022,6 +3255,19 @@ mod_lm_server <- function(id) {
       })
 
       tagList(
+        if (aviso_fallback) div(
+          class = "alert alert-warning small py-2 px-3 mb-2",
+          bs_icon("exclamation-triangle", class = "me-1"),
+          "No se pudieron calcular los EE robustos; la tabla muestra ",
+          "EE clásicos de OLS."
+        ),
+        if (!is.null(vcov_lm()) && !aviso_fallback) div(
+          class = "alert alert-success small py-2 px-3 mb-2",
+          bs_icon("shield-check", class = "me-1"),
+          strong(paste0("EE robustos (", vcov_lm(), ").")),
+          " Los coeficientes son los mismos de OLS; EE, IC 95% y ",
+          "p-valores están corregidos por heterocedasticidad."
+        ),
         if (std) div(
           class = "alert alert-info small py-2 px-3 mb-2",
           bs_icon("distribute-vertical", class = "me-1"),
@@ -3050,6 +3296,7 @@ mod_lm_server <- function(id) {
         parameters::model_parameters(
           fit, ci = 0.95,
           standardize = if (std) "refit" else NULL,
+          vcov    = vcov_lm(),
           verbose = FALSE
         ),
         error = function(e) NULL
@@ -3121,7 +3368,8 @@ mod_lm_server <- function(id) {
       # Usar modelo estandarizado si está disponible
       mp <- if (!is.null(fit_std)) {
         tryCatch(
-          parameters::model_parameters(fit_std, ci = 0.95, verbose = FALSE),
+          parameters::model_parameters(fit_std, ci = 0.95,
+                                       vcov = vcov_lm(), verbose = FALSE),
           error = function(e) NULL
         )
       } else NULL
@@ -3129,7 +3377,8 @@ mod_lm_server <- function(id) {
       # Fallback a coeficientes crudos
       if (is.null(mp)) {
         mp <- tryCatch(
-          parameters::model_parameters(fit, ci = 0.95, verbose = FALSE),
+          parameters::model_parameters(fit, ci = 0.95, vcov = vcov_lm(),
+                                       verbose = FALSE),
           error = function(e) NULL
         )
       }
@@ -3203,16 +3452,25 @@ mod_lm_server <- function(id) {
         p(class = "small text-muted",
           "Haz clic en una fila de la tabla para ver la interpretación.")
       )
-      coefs <- coef(fit)
-      ci    <- confint(fit, level = 0.95)
-      pvals <- coef(summary(fit))[, 4]
-      req(sel %in% names(coefs))
-
-      est  <- round(coefs[sel], 3)
-      lo   <- round(ci[sel, 1], 3)
-      hi   <- round(ci[sel, 2], 3)
-      pval <- pvals[sel]
-      sig  <- pval < 0.05
+      # Desde model_parameters() para respetar los EE robustos;
+      # confint()/summary() solo como respaldo (EE clásicos)
+      pm <- params_lm()
+      if (!is.null(pm) && sel %in% pm$Parameter) {
+        fila <- pm[pm$Parameter == sel, ][1, ]
+        est  <- round(fila$Coefficient, 3)
+        lo   <- round(fila$CI_low, 3)
+        hi   <- round(fila$CI_high, 3)
+        pval <- fila$p
+      } else {
+        coefs <- coef(fit)
+        req(sel %in% names(coefs))
+        ci    <- confint(fit, level = 0.95)
+        est   <- round(coefs[sel], 3)
+        lo    <- round(ci[sel, 1], 3)
+        hi    <- round(ci[sel, 2], 3)
+        pval  <- coef(summary(fit))[sel, 4]
+      }
+      sig  <- !is.na(pval) && pval < 0.05
       p_txt <- if (pval < 0.001) "< 0.001" else round(pval, 3)
       col   <- if (sig) colores$exito else colores$advertencia
 
@@ -3305,7 +3563,8 @@ mod_lm_server <- function(id) {
 
       tryCatch({
         rel    <- suppressWarnings(
-          modelbased::estimate_relation(fit, by = pred, verbose = FALSE)
+          modelbased::estimate_relation(fit, by = pred, vcov = vcov_lm(),
+                                        verbose = FALSE)
         )
         df_rel <- as.data.frame(rel)
 
@@ -3356,7 +3615,10 @@ mod_lm_server <- function(id) {
       es_cat <- pred %in% vars_categoricas()
       tryCatch({
         coefs <- coef(fit)
-        pvals <- coef(summary(fit))[, 4]
+        # p-valores desde model_parameters() para respetar los EE robustos
+        pm    <- params_lm()
+        pvals <- if (!is.null(pm)) setNames(pm$p, pm$Parameter)
+                 else coef(summary(fit))[, 4]
         if (es_cat) {
           filas_cat <- names(coefs)[grepl(pred, names(coefs), fixed = TRUE)]
           texto <- if (length(filas_cat) > 0) {
@@ -3433,7 +3695,7 @@ mod_lm_server <- function(id) {
         req(nueva_obs)
         tryCatch(
           modelbased::estimate_expectation(
-            fit, data = nueva_obs, verbose = FALSE
+            fit, data = nueva_obs, vcov = vcov_lm(), verbose = FALSE
           ),
           error = function(e) NULL
         )
@@ -3499,7 +3761,8 @@ mod_lm_server <- function(id) {
       tryCatch({
         ct    <- modelbased::estimate_contrasts(
           fit, contrast = input$var_contraste_lm,
-          p_adjust = input$metodo_ajuste_lm, verbose = FALSE)
+          p_adjust = input$metodo_ajuste_lm, vcov = vcov_lm(),
+          verbose = FALSE)
         df_ct <- as.data.frame(ct)
         char_cols <- names(df_ct)[sapply(df_ct, function(x)
           is.character(x) || is.factor(x))]
@@ -3570,7 +3833,8 @@ mod_lm_server <- function(id) {
       tryCatch({
         ct    <- modelbased::estimate_contrasts(
           fit, contrast = input$var_contraste_lm,
-          p_adjust = input$metodo_ajuste_lm, verbose = FALSE)
+          p_adjust = input$metodo_ajuste_lm, vcov = vcov_lm(),
+          verbose = FALSE)
         df_ct <- as.data.frame(ct)
         char_cols <- names(df_ct)[sapply(df_ct, function(x)
           is.character(x) || is.factor(x))]
@@ -3738,6 +4002,11 @@ mod_lm_server <- function(id) {
         "  extract_fit_parsnip() |>\n",
         "  pluck(\"fit\")\n\n",
         "model_parameters(lm_fit)          # coeficientes + IC 95%\n",
+        if (!is.null(vcov_lm()))
+          paste0(
+            "model_parameters(lm_fit, vcov = \"", vcov_lm(), "\")\n",
+            "                                  # EE robustos (requiere sandwich)\n"
+          ) else "",
         if (!es_nulo)
           "standardize_parameters(lm_fit)    # betas estandarizados\n\n" else "\n",
         "# \u2500\u2500 Diagn\u00f3stico (easystats + car) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n",
