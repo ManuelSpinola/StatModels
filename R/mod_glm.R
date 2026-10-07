@@ -679,9 +679,13 @@ mod_glm_ui <- function(id) {
                 uiOutput(ns("sel_var_y_exp")),
                 uiOutput(ns("sel_var_x")),
                 uiOutput(ns("sel_color")),
-                checkboxInput(ns("mostrar_suavizado"),
-                              "Mostrar curva del modelo",
-                              value = TRUE),
+                # La curva solo aplica con X numérica
+                conditionalPanel(
+                  condition = paste0("!output['", ns("x_es_cat"), "']"),
+                  checkboxInput(ns("mostrar_suavizado"),
+                                "Mostrar curva del modelo",
+                                value = TRUE)
+                ),
                 tags$hr(),
                 uiOutput(ns("cards_correlacion"))
               )
@@ -2060,191 +2064,318 @@ mod_glm_server <- function(id) {
           bs_icon("exclamation-triangle-fill", class = "me-1"), msg)
     })
 
+    # X puede ser numérica (curva del modelo) o categórica (estimado por
+    # grupo con IC 95%: proporción de Y=1 en binomial, media en conteos).
     output$sel_var_x <- renderUI({
-      req(vars_numericas())
+      req(input$var_y_exp)
+      nums <- setdiff(vars_numericas(), input$var_y_exp)
+      cats <- setdiff(vars_categoricas(), input$var_y_exp)
+      # as.list(): un grupo con una sola opción no debe confundirse
+      # con una opción llamada "Numéricas"
+      opciones <- Filter(length, list("Numéricas"   = as.list(nums),
+                                      "Categóricas" = as.list(cats)))
+      req(length(opciones) > 0)
+      prev <- isolate(input$var_x)
+      sel  <- if (!is.null(prev) && prev %in% c(nums, cats)) prev
+              else c(nums, cats)[1]
       selectInput(ns("var_x"), label = "Variable X (predictor):",
-                  choices = vars_numericas(),
-                  selected = vars_numericas()[1])
+                  choices = opciones, selected = sel)
     })
 
     output$sel_color <- renderUI({
-      cats <- vars_categoricas()
+      cats <- setdiff(vars_categoricas(), c(input$var_x, input$var_y_exp))
       if (length(cats) == 0) return(NULL)
+      prev <- isolate(input$var_color)
+      sel  <- if (!is.null(prev) && prev %in% cats) prev else "ninguna"
       selectInput(ns("var_color"), label = "Colorear por (opcional):",
-                  choices = c("Ninguna" = "ninguna", cats),
-                  selected = "ninguna")
+                  choices = c("Ninguna" = "ninguna", cats), selected = sel)
+    })
+
+    es_binomial_exp <- reactive(identical(input$familia, "binomial"))
+
+    # Datos de Explorar: filas completas en X e Y; Y binaria pasada a 0/1
+    datos_exp <- reactive({
+      df <- datos_finales()
+      x  <- input$var_x
+      y  <- input$var_y_exp
+      req(df, x, y, x != y, all(c(x, y) %in% names(df)))
+      col_color <- input$var_color
+      cols <- unique(c(x, y,
+                       if (!is.null(col_color) && col_color != "ninguna" &&
+                           col_color %in% names(df)) col_color))
+      d <- df[stats::complete.cases(df[, c(x, y)]), cols, drop = FALSE]
+      if (es_binomial_exp()) d[[y]] <- y_binaria_num(d[[y]])
+      d
+    })
+
+    x_es_cat <- reactive({
+      d <- datos_exp()
+      !is.numeric(d[[input$var_x]])
+    })
+    output$x_es_cat <- reactive(x_es_cat())
+    outputOptions(output, "x_es_cat", suspendWhenHidden = FALSE)
+
+    # IC 95% de Wilson para una proporción (mejor que Wald con n pequeño
+    # o proporciones cercanas a 0 o 1)
+    ic_wilson <- function(s, n, z = 1.96) {
+      p   <- s / n
+      den <- 1 + z^2 / n
+      cen <- (p + z^2 / (2 * n)) / den
+      h   <- z * sqrt(p * (1 - p) / n + z^2 / (4 * n^2)) / den
+      c(max(0, cen - h), min(1, cen + h))
+    }
+
+    # Resumen por grupo (X, o X × color): estimado + IC 95%
+    resumen_grupos_exp <- reactive({
+      req(x_es_cat())
+      d <- datos_exp()
+      x <- input$var_x
+      y <- input$var_y_exp
+      col_color <- input$var_color
+      usar_color <- !is.null(col_color) && col_color != "ninguna" &&
+        col_color %in% names(d)
+      claves <- if (usar_color) c(x, col_color) else x
+      partes <- split(d, d[, claves, drop = FALSE], drop = TRUE)
+      filas <- lapply(partes, function(g) {
+        v <- g[[y]]; n <- length(v)
+        if (es_binomial_exp()) {
+          ic <- ic_wilson(sum(v == 1), n)
+          est <- mean(v)
+        } else {
+          est <- mean(v)
+          se  <- if (n > 1) stats::sd(v) / sqrt(n) else NA
+          tq  <- if (n > 1) stats::qt(0.975, n - 1) else NA
+          ic  <- c(max(0, est - tq * se), est + tq * se)
+        }
+        out <- data.frame(grupo = as.character(g[[x]][1]), n = n,
+                          est = est, lo = ic[1], hi = ic[2],
+                          razon_vm = if (!es_binomial_exp() && n > 1 && est > 0)
+                            stats::var(v) / est else NA,
+                          stringsAsFactors = FALSE)
+        if (usar_color) out$color <- as.character(g[[col_color]][1])
+        out
+      })
+      res <- do.call(rbind, filas)
+      niveles <- levels(droplevels(factor(d[[x]])))
+      res$grupo <- factor(res$grupo, levels = niveles)
+      if (usar_color)
+        res$color <- factor(res$color,
+                            levels = levels(droplevels(factor(d[[col_color]]))))
+      rownames(res) <- NULL
+      res
     })
 
     output$cards_correlacion <- renderUI({
-      df  <- datos_finales(); req(df, input$var_x)
-      fam <- input$familia
-      req(input$var_y_exp)
-      yvar <- input$var_y_exp
-      req(yvar %in% names(df))
+      d <- datos_exp()
+      x <- input$var_x
+      y <- input$var_y_exp
+      tarjeta <- function(valor, etiqueta, col) card(
+        fill = FALSE, class = "text-center border-0",
+        style = paste0("background:", colores$fondo),
+        card_body(class = "p-2",
+                  h4(style = paste0("color:", col, "; font-weight:700;"), valor),
+                  p(class = "small text-muted mb-0", etiqueta)))
 
-      if (fam == "binomial") {
-        # Para binomial: proporción de Y=1 por grupos de X
-        tryCatch({
-          y_bin <- y_binaria_num(df[[yvar]])
-          prop  <- round(mean(y_bin, na.rm = TRUE), 3)
-          n_pos <- sum(y_bin == 1, na.rm = TRUE)
-          layout_columns(
-            col_widths = c(6, 6),
-            fill = FALSE,
-            card(class = "text-center border-0",
-                 style = paste0("background:", colores$fondo),
-                 card_body(class = "p-2",
-                           h4(style = paste0("color:", colores$primario,
-                                             "; font-weight:700;"),
-                              paste0(round(prop * 100, 0), "%")),
-                           p(class = "small text-muted mb-0", "Prevalencia (Y=1)")
-                 )),
-            card(class = "text-center border-0",
-                 style = paste0("background:", colores$fondo),
-                 card_body(class = "p-2",
-                           h4(style = paste0("color:", colores$acento,
-                                             "; font-weight:700;"), n_pos),
-                           p(class = "small text-muted mb-0", "Casos positivos")
-                 ))
-          )
-        }, error = function(e) NULL)
-      } else {
-        # Para Poisson/BN: correlación con la Y numérica
-        req(yvar != input$var_x)
-        cor_val <- cor(df[[yvar]], df[[input$var_x]], use = "complete.obs")
+      if (x_es_cat()) {
+        # Rango por nivel de X (sin desagregar por color)
+        por_x <- tapply(d[[y]], droplevels(factor(d[[x]])), mean)
+        rango <- if (es_binomial_exp())
+          paste0(round(min(por_x) * 100), "–", round(max(por_x) * 100), "%")
+        else
+          paste0(round(min(por_x), 1), "–", round(max(por_x), 1))
         layout_columns(
-          col_widths = c(6, 6),
-          fill = FALSE,
-          card(class = "text-center border-0",
-               style = paste0("background:", colores$fondo),
-               card_body(class = "p-2",
-                         h4(style = paste0("color:", colores$primario,
-                                           "; font-weight:700;"),
-                            round(cor_val, 2)),
-                         p(class = "small text-muted mb-0", "Correlación (r)")
-               )),
-          card(class = "text-center border-0",
-               style = paste0("background:", colores$fondo),
-               card_body(class = "p-2",
-                         h4(style = paste0("color:", colores$acento,
-                                           "; font-weight:700;"),
-                            paste0(round(cor_val^2 * 100, 0), "%")),
-                         p(class = "small text-muted mb-0", "R² simple")
-               ))
-        )
+          col_widths = c(6, 6), fill = FALSE,
+          tarjeta(length(por_x), "Grupos", colores$primario),
+          tarjeta(rango,
+                  if (es_binomial_exp()) "Prevalencia por grupo"
+                  else "Media por grupo",
+                  colores$acento))
+      } else if (es_binomial_exp()) {
+        layout_columns(
+          col_widths = c(6, 6), fill = FALSE,
+          tarjeta(paste0(round(mean(d[[y]]) * 100, 0), "%"),
+                  "Prevalencia (Y=1)", colores$primario),
+          tarjeta(sum(d[[y]] == 1), "Casos positivos", colores$acento))
+      } else {
+        req(stats::sd(d[[x]]) > 0, stats::sd(d[[y]]) > 0)
+        cor_val <- stats::cor(d[[y]], d[[x]])
+        layout_columns(
+          col_widths = c(6, 6), fill = FALSE,
+          tarjeta(round(cor_val, 2), "Correlación (r)", colores$primario),
+          tarjeta(paste0(round(cor_val^2 * 100, 0), "%"), "R² simple",
+                  colores$acento))
       }
     })
 
     output$plot_scatter <- renderPlot(suppressWarnings({
-      df  <- datos_finales(); req(df, input$var_x)
-      fam <- input$familia
-      req(input$var_y_exp)
-      yvar <- input$var_y_exp
-      req(yvar %in% names(df))
+      d   <- datos_exp()
+      x   <- input$var_x
+      y   <- input$var_y_exp
+      bin <- es_binomial_exp()
 
       usar_color <- !is.null(input$var_color) &&
         input$var_color != "ninguna" &&
-        input$var_color %in% names(df)
+        input$var_color %in% names(d)
 
-      if (fam == "binomial") {
+      if (x_es_cat()) {
+        # ── X categórica: estimado por grupo ± IC 95% ─────
+        rg    <- resumen_grupos_exp()
+        dodge <- position_dodge(width = if (usar_color) 0.5 else 0)
+        aes_g <- if (usar_color)
+          aes(x = grupo, y = est, color = color, group = color)
+        else aes(x = grupo, y = est)
+
+        p <- ggplot(rg, aes_g)
+        if (!bin) {
+          # Conteos: observaciones individuales de fondo
+          p <- p + geom_point(
+            data = d,
+            aes(x = .data[[x]], y = .data[[y]]),
+            inherit.aes = FALSE,
+            position = position_jitter(width = 0.12, height = 0, seed = 42),
+            color = colores$texto, alpha = 0.25, size = 1.6)
+        }
+        if (usar_color) {
+          p <- p +
+            geom_errorbar(aes(ymin = lo, ymax = hi), width = 0.15,
+                          linewidth = 0.9, position = dodge) +
+            geom_point(size = 3.2, position = dodge) +
+            scale_color_manual(values = colores$tableau,
+                               name = input$var_color)
+        } else {
+          p <- p +
+            geom_errorbar(aes(ymin = lo, ymax = hi), width = 0.15,
+                          linewidth = 0.9, color = colores$primario) +
+            geom_point(size = 3.5, shape = 23, fill = colores$acento,
+                       color = "white")
+        }
+        # Tamaño de cada grupo: en el eje X si no hay color; sobre la
+        # barra de error si hay color (varios grupos por nivel de X)
+        if (usar_color) {
+          p <- p + geom_text(aes(y = hi, label = paste0("n=", n)),
+                             vjust = -0.6, size = 3, position = dodge,
+                             show.legend = FALSE, color = colores$texto)
+        } else {
+          p <- p + scale_x_discrete(
+            labels = stats::setNames(paste0(rg$grupo, "\n(n=", rg$n, ")"),
+                                     as.character(rg$grupo)))
+        }
+        if (bin)
+          p <- p + scale_y_continuous(labels = scales::percent,
+                                      limits = c(0, 1.08),
+                                      breaks = seq(0, 1, 0.25))
+        p <- p + labs(
+          x = x,
+          y = if (bin) paste0("Proporción de ", y, " = 1") else y,
+          subtitle = paste0(
+            if (bin) "Proporción por grupo · IC 95% de Wilson"
+            else "Media por grupo · IC 95% · puntos grises = observaciones",
+            " · n = ", nrow(d), " observaciones"))
+
+      } else if (bin) {
         # ── Binomial: jitter + curva logística ────────────
-        df[[yvar]] <- y_binaria_num(df[[yvar]])
-
-        p <- ggplot(df, aes(x = .data[[input$var_x]],
-                            y = .data[[yvar]]))
+        p <- ggplot(d, aes(x = .data[[x]], y = .data[[y]]))
         if (usar_color)
           p <- p + aes(color = .data[[input$var_color]]) +
-          scale_color_manual(values = colores$tableau,
-                             name = input$var_color)
-
+            scale_color_manual(values = colores$tableau,
+                               name = input$var_color)
+        p <- p + geom_jitter(height = 0.05, alpha = 0.4, size = 2)
+        if (isTRUE(input$mostrar_suavizado))
+          p <- p + geom_smooth(method = "glm", formula = y ~ x,
+                               method.args = list(family = binomial()),
+                               se = TRUE, color = colores$primario,
+                               fill = colores$secundario, inherit.aes = TRUE,
+                               alpha = 0.15, linewidth = 1.2,
+                               show.legend = FALSE)
         p <- p +
-          geom_jitter(height = 0.05, alpha = 0.4, size = 2) +
-          geom_smooth(method = "glm", formula = y ~ x,
-                      method.args = list(family = binomial()),
-                      se = TRUE, color = colores$primario,
-                      fill = colores$secundario, inherit.aes = TRUE,
-                      alpha = 0.15, linewidth = 1.2,
-                      show.legend = FALSE) +
           scale_y_continuous(breaks = c(0, 1),
                              labels = c("0 (ausente)", "1 (presente)")) +
-          labs(x = input$var_x, y = yvar,
-               subtitle = paste0(
-                 "Curva logística · n = ", nrow(df), " observaciones")) +
-          theme_minimal(base_size = 13) +
-          theme(panel.grid.minor = element_blank(),
-                legend.position  = "bottom",
-                plot.subtitle    = element_text(color = colores$texto,
-                                                size = 10))
+          labs(x = x, y = y,
+               subtitle = paste0("Curva logística · n = ", nrow(d),
+                                 " observaciones"))
 
       } else {
-        # ── Poisson / BN: scatter en escala log ───────────
-        req(yvar != input$var_x)
-
-        p <- ggplot(df, aes(x = .data[[input$var_x]],
-                            y = .data[[yvar]]))
+        # ── Poisson / BN: dispersión + curva Poisson ──────
+        p <- ggplot(d, aes(x = .data[[x]], y = .data[[y]]))
         if (usar_color)
           p <- p + aes(color = .data[[input$var_color]]) +
-          scale_color_manual(values = colores$tableau,
-                             name = input$var_color)
-
-        p <- p +
-          geom_point(alpha = 0.5, size = 2) +
-          geom_smooth(method = "glm", formula = y ~ x,
-                      method.args = list(family = poisson()),
-                      se = TRUE, color = colores$primario,
-                      fill = colores$secundario, inherit.aes = TRUE,
-                      alpha = 0.15, linewidth = 1.2,
-                      show.legend = FALSE) +
-          labs(x = input$var_x, y = yvar,
-               subtitle = paste0(
-                 "Curva Poisson (escala log) · n = ",
-                 nrow(df), " observaciones")) +
-          theme_minimal(base_size = 13) +
-          theme(panel.grid.minor = element_blank(),
-                legend.position  = "bottom",
-                plot.subtitle    = element_text(color = colores$texto,
-                                                size = 10))
+            scale_color_manual(values = colores$tableau,
+                               name = input$var_color)
+        p <- p + geom_point(alpha = 0.5, size = 2)
+        if (isTRUE(input$mostrar_suavizado))
+          p <- p + geom_smooth(method = "glm", formula = y ~ x,
+                               method.args = list(family = poisson()),
+                               se = TRUE, color = colores$primario,
+                               fill = colores$secundario, inherit.aes = TRUE,
+                               alpha = 0.15, linewidth = 1.2,
+                               show.legend = FALSE)
+        p <- p + labs(x = x, y = y,
+                      subtitle = paste0("Curva Poisson (escala log) · n = ",
+                                        nrow(d), " observaciones"))
       }
+
+      p <- p +
+        theme_minimal(base_size = 13) +
+        theme(panel.grid.minor = element_blank(),
+              legend.position  = "bottom",
+              plot.subtitle    = element_text(color = colores$texto,
+                                              size = 10))
       print(p)
     }), res = 96)
 
     output$insight_scatter <- renderUI({
-      df  <- datos_finales(); req(df, input$var_x)
-      fam <- input$familia
-      req(input$var_y_exp)
-      yvar <- input$var_y_exp
-      req(yvar %in% names(df))
+      d   <- datos_exp()
+      x   <- input$var_x
+      y   <- input$var_y_exp
+      bin <- es_binomial_exp()
 
-      if (fam == "binomial") {
-        tryCatch({
-          y_bin   <- y_binaria_num(df[[yvar]])
-          prop    <- round(mean(y_bin, na.rm = TRUE) * 100, 0)
-          # Comparar medias de X entre grupos
-          mu1 <- round(mean(df[[input$var_x]][y_bin == 1], na.rm = TRUE), 2)
-          mu0 <- round(mean(df[[input$var_x]][y_bin == 0], na.rm = TRUE), 2)
-          dir <- if (mu1 > mu0) "mayor" else "menor"
-          div(class = "alert alert-info small py-2 px-3 mt-2 mb-0",
-              bs_icon("lightbulb-fill", class = "me-1"),
-              paste0("La prevalencia de ", yvar, " es ", prop, "%. ",
-                     "Los casos positivos tienen en promedio ",
-                     dir, " valor de ", input$var_x,
-                     " (media Y=1: ", mu1, " · media Y=0: ", mu0, ")."))
-        }, error = function(e) NULL)
-
+      texto <- if (x_es_cat()) {
+        por_x <- tapply(d[[y]], droplevels(factor(d[[x]])), mean)
+        g_min <- names(which.min(por_x)); g_max <- names(which.max(por_x))
+        if (bin) {
+          paste0(
+            "La prevalencia de ", y, " va de ", round(min(por_x) * 100), "% (",
+            g_min, ") a ", round(max(por_x) * 100), "% (", g_max, "). ",
+            "En el GLM binomial, exp(β) de cada nivel de ", x,
+            " es el odds ratio respecto al nivel de referencia. ",
+            "Si los IC se traslapan mucho, la diferencia puede no ser significativa."
+          )
+        } else {
+          rg  <- resumen_grupos_exp()
+          rvm <- stats::median(rg$razon_vm, na.rm = TRUE)
+          paste0(
+            "La media de ", y, " va de ", round(min(por_x), 2), " (", g_min,
+            ") a ", round(max(por_x), 2), " (", g_max, ")",
+            if (min(por_x) > 0)
+              paste0(" — una razón de ", round(max(por_x) / min(por_x), 2), "×"),
+            ". Con enlace log, exp(β) estima estas razones de medias ",
+            "respecto al nivel de referencia.",
+            if (!is.na(rvm) && rvm > 1.5)
+              paste0(" Dentro de los grupos la varianza es ~", round(rvm, 1),
+                     " veces la media: posible sobredispersión ",
+                     "(considera binomial negativa).")
+          )
+        }
+      } else if (bin) {
+        mu1 <- round(mean(d[[x]][d[[y]] == 1]), 2)
+        mu0 <- round(mean(d[[x]][d[[y]] == 0]), 2)
+        paste0("La prevalencia de ", y, " es ", round(mean(d[[y]]) * 100), "%. ",
+               "Los casos positivos tienen en promedio ",
+               if (mu1 > mu0) "mayor" else "menor", " valor de ", x,
+               " (media Y=1: ", mu1, " · media Y=0: ", mu0, ").")
       } else {
-        req(yvar != input$var_x)
-        cor_val <- cor(df[[yvar]], df[[input$var_x]], use = "complete.obs")
-        dir <- if (cor_val > 0.5) "positiva y fuerte" else
-          if (cor_val > 0.2) "positiva y moderada" else
-            if (cor_val < -0.5) "negativa y fuerte" else "débil"
-        div(class = "alert alert-info small py-2 px-3 mt-2 mb-0",
-            bs_icon("lightbulb-fill", class = "me-1"),
-            paste0("La relación entre ", input$var_x, " y ", yvar,
-                   " es ", dir, " (r = ", round(cor_val, 2), "). ",
-                   "Esta variable sola explica el ",
-                   round(cor_val^2 * 100, 0),
-                   "% de la variación en ", yvar, "."))
+        req(stats::sd(d[[x]]) > 0, stats::sd(d[[y]]) > 0)
+        r <- stats::cor(d[[y]], d[[x]])
+        fuerza <- if (abs(r) >= 0.7) "fuerte" else
+          if (abs(r) >= 0.4) "moderada" else
+            if (abs(r) >= 0.2) "débil" else "muy débil o nula"
+        paste0("La relación lineal entre ", x, " y ", y, " es ",
+               if (r >= 0) "positiva" else "negativa", " y ", fuerza,
+               " (r = ", round(r, 2), "). Ojo: con conteos la relación ",
+               "suele ser multiplicativa (curva), así que r la subestima.")
       }
+      div(class = "alert alert-info small py-2 px-3 mt-2 mb-0",
+          bs_icon("lightbulb-fill", class = "me-1"), texto)
     })
 
     # ────────────────────────────────────────────────────

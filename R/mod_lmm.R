@@ -525,9 +525,11 @@ mod_lmm_ui <- function(id) {
         title = tagList(bs_icon("zoom-in", class = "me-1"), "Explorar"),
         card_body(
           p(class = "small text-muted mb-3",
-            "Visualiza la estructura jer\u00e1rquica de los datos. El gr\u00e1fico ",
-            "de spaguetti muestra la relaci\u00f3n X\u2192Y por grupo, revelando ",
-            "si los interceptos y/o pendientes var\u00edan entre grupos."
+            "Visualiza la estructura jer\u00e1rquica de los datos. Con X num\u00e9rica, ",
+            "el gr\u00e1fico de spaghetti muestra la relaci\u00f3n X\u2192Y por grupo; ",
+            "con X categ\u00f3rica, un gr\u00e1fico de interacci\u00f3n muestra la media ",
+            "de Y en cada nivel de X por grupo. Ambos revelan si los interceptos ",
+            "y/o los efectos var\u00edan entre grupos."
           ),
           layout_columns(
             col_widths = c(4, 8),
@@ -541,7 +543,7 @@ mod_lmm_ui <- function(id) {
                 uiOutput(ns("sel_var_x_exp")),
                 uiOutput(ns("sel_grupo_exp")),
                 checkboxInput(ns("mostrar_global"),
-                              "Mostrar l\u00ednea global (LM simple)",
+                              "Mostrar tendencia global (negro)",
                               value = TRUE),
                 checkboxInput(ns("mostrar_grupos"),
                               "Mostrar l\u00edneas por grupo",
@@ -1583,91 +1585,215 @@ mod_lmm_server <- function(id) {
 
     output$sel_var_y_exp <- renderUI({
       req(vars_numericas())
+      prev <- isolate(input$var_y_exp)
+      sel  <- if (!is.null(prev) && prev %in% vars_numericas()) prev
+              else vars_numericas()[1]
       selectInput(ns("var_y_exp"), "Variable Y:",
-                  choices = vars_numericas(), selected = vars_numericas()[1])
+                  choices = vars_numericas(), selected = sel)
     })
+
+    # X puede ser numérica (spaghetti: una recta por grupo) o categórica
+    # (gráfico de interacción: media de Y por nivel de X, una línea por grupo)
     output$sel_var_x_exp <- renderUI({
-      nums <- vars_numericas(); req(nums, input$var_y_exp)
-      opts <- nums[nums != input$var_y_exp]
-      req(length(opts) > 0)
+      req(input$var_y_exp)
+      nums <- setdiff(vars_numericas(), input$var_y_exp)
+      cats <- setdiff(vars_categoricas(), input$grupo_exp)
+      # as.list(): un grupo con una sola opción no debe confundirse
+      # con una opción llamada "Numéricas"
+      opciones <- Filter(length, list("Numéricas"   = as.list(nums),
+                                      "Categóricas" = as.list(cats)))
+      req(length(opciones) > 0)
+      prev <- isolate(input$var_x_exp)
+      sel  <- if (!is.null(prev) && prev %in% c(nums, cats)) prev
+              else c(nums, cats)[1]
       selectInput(ns("var_x_exp"), "Variable X:",
-                  choices = opts, selected = opts[1])
+                  choices = opciones, selected = sel)
     })
+
     output$sel_grupo_exp <- renderUI({
       cats <- vars_categoricas()
       if (length(cats) == 0) return(
         p(class = "small text-muted",
-          "No hay variables categ\u00f3ricas. Convierta la variable de grupo en la pesta\u00f1a Tipos.")
+          "No hay variables categóricas. Convierta la variable de grupo en la pestaña Tipos.")
       )
+      prev <- isolate(input$grupo_exp)
+      sel  <- if (!is.null(prev) && prev %in% cats) prev else cats[1]
       selectInput(ns("grupo_exp"), "Variable de grupo:",
-                  choices = cats, selected = cats[1])
+                  choices = cats, selected = sel)
     })
 
-    output$plot_spaghetti <- renderPlot({
+    # Datos de Explorar: filas completas en X, Y y grupo
+    datos_exp <- reactive({
       df <- datos_finales()
-      req(df, input$var_y_exp, input$var_x_exp, input$grupo_exp)
+      x  <- input$var_x_exp
+      y  <- input$var_y_exp
+      g  <- input$grupo_exp
+      req(df, x, y, g, length(unique(c(x, y, g))) == 3,
+          all(c(x, y, g) %in% names(df)))
+      d <- df[stats::complete.cases(df[, c(x, y, g)]), c(x, y, g), drop = FALSE]
+      d[[g]] <- droplevels(factor(d[[g]]))
+      d
+    })
+
+    x_es_cat <- reactive({
+      d <- datos_exp()
+      !is.numeric(d[[input$var_x_exp]])
+    })
+
+    # Paleta para muchos grupos
+    escala_grupos <- function(n_grupos) {
+      if (n_grupos <= length(colores$tableau))
+        ggplot2::scale_color_manual(values = colores$tableau)
+      else
+        ggplot2::scale_color_manual(
+          values = grDevices::colorRampPalette(colores$tableau)(n_grupos))
+    }
+
+    output$plot_spaghetti <- renderPlot({
+      d <- datos_exp()
+      x <- input$var_x_exp
+      y <- input$var_y_exp
+      g <- input$grupo_exp
+      n_grupos <- nlevels(d[[g]])
       tryCatch({
-        p <- ggplot2::ggplot(df,
-               ggplot2::aes(x = .data[[input$var_x_exp]],
-                            y = .data[[input$var_y_exp]],
-                            color = .data[[input$grupo_exp]],
-                            group = .data[[input$grupo_exp]])) +
-          ggplot2::geom_point(alpha = 0.5, size = 2)
+        if (x_es_cat()) {
+          # ── X categórica: gráfico de interacción ──────────
+          d[[x]] <- droplevels(factor(d[[x]]))
+          medias_g <- stats::aggregate(d[[y]],
+                                       by = list(x_niv = d[[x]], grp = d[[g]]),
+                                       FUN = mean)
+          names(medias_g)[3] <- "media"
+          # Media global ± IC 95% por nivel de X (ignora la estructura
+          # de grupos: es solo una referencia descriptiva)
+          glob <- do.call(rbind, lapply(split(d[[y]], d[[x]]), function(v) {
+            n <- length(v); m <- mean(v)
+            h <- if (n > 1) stats::qt(0.975, n - 1) * stats::sd(v) / sqrt(n) else NA
+            data.frame(media = m, lo = m - h, hi = m + h)
+          }))
+          glob$x_niv <- factor(rownames(glob), levels = levels(d[[x]]))
 
-        if (isTRUE(input$mostrar_grupos))
-          p <- p + ggplot2::geom_smooth(method = "lm", formula = y ~ x,
-                                         se = FALSE, linewidth = 0.8, alpha = 0.7)
-        if (isTRUE(input$mostrar_global))
-          p <- p + ggplot2::geom_smooth(
-            data = df,
-            ggplot2::aes(x = .data[[input$var_x_exp]],
-                         y = .data[[input$var_y_exp]]),
-            method = "lm", formula = y ~ x, se = TRUE,
-            color = "black", linewidth = 1.3, linetype = "dashed",
-            inherit.aes = FALSE)
+          p <- ggplot2::ggplot(medias_g,
+                               ggplot2::aes(x = x_niv, y = media,
+                                            color = grp, group = grp))
+          if (isTRUE(input$mostrar_grupos))
+            p <- p +
+              ggplot2::geom_line(alpha = 0.6, linewidth = 0.7) +
+              ggplot2::geom_point(alpha = 0.7, size = 1.8)
+          if (isTRUE(input$mostrar_global))
+            p <- p +
+              ggplot2::geom_errorbar(
+                data = glob,
+                ggplot2::aes(x = x_niv, ymin = lo, ymax = hi),
+                inherit.aes = FALSE, width = 0.12, linewidth = 0.9,
+                color = "black") +
+              ggplot2::geom_line(
+                data = glob, ggplot2::aes(x = x_niv, y = media, group = 1),
+                inherit.aes = FALSE, color = "black", linewidth = 1.3,
+                linetype = "dashed") +
+              ggplot2::geom_point(
+                data = glob, ggplot2::aes(x = x_niv, y = media),
+                inherit.aes = FALSE, color = "black", size = 3)
+          subt <- paste0("Media por grupo (color) · Media global ± IC 95% ",
+                         "(negro punteado)")
+          eje_x <- x
+        } else {
+          # ── X numérica: spaghetti ─────────────────────────
+          p <- ggplot2::ggplot(d,
+                 ggplot2::aes(x = .data[[x]], y = .data[[y]],
+                              color = .data[[g]], group = .data[[g]])) +
+            ggplot2::geom_point(alpha = 0.5, size = 2)
+          if (isTRUE(input$mostrar_grupos))
+            p <- p + ggplot2::geom_smooth(method = "lm", formula = y ~ x,
+                                          se = FALSE, linewidth = 0.8, alpha = 0.7)
+          if (isTRUE(input$mostrar_global))
+            p <- p + ggplot2::geom_smooth(
+              data = d,
+              ggplot2::aes(x = .data[[x]], y = .data[[y]]),
+              method = "lm", formula = y ~ x, se = TRUE,
+              color = "black", linewidth = 1.3, linetype = "dashed",
+              inherit.aes = FALSE)
+          subt  <- "Líneas por grupo (color) · Línea global (negro punteado)"
+          eje_x <- x
+        }
 
-        n_grupos <- length(unique(df[[input$grupo_exp]]))
-        escala_color <- if (n_grupos <= length(colores$tableau))
-          ggplot2::scale_color_manual(values = colores$tableau)
-        else
-          ggplot2::scale_color_manual(
-            values = colorRampPalette(colores$tableau)(n_grupos))
-
-        p + ggplot2::labs(
-              x        = input$var_x_exp,
-              y        = input$var_y_exp,
-              color    = input$grupo_exp,
-              subtitle = "L\u00edneas por grupo (color) \u00b7 L\u00ednea global (negro punteado)"
-            ) +
-          escala_color +
+        p + ggplot2::labs(x = eje_x, y = y, color = g, subtitle = subt) +
+          escala_grupos(n_grupos) +
           ggplot2::theme_minimal(base_size = 13) +
-          ggplot2::theme(panel.grid.minor  = ggplot2::element_blank(),
-                         legend.position   = "bottom",
-                         plot.subtitle     = ggplot2::element_text(
+          ggplot2::theme(panel.grid.minor = ggplot2::element_blank(),
+                         legend.position  = if (n_grupos > 15) "none" else "bottom",
+                         plot.subtitle    = ggplot2::element_text(
                            color = colores$texto, size = 9))
       }, error = function(e) {
         ggplot2::ggplot() +
-          ggplot2::annotate("text", x=0.5, y=0.5,
+          ggplot2::annotate("text", x = 0.5, y = 0.5,
                             label = "Selecciona variables para visualizar.",
-                            color = colores$texto, size=4) +
+                            color = colores$texto, size = 4) +
           ggplot2::theme_void()
       })
     }, res = 96)
 
-    output$insight_estructura <- renderUI({
-      df <- datos_finales()
-      req(df, input$grupo_exp, input$var_y_exp)
+    # ICC del modelo nulo Y ~ 1 + (1 | grupo): qué fracción de la varianza
+    # de Y se debe a diferencias entre grupos, antes de agregar predictores
+    icc_previo <- reactive({
+      d <- datos_exp()
+      y <- input$var_y_exp
+      g <- input$grupo_exp
+      req(nlevels(d[[g]]) >= 2)
       tryCatch({
-        grupos <- unique(df[[input$grupo_exp]])
-        n_grupos <- length(grupos)
-        n_obs <- nrow(df)
-        div(class = "alert alert-info small py-2 px-3 mt-2 mb-0",
-            bs_icon("lightbulb-fill", class = "me-1"),
-            strong(n_grupos, " grupos"), " (", input$grupo_exp, ") con ",
-            strong(round(n_obs / n_grupos, 1)), " observaciones en promedio. ",
-            "Si las l\u00edneas de grupo tienen pendientes e interceptos distintos, ",
-            "el modelo mixto es adecuado.")
+        fm0 <- suppressMessages(suppressWarnings(
+          lme4::lmer(stats::as.formula(paste0("`", y, "` ~ 1 + (1 | `", g, "`)")),
+                     data = d, REML = TRUE)))
+        vc  <- as.data.frame(lme4::VarCorr(fm0))
+        v_g <- vc$vcov[vc$grp == g][1]
+        v_r <- vc$vcov[vc$grp == "Residual"][1]
+        list(icc = v_g / (v_g + v_r), n_grupos = nlevels(d[[g]]),
+             n_prom = nrow(d) / nlevels(d[[g]]))
       }, error = function(e) NULL)
+    })
+
+    output$cards_icc_previo <- renderUI({
+      ic <- icc_previo(); req(ic)
+      col <- if (ic$icc > 0.3) colores$exito else
+        if (ic$icc > 0.1) colores$acento else colores$texto
+      tarjeta <- function(valor, etiqueta, color) card(
+        fill = FALSE, class = "text-center border-0",
+        style = paste0("background:", colores$fondo),
+        card_body(class = "p-2",
+                  h4(style = paste0("color:", color, "; font-weight:700;"), valor),
+                  p(class = "small text-muted mb-0", etiqueta)))
+      layout_columns(
+        col_widths = c(6, 6), fill = FALSE,
+        tarjeta(ic$n_grupos, "Grupos", colores$primario),
+        tarjeta(round(ic$icc, 2), "ICC (modelo nulo)", col)
+      )
+    })
+
+    output$insight_estructura <- renderUI({
+      d  <- datos_exp()
+      ic <- icc_previo()
+      x  <- input$var_x_exp
+      g  <- input$grupo_exp
+      n_grupos <- nlevels(d[[g]])
+      icc_txt <- if (!is.null(ic))
+        paste0(" El ", round(ic$icc * 100), "% de la varianza de ",
+               input$var_y_exp, " se debe a diferencias entre grupos (ICC)",
+               if (ic$icc > 0.1) " — el modelo mixto está justificado."
+               else " — bajo; el agrupamiento aporta poco.")
+      else ""
+      patron <- if (x_es_cat())
+        paste0(" Si las líneas de grupo son paralelas pero desplazadas, ",
+               "basta un intercepto aleatorio (1 | ", g, "); si se cruzan o ",
+               "cambian de forma, el efecto de ", x, " varía entre grupos ",
+               "(considera (1 + ", x, " | ", g, ")).")
+      else
+        paste0(" Si las rectas de grupo tienen interceptos distintos pero son ",
+               "paralelas, basta (1 | ", g, "); si las pendientes varían, ",
+               "considera (1 + ", x, " | ", g, ").")
+      div(class = "alert alert-info small py-2 px-3 mt-2 mb-0",
+          bs_icon("lightbulb-fill", class = "me-1"),
+          strong(n_grupos, " grupos"), " (", g, ") con ",
+          strong(round(nrow(d) / n_grupos, 1)), " observaciones en promedio.",
+          icc_txt, patron)
     })
 
     # ────────────────────────────────────────────────────

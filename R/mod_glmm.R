@@ -1562,60 +1562,129 @@ mod_glmm_server <- function(id) {
     # EXPLORAR
     # ────────────────────────────────────────────────────
 
-    output$sel_var_y_exp <- renderUI({
-      nums <- vars_numericas(); req(nums)
-      selectInput(ns("var_y_exp"), "Variable respuesta (Y):",
-                  choices = nums, selected = nums[1])
+    # ── Helpers de respuesta binaria (mismos criterios que el GLM) ───────
+    # Una Y binaria puede venir como numérica 0/1 o como factor/character
+    # de 2 niveles (habitual en presencia/ausencia); ambas son válidas
+    # para glmmTMB con familia binomial.
+    es_binaria <- function(x) {
+      if (is.factor(x) || is.character(x)) {
+        length(unique(stats::na.omit(x))) == 2
+      } else if (is.numeric(x)) {
+        vals <- unique(stats::na.omit(x))
+        length(vals) > 0 && all(vals %in% c(0, 1))
+      } else FALSE
+    }
+    y_binaria_num <- function(x) {
+      if (is.numeric(x)) return(as.numeric(x))
+      as.integer(factor(x)) - 1L
+    }
+    es_binomial_exp <- reactive(identical(input$familia, "binomial"))
+
+    # Candidatas a Y según la familia (Explorar y Ajustar modelo)
+    candidatas_y <- reactive({
+      df <- datos_finales(); req(df)
+      if (es_binomial_exp()) names(df)[vapply(df, es_binaria, logical(1))]
+      else vars_numericas()
     })
 
+    output$sel_var_y_exp <- renderUI({
+      cand <- candidatas_y()
+      if (length(cand) == 0) return(
+        div(class = "alert alert-warning small py-2 px-3 mb-2",
+            bs_icon("exclamation-triangle-fill", class = "me-1"),
+            if (es_binomial_exp())
+              "No hay variables con exactamente dos valores (0/1 o dos categorías) para una respuesta binomial."
+            else "No hay variables numéricas para usar como respuesta."))
+      prev <- isolate(input$var_y_exp)
+      sel  <- if (!is.null(prev) && prev %in% cand) prev else cand[1]
+      selectInput(ns("var_y_exp"),
+                  if (es_binomial_exp()) "Variable respuesta (Y binaria):"
+                  else "Variable respuesta (Y):",
+                  choices = cand, selected = sel)
+    })
+
+    # X puede ser numérica (tendencia por grupo) o categórica (gráfico de
+    # interacción: media o proporción de Y por nivel de X, una línea por grupo)
     output$sel_var_x_exp <- renderUI({
-      nums <- vars_numericas(); req(nums, input$var_y_exp)
-      opts <- nums[nums != input$var_y_exp]
-      if (length(opts) == 0) return(NULL)
+      req(input$var_y_exp)
+      nums <- setdiff(vars_numericas(), input$var_y_exp)
+      cats <- setdiff(vars_categoricas(), c(input$var_y_exp, input$grupo_exp))
+      opciones <- Filter(length, list("Numéricas"   = as.list(nums),
+                                      "Categóricas" = as.list(cats)))
+      if (length(opciones) == 0) return(NULL)
+      prev <- isolate(input$var_x_exp)
+      sel  <- if (!is.null(prev) && prev %in% c(nums, cats)) prev
+              else c(nums, cats)[1]
       selectInput(ns("var_x_exp"), "Predictor (X):",
-                  choices = opts, selected = opts[1])
+                  choices = opciones, selected = sel)
     })
 
     output$sel_grupo_exp <- renderUI({
-      cats <- vars_categoricas(); req(cats)
+      cats <- setdiff(vars_categoricas(), input$var_y_exp); req(cats)
+      prev <- isolate(input$grupo_exp)
+      sel  <- if (!is.null(prev) && prev %in% cats) prev else cats[length(cats)]
       selectInput(ns("grupo_exp"), "Variable de grupo (color):",
-                  choices = cats, selected = cats[length(cats)])
+                  choices = cats, selected = sel)
+    })
+
+    # Y de Explorar como vector numérico (0/1 si es binomial)
+    y_exp <- reactive({
+      df <- datos_finales(); req(df, input$var_y_exp, input$var_y_exp %in% names(df))
+      y <- df[[input$var_y_exp]]
+      if (es_binomial_exp()) y_binaria_num(y) else { req(is.numeric(y)); y }
     })
 
     output$resumen_y <- renderUI({
-      df <- datos_finales(); req(df, input$var_y_exp)
-      y  <- df[[input$var_y_exp]]
-      req(is.numeric(y))
-      p_ceros <- round(mean(y == 0) * 100, 1)
-      disp    <- round(var(y) / mean(y), 2)
-      tagList(
-        div(class = "alert alert-info small py-2 px-3 mb-0",
-            bs_icon("info-circle", class = "me-1"),
-            strong("Ceros: "), paste0(p_ceros, "%"), tags$br(),
-            strong("Dispersi\u00f3n (Var/Media): "), disp,
-            if (disp > 2)
-              tags$span(class = "text-danger ms-1", "\u26a0 sobredispersi\u00f3n")
-        )
-      )
+      y <- stats::na.omit(y_exp())
+      contenido <- if (es_binomial_exp()) {
+        tagList(strong("Prevalencia (Y=1): "),
+                paste0(round(mean(y) * 100, 1), "%"), tags$br(),
+                strong("Casos positivos: "), sum(y == 1), " de ", length(y))
+      } else {
+        p_ceros <- round(mean(y == 0) * 100, 1)
+        disp    <- round(stats::var(y) / mean(y), 2)
+        tagList(strong("Ceros: "), paste0(p_ceros, "%"), tags$br(),
+                strong("Dispersión (Var/Media): "), disp,
+                if (disp > 2)
+                  tags$span(class = "text-danger ms-1", "⚠ sobredispersión"))
+      }
+      div(class = "alert alert-info small py-2 px-3 mb-0",
+          bs_icon("info-circle", class = "me-1"), contenido)
     })
 
     output$plot_hist_y <- renderPlot({
-      df <- datos_finales(); req(df, input$var_y_exp)
-      y  <- df[[input$var_y_exp]]
-      req(is.numeric(y))
-      ggplot2::ggplot(data.frame(y = y), ggplot2::aes(x = y)) +
-        ggplot2::geom_histogram(bins = 20, fill = colores$primario,
-                                color = "white", alpha = 0.85) +
-        ggplot2::labs(x = input$var_y_exp, y = "Frecuencia") +
-        ggplot2::theme_minimal(base_size = 11) +
+      y <- stats::na.omit(y_exp())
+      p <- if (es_binomial_exp()) {
+        ggplot2::ggplot(data.frame(y = factor(y, levels = c(0, 1))),
+                        ggplot2::aes(x = y)) +
+          ggplot2::geom_bar(fill = colores$primario, alpha = 0.85, width = 0.6) +
+          ggplot2::labs(x = paste0(input$var_y_exp, " (0/1)"), y = "Frecuencia")
+      } else {
+        ggplot2::ggplot(data.frame(y = y), ggplot2::aes(x = y)) +
+          ggplot2::geom_histogram(bins = 20, fill = colores$primario,
+                                  color = "white", alpha = 0.85) +
+          ggplot2::labs(x = input$var_y_exp, y = "Frecuencia")
+      }
+      p + ggplot2::theme_minimal(base_size = 11) +
         ggplot2::theme(panel.grid.minor = ggplot2::element_blank())
     }, res = 96)
 
     output$cards_ceros <- renderUI({
-      df <- datos_finales(); req(df, input$var_y_exp)
-      y  <- df[[input$var_y_exp]]; req(is.numeric(y))
+      y <- stats::na.omit(y_exp())
+      if (es_binomial_exp()) {
+        prev <- round(mean(y) * 100, 1)
+        col  <- if (prev < 10 || prev > 90) colores$acento else colores$exito
+        return(div(class = "alert small py-2 px-3 mb-0",
+                   style = paste0("border-left: 4px solid ", col, ";"),
+                   bs_icon("pie-chart", class = "me-1"),
+                   strong(paste0(prev, "% de Y = 1")), tags$br(),
+                   tags$span(class = "text-muted",
+                             if (prev < 10 || prev > 90)
+                               "Respuesta muy desbalanceada: pocos eventos limitan cuántos predictores puede soportar el modelo."
+                             else "Ceros y sobredispersión no aplican a una respuesta 0/1.")))
+      }
       p_ceros <- round(mean(y == 0) * 100, 1)
-      disp    <- round(var(y) / mean(y), 2)
+      disp    <- round(stats::var(y) / mean(y), 2)
       col_c   <- if (p_ceros > 50) colores$peligro else
                  if (p_ceros > 20) colores$acento else colores$exito
       col_d   <- if (disp > 3) colores$peligro else
@@ -1634,41 +1703,98 @@ mod_glmm_server <- function(id) {
             bs_icon("arrows-expand", class = "me-1"),
             strong(paste0("Var/Media = ", disp)), tags$br(),
             tags$span(class = "text-muted",
-                      if (disp > 3) "Sobredispersi\u00f3n severa \u2192 NB"
-                      else if (disp > 1.5) "Sobredispersi\u00f3n moderada"
+                      if (disp > 3) "Sobredispersión severa → NB"
+                      else if (disp > 1.5) "Sobredispersión moderada"
                       else "OK para Poisson"))
       )
     })
 
     output$plot_spaghetti <- renderPlot({
       df <- datos_finales()
-      req(df, input$var_y_exp, input$var_x_exp, input$grupo_exp)
+      x  <- input$var_x_exp; y <- input$var_y_exp; g <- input$grupo_exp
+      req(df, x, y, g, length(unique(c(x, y, g))) == 3,
+          all(c(x, y, g) %in% names(df)))
+      bin <- es_binomial_exp()
       tryCatch({
-        n_grps <- length(unique(df[[input$grupo_exp]]))
-        pal    <- colorRampPalette(colores$tableau)(n_grps)
-        p <- ggplot2::ggplot(df,
-               ggplot2::aes(x = .data[[input$var_x_exp]],
-                            y = .data[[input$var_y_exp]],
-                            color = .data[[input$grupo_exp]],
-                            group = .data[[input$grupo_exp]])) +
-          ggplot2::geom_point(alpha = 0.5, size = 2)
-        if (isTRUE(input$mostrar_lineas))
-          p <- p + ggplot2::geom_smooth(method = "loess", formula = y ~ x,
-                                        se = FALSE, linewidth = 0.8)
-        if (isTRUE(input$mostrar_global))
-          p <- p + ggplot2::geom_smooth(
-            data = df,
-            ggplot2::aes(x = .data[[input$var_x_exp]],
-                         y = .data[[input$var_y_exp]]),
-            method = "loess", formula = y ~ x, se = TRUE,
-            color = "black", linewidth = 1.2, linetype = "dashed",
-            inherit.aes = FALSE)
+        d <- df[stats::complete.cases(df[, c(x, y, g)]), c(x, y, g), drop = FALSE]
+        if (bin) d[[y]] <- y_binaria_num(d[[y]])
+        d[[g]] <- droplevels(factor(d[[g]]))
+        n_grps <- nlevels(d[[g]])
+        pal    <- grDevices::colorRampPalette(colores$tableau)(n_grps)
+        etiqueta_y <- if (bin) paste0("Proporción de ", y, " = 1") else y
+
+        if (!is.numeric(d[[x]])) {
+          # ── X categórica: gráfico de interacción ──────────
+          d[[x]] <- droplevels(factor(d[[x]]))
+          medias_g <- stats::aggregate(d[[y]],
+                                       by = list(x_niv = d[[x]], grp = d[[g]]),
+                                       FUN = mean)
+          names(medias_g)[3] <- "media"
+          glob <- do.call(rbind, lapply(split(d[[y]], d[[x]]), function(v) {
+            n <- length(v); m <- mean(v)
+            if (bin) {   # IC de Wilson para la proporción
+              z <- 1.96; den <- 1 + z^2 / n
+              cen <- (m + z^2 / (2 * n)) / den
+              h   <- z * sqrt(m * (1 - m) / n + z^2 / (4 * n^2)) / den
+              data.frame(media = m, lo = max(0, cen - h), hi = min(1, cen + h))
+            } else {
+              h <- if (n > 1) stats::qt(0.975, n - 1) * stats::sd(v) / sqrt(n) else NA
+              data.frame(media = m, lo = max(0, m - h), hi = m + h)
+            }
+          }))
+          glob$x_niv <- factor(rownames(glob), levels = levels(d[[x]]))
+
+          p <- ggplot2::ggplot(medias_g,
+                               ggplot2::aes(x = x_niv, y = media,
+                                            color = grp, group = grp))
+          if (isTRUE(input$mostrar_lineas))
+            p <- p + ggplot2::geom_line(alpha = 0.6, linewidth = 0.7) +
+              ggplot2::geom_point(alpha = 0.7, size = 1.8)
+          if (isTRUE(input$mostrar_global))
+            p <- p +
+              ggplot2::geom_errorbar(data = glob,
+                                     ggplot2::aes(x = x_niv, ymin = lo, ymax = hi),
+                                     inherit.aes = FALSE, width = 0.12,
+                                     linewidth = 0.9, color = "black") +
+              ggplot2::geom_line(data = glob,
+                                 ggplot2::aes(x = x_niv, y = media, group = 1),
+                                 inherit.aes = FALSE, color = "black",
+                                 linewidth = 1.2, linetype = "dashed") +
+              ggplot2::geom_point(data = glob,
+                                  ggplot2::aes(x = x_niv, y = media),
+                                  inherit.aes = FALSE, color = "black", size = 3)
+          if (bin)
+            p <- p + ggplot2::scale_y_continuous(labels = scales::percent,
+                                                 limits = c(0, 1))
+          subt <- paste0(if (bin) "Proporción" else "Media",
+                         " por grupo (color) · global ± IC 95% (negro punteado)")
+        } else {
+          # ── X numérica: tendencia LOESS por grupo ─────────
+          p <- ggplot2::ggplot(d,
+                 ggplot2::aes(x = .data[[x]], y = .data[[y]],
+                              color = .data[[g]], group = .data[[g]]))
+          p <- p + if (bin)
+            ggplot2::geom_jitter(height = 0.04, width = 0, alpha = 0.4, size = 1.8)
+          else ggplot2::geom_point(alpha = 0.5, size = 2)
+          if (isTRUE(input$mostrar_lineas))
+            p <- p + ggplot2::geom_smooth(method = "loess", formula = y ~ x,
+                                          se = FALSE, linewidth = 0.8)
+          if (isTRUE(input$mostrar_global))
+            p <- p + ggplot2::geom_smooth(
+              data = d, ggplot2::aes(x = .data[[x]], y = .data[[y]]),
+              method = "loess", formula = y ~ x, se = TRUE,
+              color = "black", linewidth = 1.2, linetype = "dashed",
+              inherit.aes = FALSE)
+          subt <- "Tendencia LOESS por grupo (color) · global (negro punteado)"
+        }
+
         p + ggplot2::scale_color_manual(values = pal) +
-          ggplot2::labs(x = input$var_x_exp, y = input$var_y_exp,
-                        color = input$grupo_exp) +
+          ggplot2::labs(x = x, y = etiqueta_y, color = g, subtitle = subt) +
           ggplot2::theme_minimal(base_size = 12) +
           ggplot2::theme(panel.grid.minor = ggplot2::element_blank(),
-                         legend.position  = "bottom")
+                         legend.position  = if (n_grps > 15) "none" else "bottom",
+                         plot.subtitle    = ggplot2::element_text(
+                           color = colores$texto, size = 9))
       }, error = function(e) {
         ggplot2::ggplot() +
           ggplot2::annotate("text", x=0.5, y=0.5,
@@ -1682,10 +1808,14 @@ mod_glmm_server <- function(id) {
     # AJUSTAR MODELO
     # ────────────────────────────────────────────────────
 
+    # Con familia binomial, Y puede ser 0/1 o un factor de 2 niveles
+    # (glmmTMB acepta ambos); con conteos, solo numéricas.
     output$sel_var_y <- renderUI({
-      nums <- vars_numericas(); req(nums)
+      cand <- candidatas_y(); req(length(cand) > 0)
+      prev <- isolate(input$var_y)
+      sel  <- if (!is.null(prev) && prev %in% cand) prev else cand[1]
       selectInput(ns("var_y"), "Variable respuesta (Y):",
-                  choices = nums, selected = nums[1])
+                  choices = cand, selected = sel)
     })
 
     output$sel_offset <- renderUI({
@@ -1716,13 +1846,13 @@ mod_glmm_server <- function(id) {
     })
 
     output$checks_categoricos <- renderUI({
-      cats <- vars_categoricas(); req(cats)
+      cats <- setdiff(vars_categoricas(), input$var_y)
       if (length(cats) == 0) return(p(class = "small text-muted", "No hay variables categ\u00f3ricas."))
       checkboxGroupInput(ns("preds_cat"), label = NULL, choices = cats)
     })
 
     output$sel_grupo <- renderUI({
-      cats <- vars_categoricas()
+      cats <- setdiff(vars_categoricas(), input$var_y)
       if (length(cats) == 0) return(
         div(class = "alert alert-warning small py-2 px-3",
             "No hay variables categ\u00f3ricas. Convierte la variable de grupo en Tipos de variables."))
@@ -1896,6 +2026,9 @@ mod_glmm_server <- function(id) {
       fm <- modelo_glmm(); req(fm)
       tryCatch({
         obs  <- modelo_glmm()$frame[[input$var_y]]
+        # Y binaria guardada como factor: pasar a 0/1 (1er nivel = 0,
+        # igual que la codificación interna de glmmTMB)
+        if (!is.numeric(obs)) obs <- y_binaria_num(obs)
         pred <- fitted(fm)
         df_p <- data.frame(obs = obs, pred = pred)
         ggplot2::ggplot(df_p, ggplot2::aes(x = pred, y = obs)) +
@@ -2546,6 +2679,8 @@ mod_glmm_server <- function(id) {
         if (isTRUE(input$marginal_puntos)) {
           df_pts <- datos_finales()
           req(df_pts, input$var_y)
+          if (!is.numeric(df_pts[[input$var_y]]))
+            df_pts[[input$var_y]] <- y_binaria_num(df_pts[[input$var_y]])
           p <- p + ggplot2::geom_point(
             data = df_pts,
             ggplot2::aes(x = .data[[input$pred_marginal]],
